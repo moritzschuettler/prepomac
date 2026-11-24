@@ -2889,6 +2889,7 @@ T 6106 enum vtkControl.vtkResultWidgetContextMenuTypeEnum
 E 6106.0 member Legend
 E 6106.1 member LegendValue
 E 6106.2 member StatusBlock
+E 6106.3 member ColorBar
 T 6107 class vtkControl.vtkMaxColorSpectrum
 F 6107.0 #6100 _mode
 F 6107.1 #6101 _type
@@ -4025,6 +4026,7 @@ F 10348.8 #2153 _elementQualityMetric
 F 10348.9 System.Int32 _numberOfElements
 F 10348.10 System.Int32 _numberOfHighlightedElements
 F 10348.14 System.Boolean _highlightElements
+F 10348.15 System.Boolean _colorElements
 T 10349 class PrePoMax.Forms.MirrorParameters
 F 10349.0 DynamicTypeDescriptor.DynamicCustomTypeDescriptor _dctd
 F 10349.1 #10523 _mirrorPointSelectionMethod

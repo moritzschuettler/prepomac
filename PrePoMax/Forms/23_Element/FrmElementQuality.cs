@@ -78,27 +78,27 @@ namespace PrePoMax.Forms
             // gbProperties
             // 
             this.gbProperties.Location = new System.Drawing.Point(12, 126);
-            this.gbProperties.Size = new System.Drawing.Size(310, 322);
+            this.gbProperties.Size = new System.Drawing.Size(310, 342);
             // 
             // propertyGrid
             // 
-            this.propertyGrid.Size = new System.Drawing.Size(298, 294);
+            this.propertyGrid.Size = new System.Drawing.Size(298, 314);
             // 
             // btnOK
             // 
-            this.btnOK.Location = new System.Drawing.Point(160, 454);
+            this.btnOK.Location = new System.Drawing.Point(160, 474);
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(241, 454);
+            this.btnCancel.Location = new System.Drawing.Point(241, 474);
             // 
             // btnOkAddNew
             // 
-            this.btnOkAddNew.Location = new System.Drawing.Point(79, 454);
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 474);
             // 
             // FrmElementQuality
             // 
-            this.ClientSize = new System.Drawing.Size(334, 489);
+            this.ClientSize = new System.Drawing.Size(334, 509);
             this.Name = "FrmElementQuality";
             this.Text = "Element Quality";
             this.gbType.ResumeLayout(false);
@@ -113,7 +113,12 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewElementQuality.HighlightCriteria) ||
+            if (property == nameof(_viewElementQuality.ColorElements))
+            {
+                ShowElementQualityAnnotation();
+                HighlightElements();
+            }
+            else if (property == nameof(_viewElementQuality.HighlightCriteria) ||
                 property == nameof(_viewElementQuality.HighlightLimit) ||
                 property == nameof(_viewElementQuality.HighlightElements))
             {
@@ -216,7 +221,7 @@ namespace PrePoMax.Forms
         {
             ElementQualityMetricEnum metric = _viewElementQuality.ElementQualityMetric;
             _computedMetric = metric;
-            _controller.ShowElementQualityAnnotation(metric);
+            ShowElementQualityAnnotation();
             _elementQualities = _controller.GetElementQualityValues();
             double[] sorted = _elementQualities.Values.ToArray();
             Array.Sort(sorted);
@@ -246,6 +251,23 @@ namespace PrePoMax.Forms
             _viewElementQuality.SetLimit(largerIsWorse, limit);
             //
             ShowElementQuality();
+        }
+        // Without the colors the view shows the color annotation the dialog opened with, unless that one was the element
+        // quality, so the highlighted elements stand out
+        private void ShowElementQualityAnnotation()
+        {
+            ElementQualityMetricEnum metric = _viewElementQuality.ElementQualityMetric;
+            if (_viewElementQuality.ColorElements)
+            {
+                _controller.ShowElementQualityAnnotation(metric);
+            }
+            else
+            {
+                AnnotateWithColorEnum annotateWithColor = _annotateWithColorBeforeForm ?? AnnotateWithColorEnum.None;
+                if (annotateWithColor == AnnotateWithColorEnum.ElementQuality) annotateWithColor = AnnotateWithColorEnum.None;
+                if (_controller.AnnotateWithColor != annotateWithColor) _controller.SetAnnotateWithColor(annotateWithColor);
+                _controller.ElementQualityMetric = metric;
+            }
         }
         // An element is past the limit as in CreateElementSetFromElementQuality: a larger value when it is larger than
         // the limit and a smaller value when it is not larger

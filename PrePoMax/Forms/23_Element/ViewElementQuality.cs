@@ -40,6 +40,7 @@ namespace PrePoMax.Forms
         [PmxKey(10)] private int _numberOfHighlightedElements;
         [PmxKey(5)] private GmshElementQualityHighlightCriteriaEnum _highlightCriteria;
         [PmxKey(6)] private double _highlightLimit;
+        [PmxKey(15)] private bool _colorElements;
         [PmxKey(14)] private bool _highlightElements;
         [PmxKey(7)] private DynamicCustomTypeDescriptor _dctd = null;
         private static readonly Dictionary<ElementQualityMetricEnum, string> _metricDescriptions =
@@ -154,7 +155,12 @@ namespace PrePoMax.Forms
         public double HighlightLimit { get { return _highlightLimit; } set { _highlightLimit = value; } }
         //
         [CategoryAttribute("Display")]
-        [OrderedDisplayName(0, 10, "Highlight elements")]
+        [OrderedDisplayName(0, 10, "Color elements")]
+        [DescriptionAttribute("Color the elements by the value of the metric.")]
+        public bool ColorElements { get { return _colorElements; } set { _colorElements = value; } }
+        //
+        [CategoryAttribute("Display")]
+        [OrderedDisplayName(1, 10, "Highlight elements")]
         [DescriptionAttribute("Highlight the elements past the highlight limit, the ones inside a solid included.")]
         public bool HighlightElements { get { return _highlightElements; } set { _highlightElements = value; } }
         //
@@ -174,9 +180,11 @@ namespace PrePoMax.Forms
             _numberOfHighlightedElements = 0;
             _highlightCriteria = GmshElementQualityHighlightCriteriaEnum.Smaller;
             _highlightLimit = 0;
+            _colorElements = true;
             _highlightElements = true;
             //
             _dctd = ProviderInstaller.Install(this);
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ColorElements));
             _dctd.RenameBooleanPropertyToYesNo(nameof(HighlightElements));
         }
 
