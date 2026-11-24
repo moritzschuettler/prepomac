@@ -135,6 +135,12 @@ namespace vtkControl
             _minUserValue = minUserValue;
             _maxUserValue = maxUserValue;
         }
+        // The color of the spectrum at a position from 0 to 1 as the result coloring draws it
+        public System.Drawing.Color GetColor(double position)
+        {
+            double[] rgb = Native.VtkNativeColorSpectrum.FromColorSpectrum(this).GetColor(position);
+            return System.Drawing.Color.FromArgb(255, (int)(rgb[0] * 255), (int)(rgb[1] * 255), (int)(rgb[2] * 255));
+        }
         public bool IsMinMaxEqual(vtkMaxColorSpectrum colorSpectrum)
         {
             if (_minMaxType != colorSpectrum._minMaxType) return false;

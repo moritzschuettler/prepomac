@@ -31038,14 +31038,16 @@ namespace PrePoMax
         {
             DrawElements("Highlight", new int[] { elementId }, Color.Red, vtkRendererLayer.Selection);
         }
-        // The element quality color annotation colors every element of the mesh parts by its value with the rainbow
-        // color table from the best value in blue to the worst in red; an element without a value is gray
+        // The element quality color annotation colors every element of the mesh parts by its value with the color
+        // spectrum and the number of colors of the legend, the worst values at its high end; an element without a
+        // value is gray
         private Dictionary<int, int> GetElementQualityColorIds(out Color[] elementColorTable)
         {
             Dictionary<int, double> elementIdValue = GetElementQualityValues();
             double min = elementIdValue.Count > 0 ? elementIdValue.Values.Min() : 0;
             double max = elementIdValue.Count > 0 ? elementIdValue.Values.Max() : 0;
-            int numberOfColors = max > min ? Math.Max(2, _settings.Legend.ColorSpectrum.NumberOfColors) : 1;
+            vtkControl.vtkMaxColorSpectrum colorSpectrum = _settings.Legend.ColorSpectrum;
+            int numberOfColors = max > min ? Math.Max(2, colorSpectrum.NumberOfColors) : 1;
             double colorWidth = (max - min) / numberOfColors;
             //
             bool notMeasured = false;
@@ -31069,7 +31071,7 @@ namespace PrePoMax
                     elementIdColorId[elementId] = colorId;
                 }
             }
-            // The worse values of the metric are red
+            // The worse values of the metric take the high end of the spectrum
             bool largerIsWorse;
             Forms.ViewElementQuality.GetDefaultLimit(_elementQualityMetric, out largerIsWorse, out _);
             // The color bar lists the colors from the top, so the largest values come first
@@ -31079,7 +31081,7 @@ namespace PrePoMax
             {
                 double position = (double)i / Math.Max(1, numberOfColors - 1);
                 if (!largerIsWorse && numberOfColors > 1) position = 1 - position;
-                colors.Add(GetRainbowColor(position));
+                colors.Add(colorSpectrum.GetColor(position));
                 if (numberOfColors == 1) labels.Add(FormatQualityValue(min));
                 else labels.Add(FormatQualityValue(min + i * colorWidth) + " - " +
                                 FormatQualityValue(min + (i + 1) * colorWidth));
@@ -31093,21 +31095,6 @@ namespace PrePoMax
             _elementQualityLabels = labels.ToArray();
             elementColorTable = _elementQualityColors;
             return elementIdColorId;
-        }
-        // The rainbow color table of the legend: the hue runs from blue at 0 to red at 1
-        private static Color GetRainbowColor(double position)
-        {
-            double hue = 4 * (1 - Math.Max(0, Math.Min(1, position)));
-            int sector = Math.Min((int)hue, 3);
-            int rising = (int)Math.Round(255 * (hue - sector));
-            int falling = 255 - rising;
-            switch (sector)
-            {
-                case 0: return Color.FromArgb(255, rising, 0);
-                case 1: return Color.FromArgb(falling, 255, 0);
-                case 2: return Color.FromArgb(0, 255, rising);
-                default: return Color.FromArgb(0, falling, 255);
-            }
         }
         private static string FormatQualityValue(double value)
         {
