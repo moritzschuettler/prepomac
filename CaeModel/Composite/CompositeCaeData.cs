@@ -9,36 +9,37 @@
 using System;
 using System.Collections.Generic;
 using CaeMesh;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50001)]
     public class CompositeCaeMaterial
     {
-        public string Name;
-        public string RawName;
-        public string Architecture;
-        public bool HasMechanicalData;
-        public double E1;
-        public double E2;
-        public double E3;
-        public double G12;
-        public double G13;
-        public double G23;
-        public double Nu12;
-        public double Nu13;
-        public double Nu23;
-        public double CuredThickness;
-        public double WeightPerArea;
+        [PmxKey(0)] public string Name;
+        [PmxKey(1)] public string RawName;
+        [PmxKey(2)] public string Architecture;
+        [PmxKey(3)] public bool HasMechanicalData;
+        [PmxKey(4)] public double E1;
+        [PmxKey(5)] public double E2;
+        [PmxKey(6)] public double E3;
+        [PmxKey(7)] public double G12;
+        [PmxKey(8)] public double G13;
+        [PmxKey(9)] public double G23;
+        [PmxKey(10)] public double Nu12;
+        [PmxKey(11)] public double Nu13;
+        [PmxKey(12)] public double Nu23;
+        [PmxKey(13)] public double CuredThickness;
+        [PmxKey(14)] public double WeightPerArea;
     }
 
-    [Serializable]
+    [PmxType(50002)]
     public class CompositeCaeSurface
     {
-        public double[][] Nodes;            // [nodeIndex][3]
-        public int[][] Elements;            // [elementIndex][nodeIndex ...] - compacted node indices
-        public int[][] Triangles;           // [triangleIndex][3] - fan triangulation of Elements
-        public BoundingBox Box;
+        [PmxKey(0)] public double[][] Nodes;            // [nodeIndex][3]
+        [PmxKey(1)] public int[][] Elements;            // [elementIndex][nodeIndex ...] - compacted node indices
+        [PmxKey(2)] public int[][] Triangles;           // [triangleIndex][3] - fan triangulation of Elements
+        [PmxKey(3)] public BoundingBox Box;
 
         public int TriangleCount { get { return Triangles == null ? 0 : Triangles.Length; } }
 
@@ -66,31 +67,31 @@ namespace CaeModel
         }
     }
 
-    [Serializable]
+    [PmxType(50003)]
     public class CompositeCaePly
     {
-        public string Name;
-        public string RawName;
-        public string GroupName;
-        public string MaterialName;
-        public int LayerId;
-        public double Orientation;
-        public double Thickness;
-        public CompositeCaeSurface Surface;
+        [PmxKey(0)] public string Name;
+        [PmxKey(1)] public string RawName;
+        [PmxKey(2)] public string GroupName;
+        [PmxKey(3)] public string MaterialName;
+        [PmxKey(4)] public int LayerId;
+        [PmxKey(5)] public double Orientation;
+        [PmxKey(6)] public double Thickness;
+        [PmxKey(7)] public CompositeCaeSurface Surface;
     }
 
-    [Serializable]
+    [PmxType(50004)]
     public class CompositeCaeData
     {
-        public string FileName;
-        public string FormatVersion;
-        public string Vendor;
-        public string LengthUnit;
-        public string AngleUnit;
-        public string MassUnit;
-        public List<CompositeCaeMaterial> Materials;
-        public List<CompositeCaePly> Plies;
-        public List<string> Warnings;
+        [PmxKey(0)] public string FileName;
+        [PmxKey(1)] public string FormatVersion;
+        [PmxKey(2)] public string Vendor;
+        [PmxKey(3)] public string LengthUnit;
+        [PmxKey(4)] public string AngleUnit;
+        [PmxKey(5)] public string MassUnit;
+        [PmxKey(6)] public List<CompositeCaeMaterial> Materials;
+        [PmxKey(7)] public List<CompositeCaePly> Plies;
+        [PmxKey(8)] public List<string> Warnings;
 
         public CompositeCaeData()
         {

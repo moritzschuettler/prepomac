@@ -1,15 +1,16 @@
 using System;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50043)]
     class CExtractShellMesh : PreprocessCommand
     {
-        private string _solidPartName;
-        private string _newPartName;
-        private int[] _faceIds;
-        private bool _condenseNodes;
-        private bool _secondOrder;
+        [PmxKey(0)] private string _solidPartName;
+        [PmxKey(1)] private string _newPartName;
+        [PmxKey(2)] private int[] _faceIds;
+        [PmxKey(3)] private bool _condenseNodes;
+        [PmxKey(4)] private bool _secondOrder;
 
 
         public CExtractShellMesh(string solidPartName, string newPartName, int[] faceIds, bool condenseNodes, bool secondOrder)

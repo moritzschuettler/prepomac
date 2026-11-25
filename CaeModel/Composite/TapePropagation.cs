@@ -8,17 +8,18 @@
 // Contributors:
 using System;
 using System.Collections.Generic;
+using CaeGlobals;
 
 namespace CaeModel
 {
     // One generated tape course: the seed reference curve (Side = 0, Layer = 0) or one of its
     // parallel offset courses (Side = +-1, Layer = 1, 2, ...), spaced by the tape width.
-    [Serializable]
+    [PmxType(50022)]
     public class TapePropagationTape
     {
-        public int Side;
-        public int Layer;
-        public double[][] Points;
+        [PmxKey(0)] public int Side;
+        [PmxKey(1)] public int Layer;
+        [PmxKey(2)] public double[][] Points;
     }
 
     // Orchestrates the tape placement (AFP) "natural" (geodesic) propagation algorithm: ports the

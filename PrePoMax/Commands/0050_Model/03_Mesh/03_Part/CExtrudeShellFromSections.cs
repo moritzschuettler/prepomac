@@ -1,14 +1,15 @@
 using System;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50044)]
     class CExtrudeShellFromSections : PreprocessCommand
     {
-        private string _shellPartName;
-        private string _newPartName;
-        private bool _condenseNodes;
-        private double _condenseTolerance;
+        [PmxKey(0)] private string _shellPartName;
+        [PmxKey(1)] private string _newPartName;
+        [PmxKey(2)] private bool _condenseNodes;
+        [PmxKey(3)] private double _condenseTolerance;
 
 
         public CExtrudeShellFromSections(string shellPartName, string newPartName,

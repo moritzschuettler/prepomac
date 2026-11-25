@@ -4,13 +4,13 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class Hyperelastic : MaterialProperty, ISerializable
+    [PmxType(50032)]
+    public class Hyperelastic : MaterialProperty
     {
         // Variables
-        private EquationContainer _c10;         //ISerializable
-        private EquationContainer _c01;         //ISerializable
-        private EquationContainer _d1;          //ISerializable
+        [PmxKey(0)] private EquationContainer _c10;         //ISerializable
+        [PmxKey(1)] private EquationContainer _c01;         //ISerializable
+        [PmxKey(2)] private EquationContainer _d1;          //ISerializable
 
 
         // Properties
@@ -50,6 +50,12 @@ namespace CaeModel
 
 
         // Methods
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetC10(_c10, false);
+            SetD1(_d1, false);
+        }
         private void SetC10(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _c10, value, CheckPositive, checkEquation);
@@ -75,15 +81,6 @@ namespace CaeModel
             _c10.CheckEquation();
             _c01.CheckEquation();
             _d1.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_c10", _c10, typeof(EquationContainer));
-            info.AddValue("_c01", _c01, typeof(EquationContainer));
-            info.AddValue("_d1", _d1, typeof(EquationContainer));
         }
     }
 }

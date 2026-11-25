@@ -10,11 +10,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(50068)]
     public class ViewBladeAeroPressureLoad : ViewLoad
     {
         // Variables
-        private BladeAeroPressureLoad _load;
+        [PmxKey(0)] private BladeAeroPressureLoad _load;
 
 
         // Properties

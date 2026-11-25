@@ -11,7 +11,7 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50060)]
     class CRemoveOrphanElements : PreprocessCommand
     {
         // Constructor

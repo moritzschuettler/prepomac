@@ -4,20 +4,20 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class Hyperfoam : MaterialProperty, ISerializable
+    [PmxType(50035)]
+    public class Hyperfoam : MaterialProperty
     {
         // Variables
-        private int _n;
-        private EquationContainer _mu1;     //ISerializable
-        private EquationContainer _alpha1;  //ISerializable
-        private EquationContainer _nu1;     //ISerializable
-        private EquationContainer _mu2;     //ISerializable
-        private EquationContainer _alpha2;  //ISerializable
-        private EquationContainer _nu2;     //ISerializable
-        private EquationContainer _mu3;     //ISerializable
-        private EquationContainer _alpha3;  //ISerializable
-        private EquationContainer _nu3;     //ISerializable
+        [PmxKey(0)] private int _n;
+        [PmxKey(1)] private EquationContainer _mu1;     //ISerializable
+        [PmxKey(2)] private EquationContainer _alpha1;  //ISerializable
+        [PmxKey(3)] private EquationContainer _nu1;     //ISerializable
+        [PmxKey(4)] private EquationContainer _mu2;     //ISerializable
+        [PmxKey(5)] private EquationContainer _alpha2;  //ISerializable
+        [PmxKey(6)] private EquationContainer _nu2;     //ISerializable
+        [PmxKey(7)] private EquationContainer _mu3;     //ISerializable
+        [PmxKey(8)] private EquationContainer _alpha3;  //ISerializable
+        [PmxKey(9)] private EquationContainer _nu3;     //ISerializable
 
 
         // Properties
@@ -80,21 +80,6 @@ namespace CaeModel
             _nu1.CheckEquation();
             if (_n >= 2) { _mu2.CheckEquation(); _alpha2.CheckEquation(); _nu2.CheckEquation(); }
             if (_n >= 3) { _mu3.CheckEquation(); _alpha3.CheckEquation(); _nu3.CheckEquation(); }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_n", _n);
-            info.AddValue("_mu1", _mu1, typeof(EquationContainer));
-            info.AddValue("_alpha1", _alpha1, typeof(EquationContainer));
-            info.AddValue("_nu1", _nu1, typeof(EquationContainer));
-            info.AddValue("_mu2", _mu2, typeof(EquationContainer));
-            info.AddValue("_alpha2", _alpha2, typeof(EquationContainer));
-            info.AddValue("_nu2", _nu2, typeof(EquationContainer));
-            info.AddValue("_mu3", _mu3, typeof(EquationContainer));
-            info.AddValue("_alpha3", _alpha3, typeof(EquationContainer));
-            info.AddValue("_nu3", _nu3, typeof(EquationContainer));
         }
     }
 }

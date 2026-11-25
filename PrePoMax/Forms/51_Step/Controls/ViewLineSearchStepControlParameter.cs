@@ -10,11 +10,11 @@ using System.Windows.Forms;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
+    [PmxType(50066)]
     public class ViewLineSearchStepControlParameter : ViewStepControlParameter
     {
         // Variables
-        private CaeModel.LineSearchStepControlParameter _parameter;
+        [PmxKey(0)] private CaeModel.LineSearchStepControlParameter _parameter;
 
 
         // Properties

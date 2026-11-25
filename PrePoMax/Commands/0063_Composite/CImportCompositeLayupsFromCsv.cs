@@ -19,11 +19,11 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50049)]
     class CImportCompositeLayupsFromCsv : PreprocessCommand, IImportFileCommand
     {
         // Variables
-        private string _fileName;
+        [PmxKey(0)] private string _fileName;
 
 
         // Properties

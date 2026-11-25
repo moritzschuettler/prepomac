@@ -442,7 +442,9 @@ namespace CaeGlobals
         // Double
         public static string ToCalculiX16String(this double value, bool enforceSeparator = false)
         {
-            string result = value.ToString().ToUpper();
+            // G15 is what ToString() gives on the .NET Framework; .NET (Core) gives the shortest round trip string of up
+            // to 17 digits, which is longer than 16 characters more often and then loses precision to E8
+            string result = value.ToString("G15").ToUpper();
             if (result.Length > 16) result = value.ToString("E8");
             else if (enforceSeparator && !result.Contains("."))
             {

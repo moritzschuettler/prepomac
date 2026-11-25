@@ -1,16 +1,17 @@
 using System;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50045)]
     class CExtrudeShellUniform : PreprocessCommand
     {
-        private string _shellPartName;
-        private string _newPartName;
-        private double _totalThickness;
-        private int _numSubdivisions;
-        private bool _condenseNodes;
-        private double _condenseTolerance;
+        [PmxKey(0)] private string _shellPartName;
+        [PmxKey(1)] private string _newPartName;
+        [PmxKey(2)] private double _totalThickness;
+        [PmxKey(3)] private int _numSubdivisions;
+        [PmxKey(4)] private bool _condenseNodes;
+        [PmxKey(5)] private double _condenseTolerance;
 
 
         public CExtrudeShellUniform(string shellPartName, string newPartName,

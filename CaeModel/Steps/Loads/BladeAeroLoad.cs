@@ -7,20 +7,20 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class BladeAeroLoad : Load, ISerializable
+    [PmxType(50038)]
+    public class BladeAeroLoad : Load
     {
         // Variables
-        private string _regionName;                     //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private int _axis;                              //ISerializable  0=X 1=Y 2=Z  spine direction
-        private int _forceAxis;                         //ISerializable  0=X 1=Y 2=Z  force direction (must differ from _axis)
-        private double _originX;                        //ISerializable
-        private double _originY;                        //ISerializable
-        private double _originZ;                        //ISerializable
-        private bool _invertForces;                     //ISerializable
-        private BladeAeroDistanceTypeEnum _distanceType;//ISerializable  meaning of the table first column
-        private List<BladeAeroTableRow> _tableRows;     //ISerializable
+        [PmxKey(0)] private string _regionName;                     //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private int _axis;                              //ISerializable  0=X 1=Y 2=Z  spine direction
+        [PmxKey(3)] private int _forceAxis;                         //ISerializable  0=X 1=Y 2=Z  force direction (must differ from _axis)
+        [PmxKey(4)] private double _originX;                        //ISerializable
+        [PmxKey(5)] private double _originY;                        //ISerializable
+        [PmxKey(6)] private double _originZ;                        //ISerializable
+        [PmxKey(7)] private bool _invertForces;                     //ISerializable
+        [PmxKey(8)] private BladeAeroDistanceTypeEnum _distanceType;//ISerializable  meaning of the table first column
+        [PmxKey(9)] private List<BladeAeroTableRow> _tableRows;     //ISerializable
 
 
         // Properties
@@ -79,20 +79,6 @@ namespace CaeModel
 
 
         // Methods
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_axis", _axis, typeof(int));
-            info.AddValue("_forceAxis", _forceAxis, typeof(int));
-            info.AddValue("_originX", _originX, typeof(double));
-            info.AddValue("_originY", _originY, typeof(double));
-            info.AddValue("_originZ", _originZ, typeof(double));
-            info.AddValue("_invertForces", _invertForces, typeof(bool));
-            info.AddValue("_distanceType", _distanceType, typeof(BladeAeroDistanceTypeEnum));
-            info.AddValue("_tableRows", _tableRows, typeof(List<BladeAeroTableRow>));
-        }
         public override void CheckEquations() { }
     }
 }

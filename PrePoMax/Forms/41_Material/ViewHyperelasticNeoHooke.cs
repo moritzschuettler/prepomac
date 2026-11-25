@@ -6,11 +6,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(50062)]
     public class ViewHyperelasticNeoHooke : ViewMaterialProperty
     {
         // Variables
-        private HyperelasticNeoHooke _neoHooke;
+        [PmxKey(0)] private HyperelasticNeoHooke _neoHooke;
 
 
         // Properties

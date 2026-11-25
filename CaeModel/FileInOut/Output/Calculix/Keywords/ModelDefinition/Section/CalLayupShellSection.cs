@@ -17,14 +17,14 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50029)]
     internal class CalLayupShellSection : CalculixKeyword
     {
         // Variables
-        private string _elementSetName;
-        private string _globalOrientationName;  // Optional global orientation for the section
-        private List<CompositeShellPlyData> _pliesData;
-        private double? _offset;
+        [PmxKey(0)] private string _elementSetName;
+        [PmxKey(1)] private string _globalOrientationName;  // Optional global orientation for the section
+        [PmxKey(2)] private List<CompositeShellPlyData> _pliesData;
+        [PmxKey(3)] private double? _offset;
 
 
         // Properties
@@ -87,12 +87,12 @@ namespace FileInOut.Output.Calculix
     /// <summary>
     /// Data structure for a single ply in a composite shell section.
     /// </summary>
-    [Serializable]
+    [PmxType(50030)]
     internal class CompositeShellPlyData
     {
-        public double Thickness { get; set; }
-        public string MaterialName { get; set; }
-        public string OrientationName { get; set; }
+        [field: PmxKey(0)] public double Thickness { get; set; }
+        [field: PmxKey(1)] public string MaterialName { get; set; }
+        [field: PmxKey(2)] public string OrientationName { get; set; }
 
         public CompositeShellPlyData(double thickness, string materialName, string orientationName)
         {

@@ -19,11 +19,11 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50051)]
     class CRemoveCompositeLayups : PreprocessCommand
     {
         // Variables
-        private string[] _compositeLayupNames;
+        [PmxKey(0)] private string[] _compositeLayupNames;
 
 
         // Constructor

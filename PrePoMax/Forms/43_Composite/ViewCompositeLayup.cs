@@ -18,12 +18,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(50065)]
     public class ViewCompositeLayup
     {
         // Variables
-        private CompositeLayup _compositeLayup;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private CompositeLayup _compositeLayup;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties

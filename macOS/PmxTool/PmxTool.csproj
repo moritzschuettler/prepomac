@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The schema check of the stored types (PmxTool schema with check or update) and the payload dumper: the sources of the
+       shared folder PmxTool/, compiled unchanged. It loads the assemblies of the macOS build given on its command line. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>PmxTool</AssemblyName>
+    <RootNamespace>PmxTool</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RepoRoot)PmxTool\**\*.cs"
+             Exclude="$(RepoRoot)PmxTool\obj\**;$(RepoRoot)PmxTool\bin\**;$(RepoRoot)PmxTool\Properties\AssemblyInfo.cs;$(RepoRoot)PmxTool\Corpus\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj" />
+    <PackageReference Include="MessagePack" Version="3.1.12" />
+  </ItemGroup>
+</Project>

@@ -10,12 +10,12 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50037)]
     public class LineSearchStepControlParameter : StepControlParameter
     {
         // Variables
-        private double _slsMax;
-        private double _slsMin;
+        [PmxKey(0)] private double _slsMax;
+        [PmxKey(1)] private double _slsMin;
 
 
         // Properties

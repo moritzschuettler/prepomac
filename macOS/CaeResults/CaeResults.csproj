@@ -5,6 +5,8 @@
     <RootNamespace>CaeResults</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(RepoRoot)CaeResults\Composite\PlyStiffness.cs" />
+    <Compile Include="$(RepoRoot)CaeResults\FieldOutput\ShellInPlaneQuantityEnum.cs" />
     <Compile Include="$(RepoRoot)CaeResults\Enums\ComplexResultTypeEnum.cs" />
     <Compile Include="$(RepoRoot)CaeResults\Enums\DeformationScaleFactorTypeEnum.cs" />
     <Compile Include="$(RepoRoot)CaeResults\Enums\SlipWearResultsEnum.cs" />

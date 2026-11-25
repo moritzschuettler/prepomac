@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Reads the .pmx and .pmh files of PrePoMax versions before 3.0.2, which the binary formatter wrote: the sources of
+       the shared folder PrePoMax.LegacyImport/, compiled unchanged. System.Formats.Nrbf is part of .NET 10. -->
+  <PropertyGroup>
+    <AssemblyName>PrePoMax.LegacyImport</AssemblyName>
+    <RootNamespace>PrePoMax.LegacyImport</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RepoRoot)PrePoMax.LegacyImport\**\*.cs"
+             Exclude="$(RepoRoot)PrePoMax.LegacyImport\obj\**;$(RepoRoot)PrePoMax.LegacyImport\bin\**;$(RepoRoot)PrePoMax.LegacyImport\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj" />
+  </ItemGroup>
+</Project>

@@ -15,28 +15,28 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50016)]
     public enum PropagationPathType
     {
         Natural,
         Rosette
     }
 
-    [Serializable]
+    [PmxType(50017)]
     public class Ply : NamedClass
     {
         // Variables
-        private string _region;
-        private string _material;
-        private double _thickness;
-        private string _csys;
-        private double _rotationAngle;
-        private PropagationPathType _propagationType;
-        private double[] _propagationSeedPoint;
-        private double? _tapeWidth;
-        private double[][] _contourPoints;
-        private string _orientationRosette;
-        private ProcessType? _processType;
+        [PmxKey(0)] private string _region;
+        [PmxKey(1)] private string _material;
+        [PmxKey(2)] private double _thickness;
+        [PmxKey(3)] private string _csys;
+        [PmxKey(4)] private double _rotationAngle;
+        [PmxKey(5)] private PropagationPathType _propagationType;
+        [PmxKey(6)] private double[] _propagationSeedPoint;
+        [PmxKey(7)] private double? _tapeWidth;
+        [PmxKey(8)] private double[][] _contourPoints;
+        [PmxKey(9)] private string _orientationRosette;
+        [PmxKey(10)] private ProcessType? _processType;
 
 
         // Properties

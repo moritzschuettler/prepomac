@@ -7,9 +7,14 @@ namespace vtkControl
     {
         protected override bool OptionClickIsMiddleButton { get { return true; } }
 
+        // The view draws in VtkNativeHost, which receives the gesture
+        internal void TouchPadMagnify(int x, int y, double magnification)
+        {
+            OnTouchPadMagnify(x, y, magnification);
+        }
         protected override void OnTouchPadMagnify(int x, int y, double magnification)
         {
-            if (_style == null || _renderer == null || magnification <= -0.9) return;
+            if (_nativeMirror == null || magnification <= -0.9) return;
             // Fingers moving apart make the model larger, which means a smaller parallel scale
             _trackpadZoom /= 1 + magnification;
             _trackpadCenterX = x;

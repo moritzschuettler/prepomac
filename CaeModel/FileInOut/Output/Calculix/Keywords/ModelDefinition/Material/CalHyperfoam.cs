@@ -5,11 +5,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50027)]
     internal class CalHyperfoam : CalculixKeyword
     {
         // Variables
-        private Hyperfoam _hyperfoam;
+        [PmxKey(0)] private Hyperfoam _hyperfoam;
 
 
         // Constructor

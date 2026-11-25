@@ -1,19 +1,20 @@
 using System;
 using System.Collections.Generic;
 using CaeMesh;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50040)]
     public class BladeAeroPressureSection
     {
         // Variables
-        private int _index;
-        private double _distance;
-        private double _pressure;
-        private double _zoneArea;
+        [PmxKey(0)] private int _index;
+        [PmxKey(1)] private double _distance;
+        [PmxKey(2)] private double _pressure;
+        [PmxKey(3)] private double _zoneArea;
         // One int[] per FeFaceName so element sets can be created per face type
-        private Dictionary<FeFaceName, int[]> _faceGroups;
+        [PmxKey(4)] private Dictionary<FeFaceName, int[]> _faceGroups;
 
 
         // Properties

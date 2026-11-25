@@ -1,22 +1,23 @@
 using System;
 using System.Collections.Generic;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(50000)]
     public class FeElementSetFromBox : FeElementSet
     {
         // Variables
         public enum BoxSelectionMode { All, FromBoundingBox }
         //
-        private string _partName;
-        private BoxSelectionMode _mode;
-        private double _centerX;
-        private double _centerY;
-        private double _centerZ;
-        private double _sizeX;
-        private double _sizeY;
-        private double _sizeZ;
+        [PmxKey(0)] private string _partName;
+        [PmxKey(1)] private BoxSelectionMode _mode;
+        [PmxKey(2)] private double _centerX;
+        [PmxKey(3)] private double _centerY;
+        [PmxKey(4)] private double _centerZ;
+        [PmxKey(5)] private double _sizeX;
+        [PmxKey(6)] private double _sizeY;
+        [PmxKey(7)] private double _sizeZ;
 
 
         // Properties

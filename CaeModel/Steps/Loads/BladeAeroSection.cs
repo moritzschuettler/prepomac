@@ -1,17 +1,18 @@
 using System;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50041)]
     public class BladeAeroSection
     {
         // Variables
-        private int _index;
-        private double _distance;
-        private double _force;
-        private int[] _nodeIds;
-        private double[] _barycenter;
-        private double[] _forceDir;
+        [PmxKey(0)] private int _index;
+        [PmxKey(1)] private double _distance;
+        [PmxKey(2)] private double _force;
+        [PmxKey(3)] private int[] _nodeIds;
+        [PmxKey(4)] private double[] _barycenter;
+        [PmxKey(5)] private double[] _forceDir;
 
 
         // Properties

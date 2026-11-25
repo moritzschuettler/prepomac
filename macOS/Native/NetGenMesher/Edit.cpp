@@ -37,6 +37,8 @@
 #include <GeomAPI_ProjectPointOnSurf.hxx>
 #include <GeomLib.hxx>
 #include <Geom_OffsetSurface.hxx>
+#include <GeomAdaptor_Surface.hxx>
+#include <Geom_RectangularTrimmedSurface.hxx>
 #include <Geom_Surface.hxx>
 #include <ShapeFix_FixSmallFace.hxx>
 #include <ShapeFix_Shape.hxx>
@@ -155,6 +157,12 @@ namespace ngm
                         if (id < 1 || id > faces.Extent()) continue;
                         TopoDS_Face face = TopoDS::Face(faces(id));
                         Handle(Geom_Surface) surface = BRep_Tool::Surface(face);
+                        // A face a split left may hold its surface trimmed to the face - a periodic face divided in
+                        // halves holds a half cylinder - and a tool of that surface lies on the face and divides
+                        // nothing; the tool continues the untrimmed surface the face lies on
+                        while (surface->IsKind(STANDARD_TYPE(Geom_RectangularTrimmedSurface)))
+                            surface = Handle(Geom_RectangularTrimmedSurface)::DownCast(surface)->BasisSurface();
+                        GeomAdaptor_Surface adaptor(surface);
                         if (tool.offset != 0)
                         {
                             double offset = face.Orientation() == TopAbs_REVERSED ? -tool.offset : tool.offset;
@@ -164,7 +172,6 @@ namespace ngm
                         double u1, u2, v1, v2;
                         BRepTools::UVBounds(face, u1, u2, v1, v2);
                         double du = u2 - u1, dv = v2 - v1;
-                        BRepAdaptor_Surface adaptor(face);
                         bool uPeriodic = adaptor.IsUPeriodic(), vPeriodic = adaptor.IsVPeriodic();
                         double scale = size / std::max(1e-9, std::sqrt(du * du + dv * dv));
                         if (adaptor.GetType() != GeomAbs_Plane) scale = std::min(scale, 3.0);

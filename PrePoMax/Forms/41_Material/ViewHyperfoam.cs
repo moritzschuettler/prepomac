@@ -6,11 +6,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(50064)]
     public class ViewHyperfoam : ViewMaterialProperty
     {
         // Variables
-        private Hyperfoam _hyperfoam;
+        [PmxKey(0)] private Hyperfoam _hyperfoam;
 
 
         // Properties

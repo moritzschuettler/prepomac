@@ -12,17 +12,18 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50015)]
     public class DrapingResult
     {
-        public double[,,] NodePositions;    // [row, col, 0..2] -> global x, y, z
-        public double[] CellShear;          // shear angle per cell (degrees)
-        public bool[,] NodeOnMesh;          // [row, col] -> true if node is on the FE mesh surface
-        public int GridRows;
-        public int GridCols;
+        [PmxKey(0)] public double[,,] NodePositions;    // [row, col, 0..2] -> global x, y, z
+        [PmxKey(1)] public double[] CellShear;          // shear angle per cell (degrees)
+        [PmxKey(2)] public bool[,] NodeOnMesh;          // [row, col] -> true if node is on the FE mesh surface
+        [PmxKey(3)] public int GridRows;
+        [PmxKey(4)] public int GridCols;
     }
 
     public static class KinDrape

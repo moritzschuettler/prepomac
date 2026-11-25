@@ -5,6 +5,10 @@
     <RootNamespace>CaeModel</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Load\CalBodyForce.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Load\CalEdgeLoad.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BodyForce.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\EdgeLoad.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Amplitudes\Amplitude.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Amplitudes\AmplitudeTabular.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeCaeData.cs" />

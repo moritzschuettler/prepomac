@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The 3D view of PrePoMax. The original sources of vtkControl are compiled unchanged; the ActiViz/VTK library they are
-       written against is replaced by Mac/Vtk, a VTK compatible implementation of the classes they use on OpenGL. -->
+  <!-- The 3D view of PrePoMax. The original sources of vtkControl are compiled unchanged but for the files of the native
+       view that Mac replaces; they draw through libvtkNative.dylib, built from vtkNative/ against the VTK of Homebrew. -->
   <PropertyGroup>
     <AssemblyName>vtkControl</AssemblyName>
     <RootNamespace>vtkControl</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(RepoRoot)vtkControl\**\*.cs" Exclude="$(RepoRoot)vtkControl\obj\**;$(RepoRoot)vtkControl\bin\**;$(RepoRoot)vtkControl\Properties\AssemblyInfo.cs" />
+    <!-- The Windows specific files of the native view are replaced by the files of the same name in Mac -->
+    <Compile Include="$(RepoRoot)vtkControl\**\*.cs" Exclude="$(RepoRoot)vtkControl\obj\**;$(RepoRoot)vtkControl\bin\**;$(RepoRoot)vtkControl\Properties\AssemblyInfo.cs;$(RepoRoot)vtkControl\Native\VtkNativeLibrary.cs;$(RepoRoot)vtkControl\Native\VtkNativeHost.cs;$(RepoRoot)vtkControl\Native\Widgets\VtkNativeViewFont.cs" />
     <Compile Include="Mac\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -18,5 +19,14 @@
     <PackageReference Include="Avalonia" Version="11.3.1" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Include="System.Management" Version="10.0.0" />
+  </ItemGroup>
+  <!-- The native view, built by CMake from vtkNative/ of the repository (see Native/vtkNative/build.sh) -->
+  <Target Name="BuildVtkNative" BeforeTargets="BeforeBuild"
+          Inputs="@(VtkNativeSource)" Outputs="$(RepoRoot)vtkNative\build-mac\libvtkNative.$(NativeLibExtension)">
+    <Exec Command="sh ../Native/vtkNative/build.sh" />
+  </Target>
+  <ItemGroup>
+    <VtkNativeSource Include="$(RepoRoot)vtkNative\src\**\*.cpp;$(RepoRoot)vtkNative\src\**\*.h;$(RepoRoot)vtkNative\include\*.h;$(RepoRoot)vtkNative\CMakeLists.txt" />
+    <None Include="$(RepoRoot)vtkNative\build-mac\libvtkNative.$(NativeLibExtension)" CopyToOutputDirectory="PreserveNewest" Link="libvtkNative.$(NativeLibExtension)" />
   </ItemGroup>
 </Project>

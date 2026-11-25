@@ -2476,7 +2476,7 @@ namespace PrePoMax
             //
             Controller tmp = (Controller)items[0];
             return new PmxDocument(model, allResults, tmp._commands, tmp._annotations,
-                                   items[1] as OrderedDictionary<string, AnalysisJob>, items[2] as bool[][],
+                                   items[1] as CaeGlobals.OrderedDictionary<string, AnalysisJob>, items[2] as bool[][],
                                    items.Length > 3 ? items[3] as SidePanelsState : null);
         }
         private PmxDocument TryReadCompressedPmxBefore_2_0_6(FileStream fs, int version, out FeModel model,

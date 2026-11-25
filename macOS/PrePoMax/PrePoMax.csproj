@@ -7,6 +7,17 @@
     <AssemblyVersion>3.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\0050_Model\02_Tools\CChangeElementOrder.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\0073_ContactPair\CAddSearchedContactPairs.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\00_Base\ILoadNamesCommand.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\21_FEModel\FrmChangeElementOrder.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\21_FEModel\ViewChangeElementOrder.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\55_Load\IViewPressureLoad.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\55_Load\PressureLoadTypeEnum.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\55_Load\ViewBodyForce.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\55_Load\ViewEdgeLoad.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Forms\82_ResultFieldOutput\ViewResultFieldOutputShellInPlaneState.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\PmxDocument.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Common\ExecutableJobRunner.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Meshing\Netgen\GeometryTransform.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Meshing\Netgen\NetgenMesherRunner.cs" />
@@ -659,7 +670,6 @@
     <Compile Include="$(RepoRoot)PrePoMax\Forms\82_ResultFieldOutput\ViewResultFieldOutputEnvelope.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Forms\82_ResultFieldOutput\ViewResultFieldOutputLimit.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Forms\82_ResultFieldOutput\ViewResultFieldOutputMaterialAxes.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Forms\82_ResultFieldOutput\ViewResultFieldOutputShellPlaneStress.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Forms\82_ResultFieldOutput\ViewResultFieldOutputEquation.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Forms\00_Common\FileExporter\ViewExportHistoryResultSetFileProperties.cs" />
@@ -906,7 +916,7 @@
     <NetGenMesherSource Include="..\Native\NetGenMesher\*.cpp;..\Native\NetGenMesher\*.h;..\Native\NetGenMesher\CMakeLists.txt" />
     <None Include="..\Native\NetGenMesher\build\NetGenMesher" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Netgen\NetGenMesher" />
     <None Include="PrePoMax.com" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\Native\bin\libWin32Compat.$(NativeLibExtension);..\Native\bin\libkernel32.dll.$(NativeLibExtension);..\Native\bin\libuser32.dll.$(NativeLibExtension);..\Native\bin\libuser32.$(NativeLibExtension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Native\bin\libWin32Compat.$(NativeLibExtension);..\Native\bin\libkernel32.dll.$(NativeLibExtension);..\Native\bin\libuser32.dll.$(NativeLibExtension);..\Native\bin\libuser32.$(NativeLibExtension);..\Native\bin\libgdi32.dll.$(NativeLibExtension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Native\Mmg\build\bin\mmgs_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmgs" />
     <None Include="..\Native\Mmg\build\bin\mmg3d_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmg3d" />
   </ItemGroup>
@@ -925,6 +935,7 @@
     <ProjectReference Include="..\ThreeMF\ThreeMF.csproj" />
     <ProjectReference Include="..\APIs\APIs.csproj" />
     <ProjectReference Include="..\UserControls\UserControls.csproj" />
+    <ProjectReference Include="..\LegacyImport\LegacyImport.csproj" />
     <PackageReference Include="pythonnet" Version="3.1.0" />
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.0" />

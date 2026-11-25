@@ -9,11 +9,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50031)]
     internal class CalLineSearchParameter : CalculixKeyword
     {
         // Variables
-        private LineSearchStepControlParameter _parameter;
+        [PmxKey(0)] private LineSearchStepControlParameter _parameter;
 
 
         // Properties

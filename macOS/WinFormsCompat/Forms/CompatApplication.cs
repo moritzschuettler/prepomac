@@ -18,6 +18,8 @@ namespace System.Windows.Forms
             Styles.Add(WinFormsCompat.Native.WinFormsStyles.Create());
         }
 
+        // True for a session without a window on the headless platform, which has no OpenGL controls
+        public static bool IsHeadless { get; private set; }
         // The default setup: the platform of the operating system
         public static void SetupDesktop(string applicationName)
         {
@@ -32,6 +34,7 @@ namespace System.Windows.Forms
                           .UseSkia()
                           .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
                           .SetupWithoutStarting();
+                IsHeadless = true;
                 return;
             }
             // The display link of macOS cannot start while the display sleeps or the screen is locked - which a session

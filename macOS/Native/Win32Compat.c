@@ -224,3 +224,14 @@ int ToUnicodeEx(uint32_t vk, uint32_t scanCode, const uint8_t *state, uint16_t *
 {
     return ToUnicode(vk, scanCode, state, buffer, size, flags);
 }
+
+// The caret of a text box is drawn by Avalonia
+int HideCaret(intptr_t hwnd) { return 0; }
+int ShowCaret(intptr_t hwnd) { return 0; }
+
+// GDI (installed as gdi32.dll as well): no device contexts, so the text metrics are not known
+typedef struct { int32_t values[11]; uint16_t chars[4]; uint8_t bytes[5]; } TextMetricW;
+int GetTextMetrics(intptr_t hdc, TextMetricW *metrics) { if (metrics) memset(metrics, 0, sizeof(*metrics)); return 0; }
+int GetTextMetricsW(intptr_t hdc, TextMetricW *metrics) { return GetTextMetrics(hdc, metrics); }
+intptr_t SelectObject(intptr_t hdc, intptr_t object) { return 0; }
+int DeleteObject(intptr_t object) { return 1; }

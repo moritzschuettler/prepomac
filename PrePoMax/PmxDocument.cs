@@ -28,7 +28,7 @@ namespace PrePoMax
         [PmxKey(1)] private ResultsCollection _allResults;
         [PmxKey(2)] private CommandsCollection _commands;
         [PmxKey(3)] private AnnotationContainer _annotations;
-        [PmxKey(4)] private OrderedDictionary<string, AnalysisJob> _jobs;
+        [PmxKey(4)] private CaeGlobals.OrderedDictionary<string, AnalysisJob> _jobs;
         [PmxKey(5)] private bool[][] _treeStates;
         [PmxKey(6)] private SidePanelsState _sidePanelsState;
 
@@ -38,14 +38,14 @@ namespace PrePoMax
         public ResultsCollection AllResults { get { return _allResults; } set { _allResults = value; } }
         public CommandsCollection Commands { get { return _commands; } }
         public AnnotationContainer Annotations { get { return _annotations; } }
-        public OrderedDictionary<string, AnalysisJob> Jobs { get { return _jobs; } }
+        public CaeGlobals.OrderedDictionary<string, AnalysisJob> Jobs { get { return _jobs; } }
         public bool[][] TreeStates { get { return _treeStates; } }
         public SidePanelsState SidePanelsState { get { return _sidePanelsState; } }
 
 
         // Constructors                                                                                                             
         public PmxDocument(FeModel model, ResultsCollection allResults, CommandsCollection commands,
-                           AnnotationContainer annotations, OrderedDictionary<string, AnalysisJob> jobs, bool[][] treeStates,
+                           AnnotationContainer annotations, CaeGlobals.OrderedDictionary<string, AnalysisJob> jobs, bool[][] treeStates,
                            SidePanelsState sidePanelsState)
         {
             _model = model;

@@ -12,12 +12,12 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50050)]
     class CImportDiscreteOrientationsXml : PreprocessCommand, IImportFileCommand
     {
         // Variables
-        private string _layupName;
-        private string _fileName;
+        [PmxKey(0)] private string _layupName;
+        [PmxKey(1)] private string _fileName;
 
 
         // Properties

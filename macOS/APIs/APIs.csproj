@@ -5,6 +5,11 @@
     <RootNamespace>APIs</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(RepoRoot)APIs\Python\Model\Interactions\ContactSearchPairTypeEnum.cs" />
+    <Compile Include="$(RepoRoot)APIs\Python\Model\Interactions\ContactSearchResultAPI.cs" />
+    <Compile Include="$(RepoRoot)APIs\Python\Model\Interactions\FoundContactPairAPI.cs" />
+    <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputShellInPlaneStateAPI.cs" />
+    <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputShellInPlaneStateDraftAPI.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\BaseAPI.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Commands\IPythonCommandGateway.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Commands\IPythonModelGateway.cs" />
@@ -226,8 +231,6 @@
     <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputService.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputMaterialAxesAPI.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputMaterialAxesDraftAPI.cs" />
-    <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputShellPlaneStressAPI.cs" />
-    <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputShellPlaneStressDraftAPI.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputCompositeFailureAPI.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Results\ResultFieldOutputs\ResultFieldOutputCompositeFailureDraftAPI.cs" />
     <Compile Include="$(RepoRoot)APIs\Python\Results\ResultHistoryOutputs\ResultHistoryOutputAPI.cs" />

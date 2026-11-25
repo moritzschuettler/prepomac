@@ -239,7 +239,7 @@ class OfflineCheckTests(unittest.TestCase):
         self.assertEqual([], Run_Tests.collect_offline("Model_BCs"))
 
     def test_several_filters_select_every_script_matching_any_of_them(self):
-        names = sorted(set(test.name for test in Run_Tests.collect(["Model_BCs", "model_loads"])))
+        names = sorted(set(test.name for test in Run_Tests.collect(["Model_BCs", "model_loads.py"])))
         self.assertEqual(["Test_Model_BCs.py", "Test_Model_Loads.py"], names)
         self.assertEqual(["Audit_API_Coverage.py", "Audit_API_Documentation.py"],
                          Run_Tests.collect_offline(["api_coverage", "API_Documentation"]))

@@ -7,17 +7,17 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class BladeAeroPressureLoad : Load, ISerializable
+    [PmxType(50039)]
+    public class BladeAeroPressureLoad : Load
     {
         // Variables
-        private string _regionName;                     //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private int _axis;                              //ISerializable  0=X 1=Y 2=Z  spine direction
-        private string _surfaceName;                    //ISerializable  source face surface for DLoad zones
-        private BladeAeroDistanceTypeEnum _distanceType;//ISerializable  meaning of the table first column
-        private List<BladeAeroTableRow> _tableRows;     //ISerializable  distance + force (N)
-        private int _sectionCount;                      //ISerializable  number of DLoad zones created last time
+        [PmxKey(0)] private string _regionName;                     //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private int _axis;                              //ISerializable  0=X 1=Y 2=Z  spine direction
+        [PmxKey(3)] private string _surfaceName;                    //ISerializable  source face surface for DLoad zones
+        [PmxKey(4)] private BladeAeroDistanceTypeEnum _distanceType;//ISerializable  meaning of the table first column
+        [PmxKey(5)] private List<BladeAeroTableRow> _tableRows;     //ISerializable  distance + force (N)
+        [PmxKey(6)] private int _sectionCount;                      //ISerializable  number of DLoad zones created last time
 
 
         // Properties
@@ -67,17 +67,6 @@ namespace CaeModel
 
 
         // Methods
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_axis", _axis, typeof(int));
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_distanceType", _distanceType, typeof(BladeAeroDistanceTypeEnum));
-            info.AddValue("_tableRows", _tableRows, typeof(List<BladeAeroTableRow>));
-            info.AddValue("_sectionCount", _sectionCount, typeof(int));
-        }
         public override void CheckEquations() { }
     }
 }

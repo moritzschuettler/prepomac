@@ -44,6 +44,36 @@ namespace CaeMesh
         /// </summary>
         static Highs()
         {
+#if NET
+            // macOS: libhighs.dylib next to the program (app bundle) or from Homebrew (brew install highs)
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                try
+                {
+                    NativeLibrary.SetDllImportResolver(typeof(Highs).Assembly, (name, assembly, searchPath) =>
+                    {
+                        if (name != _dllName) return IntPtr.Zero;
+                        string folder = Path.GetDirectoryName(typeof(Highs).Assembly.Location) ?? "";
+                        foreach (string candidate in new[] { Path.Combine(folder, "libhighs.dylib"),
+                                                             Path.Combine(folder, "..", "Frameworks", "libhighs.dylib"),
+                                                             "/opt/homebrew/lib/libhighs.dylib",
+                                                             "/usr/local/lib/libhighs.dylib",
+                                                             // Linux (experimental)
+                                                             "/usr/lib/libhighs.so",
+                                                             "/usr/local/lib/libhighs.so" })
+                        {
+                            if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out IntPtr handle)) return handle;
+                        }
+                        return IntPtr.Zero;
+                    });
+                }
+                catch (InvalidOperationException)
+                {
+                    // A resolver of the assembly is set already
+                }
+                return;
+            }
+#endif
             try
             {
                 string folder = Path.GetDirectoryName(typeof(Highs).Assembly.Location);

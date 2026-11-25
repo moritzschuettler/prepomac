@@ -15,7 +15,7 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50005)]
     public enum CompositeElementType
     {
         ConventionalShell,
@@ -23,7 +23,7 @@ namespace CaeModel
         Solid
     }
 
-    [Serializable]
+    [PmxType(50006)]
     public enum OrientationDefinitionType
     {
         PartGlobal,
@@ -32,7 +32,7 @@ namespace CaeModel
         Rosette                 // must stay last: the value is serialized as an integer
     }
 
-    [Serializable]
+    [PmxType(50007)]
     public enum NormalDirectionType
     {
         Axis1,
@@ -40,14 +40,14 @@ namespace CaeModel
         Axis3
     }
 
-    [Serializable]
+    [PmxType(50008)]
     public enum AdditionalRotationType
     {
         None,
         Angle
     }
 
-    [Serializable]
+    [PmxType(50009)]
     public enum ProcessType
     {
         HandLayup,
@@ -59,7 +59,7 @@ namespace CaeModel
         None
     }
 
-    [Serializable]
+    [PmxType(50010)]
     public enum ShellOffsetType
     {
         MiddleSurface,
@@ -68,28 +68,28 @@ namespace CaeModel
         SpecifyRatio
     }
 
-    [Serializable]
+    [PmxType(50011)]
     public class CompositeLayup : NamedClass
     {
         // Variables
-        private int _initialPlyCount;
-        private CompositeElementType _elementType;
-        private ProcessType _processType;
-        private OrientationDefinitionType _orientationDefinition;
-        private NormalDirectionType _normalDirection;
-        private AdditionalRotationType _additionalRotationType;
-        private double _additionalRotationAngle;
-        private List<Ply> _plies;
-        private bool _symmetric;
-        private ShellOffsetType _shellOffset;
-        private double _offsetRatio;
-        private DiscreteOrientationsData _discreteOrientationsData;
-        private bool _useDrapingForFiberDirection;
-        private double _drapingCellSize;
-        private int _drapingPlyIndex;
-        private string _solidPartName;
-        private string _sourceShellPartName;
-        private string _orientationRosette;
+        [PmxKey(0)] private int _initialPlyCount;
+        [PmxKey(1)] private CompositeElementType _elementType;
+        [PmxKey(2)] private ProcessType _processType;
+        [PmxKey(3)] private OrientationDefinitionType _orientationDefinition;
+        [PmxKey(4)] private NormalDirectionType _normalDirection;
+        [PmxKey(5)] private AdditionalRotationType _additionalRotationType;
+        [PmxKey(6)] private double _additionalRotationAngle;
+        [PmxKey(7)] private List<Ply> _plies;
+        [PmxKey(8)] private bool _symmetric;
+        [PmxKey(9)] private ShellOffsetType _shellOffset;
+        [PmxKey(10)] private double _offsetRatio;
+        [PmxKey(11)] private DiscreteOrientationsData _discreteOrientationsData;
+        [PmxKey(12)] private bool _useDrapingForFiberDirection;
+        [PmxKey(13)] private double _drapingCellSize;
+        [PmxKey(14)] private int _drapingPlyIndex;
+        [PmxKey(15)] private string _solidPartName;
+        [PmxKey(16)] private string _sourceShellPartName;
+        [PmxKey(17)] private string _orientationRosette;
 
 
         // Properties

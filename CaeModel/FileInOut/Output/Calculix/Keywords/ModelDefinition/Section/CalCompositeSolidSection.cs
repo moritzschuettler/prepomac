@@ -8,16 +8,17 @@
 // Contributors:
 using System;
 using System.Text;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50028)]
     internal class CalCompositeSolidSection : CalculixKeyword
     {
         // Variables
-        private string _elementSetName;
-        private string _materialName;
-        private string _orientationName;
+        [PmxKey(0)] private string _elementSetName;
+        [PmxKey(1)] private string _materialName;
+        [PmxKey(2)] private string _orientationName;
 
 
         // Constructor

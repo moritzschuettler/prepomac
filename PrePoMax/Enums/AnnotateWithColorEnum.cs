@@ -22,7 +22,8 @@ namespace PrePoMax
         Materials = 8,
         Sections = 16,
         SectionThicknesses = 32,
-        CompositeSections = 8192,
+        // The composites modeler: a value far from the ones PrePoMax adds (8192 is MeshTypes)
+        CompositeSections = 1 << 30,
         ReferencePoints = 64,
         Constraints = 128,
         ContactPairs = 256,

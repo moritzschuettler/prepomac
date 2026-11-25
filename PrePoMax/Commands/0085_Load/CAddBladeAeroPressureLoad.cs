@@ -5,14 +5,14 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50058)]
     class CAddBladeAeroPressureLoad : PreprocessCommand
     {
         // Variables
-        private string _stepName;
-        private BladeAeroPressureSection[] _sections;
-        private int _prevSectionCount;
-        private FeSurfaceFaceTypes _surfaceFaceTypes;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private BladeAeroPressureSection[] _sections;
+        [PmxKey(2)] private int _prevSectionCount;
+        [PmxKey(3)] private FeSurfaceFaceTypes _surfaceFaceTypes;
 
 
         // Constructor

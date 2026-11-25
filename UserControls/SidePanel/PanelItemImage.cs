@@ -9,16 +9,17 @@
 
 using System;
 using System.Drawing;
+using CaeGlobals;
 
 namespace UserControls
 {
     // An image of a panel page, shown in the width of the panel and never enlarged
-    [Serializable]
+    [PmxType(50069)]
     public class PanelItemImage : PanelItem
     {
         // Variables
-        private Image _image;
-        private int _maxWidth;
+        [PmxKey(0)] private Image _image;
+        [PmxKey(1)] private int _maxWidth;
 
 
         // Properties

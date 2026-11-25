@@ -11,13 +11,13 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(50067)]
     public class ViewBladeAeroLoad : ViewLoad
     {
         // Variables
         internal const string AbsoluteDistanceText = "Absolute distance";
         internal const string SpanRatioText = "Span ratio (0-1 or %)";
-        private BladeAeroLoad _load;
+        [PmxKey(0)] private BladeAeroLoad _load;
 
 
         // Properties

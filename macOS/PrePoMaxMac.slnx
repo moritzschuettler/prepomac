@@ -9,6 +9,8 @@
   <Project Path="FastColoredTextBox/FastColoredTextBox.csproj" />
   <Project Path="GmshCaller/GmshCaller.csproj" />
   <Project Path="GmshCommon/GmshCommon.csproj" />
+  <Project Path="LegacyImport/LegacyImport.csproj" />
+  <Project Path="PmxTool/PmxTool.csproj" />
   <Project Path="PrePoMax/PrePoMax.csproj" />
   <Project Path="STL/STL.csproj" />
   <Project Path="ThreeMF/ThreeMF.csproj" />

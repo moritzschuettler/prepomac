@@ -17,16 +17,16 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50023)]
     internal class CalLayupOrientation : CalculixKeyword
     {
         // Variables
-        private string _name;
-        private CoordinateSystemTypeEnum _systemType;
-        private double[] _pointA;   // Point on X-axis (rectangular) or on Z-axis (cylindrical)
-        private double[] _pointB;   // Point in XY-plane (rectangular) or on Z-axis (cylindrical)
-        private int _rotationAxis;  // 1, 2, or 3 for additional rotation
-        private double _rotationAngle;  // Rotation angle in degrees
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private CoordinateSystemTypeEnum _systemType;
+        [PmxKey(2)] private double[] _pointA;   // Point on X-axis (rectangular) or on Z-axis (cylindrical)
+        [PmxKey(3)] private double[] _pointB;   // Point in XY-plane (rectangular) or on Z-axis (cylindrical)
+        [PmxKey(4)] private int _rotationAxis;  // 1, 2, or 3 for additional rotation
+        [PmxKey(5)] private double _rotationAngle;  // Rotation angle in degrees
 
 
         // Properties

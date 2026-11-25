@@ -1,4 +1,5 @@
 using System;
+using CaeGlobals;
 
 
 namespace CaeModel
@@ -11,12 +12,12 @@ namespace CaeModel
     }
 
 
-    [Serializable]
+    [PmxType(50042)]
     public class BladeAeroTableRow
     {
         // Properties
-        public double DistanceRatio { get; set; }
-        public double Force { get; set; }
+        [field: PmxKey(0)] public double DistanceRatio { get; set; }
+        [field: PmxKey(1)] public double Force { get; set; }
 
 
         // Constructors

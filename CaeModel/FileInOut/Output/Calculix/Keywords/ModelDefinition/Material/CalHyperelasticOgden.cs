@@ -5,11 +5,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50026)]
     internal class CalHyperelasticOgden : CalculixKeyword
     {
         // Variables
-        private HyperelasticOgden _ogden;
+        [PmxKey(0)] private HyperelasticOgden _ogden;
 
 
         // Constructor

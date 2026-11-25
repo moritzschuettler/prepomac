@@ -59,18 +59,38 @@ namespace PrePoMax.LegacyImport
         }
         public override Type BindToType(string assemblyName, string typeName)
         {
-            Type unityHolder = BinaryFormatterTools.BindUnityHolder(typeName);
-            if (unityHolder != null) return unityHolder;
 #if NET
             // .NET (Core) loads an assembly only in the version the file names, the .NET Framework takes any version of an
             // assembly without a strong name: files of other PrePoMax versions and of the Windows build name other versions
             Type renamed = BindRenamedType(assemblyName, typeName);
-            Type type = renamed ?? BinaryFormatterTools.ResolveIgnoringVersions(assemblyName, typeName);
+            Type type = renamed ?? ResolveIgnoringVersions(assemblyName, typeName);
             if (_trace) Console.Error.WriteLine("[binder] " + typeName + ", " + assemblyName + " -> " +
                                                 (type == null ? "default" : type.AssemblyQualifiedName));
             return type;
         }
         private static readonly bool _trace = Environment.GetEnvironmentVariable("PPM_TRACE_BINDER") == "1";
+        // The type of an assembly qualified name, the assemblies without a strong name (PublicKeyToken=null) taken in any
+        // version, the type arguments of a generic type included
+        private static Type ResolveIgnoringVersions(string assemblyName, string typeName)
+        {
+            try
+            {
+                return Type.GetType(typeName + ", " + assemblyName, LoadAssembly, null, false);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        private static System.Reflection.Assembly LoadAssembly(System.Reflection.AssemblyName name)
+        {
+            foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (string.Equals(assembly.GetName().Name, name.Name, StringComparison.OrdinalIgnoreCase)) return assembly;
+            }
+            try { return System.Reflection.Assembly.Load(new System.Reflection.AssemblyName(name.Name)); }
+            catch { return null; }
+        }
         private Type BindRenamedType(string assemblyName, string typeName)
         {
 #endif

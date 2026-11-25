@@ -15,7 +15,7 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50018)]
     public enum RosetteType
     {
         Cartesian,
@@ -24,7 +24,7 @@ namespace CaeModel
 
     // Meaning of the guide curve tangent: either the 0 degree material direction, or the 90 degree
     // one - in the latter case the material X axis is perpendicular to the curve
-    [Serializable]
+    [PmxType(50019)]
     public enum RosetteGuideAngle
     {
         Deg0,
@@ -33,14 +33,14 @@ namespace CaeModel
 
     // One tessellated guide curve of a FROM_CURVES rosette; the points are stored in the order
     // they were read from the STEP file and the Reversed flag flips the direction on the fly
-    [Serializable]
+    [PmxType(50020)]
     public class RosetteCurve
     {
         // Variables
-        private double[][] _points;
-        private bool _reversed;
-        private bool _included;
-        private string _sourceLabel;
+        [PmxKey(0)] private double[][] _points;
+        [PmxKey(1)] private bool _reversed;
+        [PmxKey(2)] private bool _included;
+        [PmxKey(3)] private string _sourceLabel;
 
 
         // Properties
@@ -133,18 +133,18 @@ namespace CaeModel
         }
     }
 
-    [Serializable]
+    [PmxType(50021)]
     public class Rosette : NamedClass
     {
         // Variables
-        private RosetteType _type;
-        private double[] _axisX;
-        private double[] _axisY;
-        private List<RosetteCurve> _curves;
-        private string _stepFilePath;
-        private double _tessellationTolerance;
-        private double _directionToleranceDeg;
-        private RosetteGuideAngle _guideAngle;
+        [PmxKey(0)] private RosetteType _type;
+        [PmxKey(1)] private double[] _axisX;
+        [PmxKey(2)] private double[] _axisY;
+        [PmxKey(3)] private List<RosetteCurve> _curves;
+        [PmxKey(4)] private string _stepFilePath;
+        [PmxKey(5)] private double _tessellationTolerance;
+        [PmxKey(6)] private double _directionToleranceDeg;
+        [PmxKey(7)] private RosetteGuideAngle _guideAngle;
 
         // The rosette name is never written to the CalculiX input file - the orientation names are
         // generated - so a dot is safe here and allows the default 'rosette.1' naming

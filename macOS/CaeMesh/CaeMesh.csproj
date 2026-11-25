@@ -5,6 +5,49 @@
     <RootNamespace>CaeMesh</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(RepoRoot)CaeMesh\Enums\ElementQualityMetricEnum.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Cap\CapFace.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Cap\CapFaceDetector.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshCapMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshLensGrid.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshLensMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshMirrorDetector.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshMirrorNodes.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshMirrorPlane.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshMirrorSplits.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshPoleChart.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshQuadMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshRingMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshSeamGridMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellGridQuality.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellSideSpacing.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellSpacingEdge.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellSpacingNode.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellSpacingPatch.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellSpacingSide.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshShellSubmapSpacing.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshSubmapMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\GmshTubeMesher.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\IntervalAssignment\Highs.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Lens\LensFace.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Lens\LensFaceDetector.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Quad\QuadCleanup.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Quad\QuadCleanupResult.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Quad\QuadSmoothing.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Ring\RingFace.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Ring\RingFaceDetector.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Ring\RingGrid.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Ring\RingMapping.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Submap\SubmapFace.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Submap\SubmapFaceDetector.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Submap\SubmapGrid.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Submap\SubmapHolePlacement.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Submap\SubmapMapping.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Submap\SubmapSeparation.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Transfinite\FourSidedMapping.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Transfinite\MirrorCountRows.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Tube\TubeFace.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Tube\TubeFaceDetector.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\BoundingBox.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\ContactSearch\GeometryFilterEnum.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\ContactSearch\NodeData.cs" />
@@ -106,7 +149,6 @@
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Base\SplitPartMeshData.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Base\ThickenShellMesh.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Enums\GmshCommandEnum.cs" />
-    <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Enums\GmshElementQualityMetricEnum.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Enums\GmshOptimizeFirstOrderShellEnum.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />
@@ -122,7 +164,6 @@
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\IntervalAssignment\IntervalRowKindEnum.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\IntervalAssignment\IntervalRowTierEnum.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\IntervalAssignment\IntervalSolution.cs" />
-    <Compile Include="$(RepoRoot)CaeMesh\Meshing\IntervalAssignment\LpSolve.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Sweep\SweepBlocks.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Sweep\SweepBlockValidation.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Meshing\Gmsh\Sweep\SweepDetectionData.cs" />

@@ -4,12 +4,12 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class HyperelasticNeoHooke : MaterialProperty, ISerializable
+    [PmxType(50033)]
+    public class HyperelasticNeoHooke : MaterialProperty
     {
         // Variables
-        private EquationContainer _c10;     //ISerializable
-        private EquationContainer _d1;      //ISerializable
+        [PmxKey(0)] private EquationContainer _c10;     //ISerializable
+        [PmxKey(1)] private EquationContainer _d1;      //ISerializable
 
 
         // Properties
@@ -43,13 +43,6 @@ namespace CaeModel
         {
             _c10.CheckEquation();
             _d1.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_c10", _c10, typeof(EquationContainer));
-            info.AddValue("_d1", _d1, typeof(EquationContainer));
         }
     }
 }

@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/moritzschuettler/prepomac/actions/workflows/build.yml/badge.svg)](https://github.com/moritzschuettler/prepomac/actions/workflows/build.yml)
 
-A native macOS port of [PrePoMax](https://prepomax.fs.um.si) 3.0, the open-source pre- and post-processor for the
+A native macOS port of [PrePoMax](https://github.com/PrePoMax/PrePoMax) 3.0.2, the open-source pre- and post-processor for the
 CalculiX finite element solver, including the composites modeler of
 [Yvan Blanchard's fork](https://gitlab.com/yvanblanchard/pre-po-max-composites): composite shell sections, laminates,
 ply orientations and the Tsai-Wu, maximum stress and other failure criteria.
@@ -32,7 +32,7 @@ steps, a small model (.pmx or the CAD file), and your macOS version and chip. Pu
 ### Download (Apple Silicon)
 
 The [releases](https://github.com/moritzschuettler/prepomac/releases) carry `PrePoMax-macOS-arm64.zip`, an app that
-needs nothing else installed: OpenCASCADE, gmsh, lp_solve, CalculiX, a Python with NumPy and the .NET runtime are
+needs nothing else installed: OpenCASCADE, gmsh, VTK, HiGHS, CalculiX, a Python with NumPy and the .NET runtime are
 inside it. Unzip it and move `PrePoMax.app` to /Applications.
 
 The app is not signed with an Apple developer certificate, so macOS refuses to open it the first time. Either open
@@ -53,7 +53,7 @@ or newer should work, Intel Macs are untested.
 ```sh
 xcode-select --install                          # compilers for the native parts
 # .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
-brew install cmake opencascade gmsh lp_solve    # Homebrew: https://brew.sh
+brew install cmake ninja opencascade gmsh highs vtk    # Homebrew: https://brew.sh
 brew install costerwi/calculix/calculix-ccx     # CalculiX
 ```
 
@@ -89,14 +89,14 @@ X11. Labels may be cut off, because the port replaces the Windows fonts by those
 Arch Linux:
 
 ```sh
-sudo pacman -S git base-devel cmake opencascade lpsolve dotnet-sdk python
+sudo pacman -S git base-devel cmake opencascade highs dotnet-sdk python
 yay -S gmsh-bin                                  # or: the gmsh SDK from gmsh.info, with GMSH_DIR=<its folder>
 ```
 
 Debian 13 / Ubuntu (OpenCASCADE 7.8 or newer):
 
 ```sh
-sudo apt install build-essential cmake git python3 libpython3-dev libgmsh-dev liblpsolve55-dev \
+sudo apt install build-essential cmake git python3 libpython3-dev libgmsh-dev libhighs-dev \
     libocct-data-exchange-dev libocct-modeling-algorithms-dev libocct-modeling-data-dev libocct-foundation-dev \
     libocct-ocaf-dev
 # .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
@@ -233,6 +233,11 @@ meant for quick optimization loops, with a final check of the layered model.
 - On the carbon bike frame model, CalculiX and Code_Aster differ by about 50 % in stiffness, although they agree on the
   plates above; the cause is not found yet (shell junctions or supports are suspected).
 - The trackpad navigation is new and needs testing.
+- The 3D view is the `vtkNative` library of PrePoMax 3.0.2 on the VTK 9.7 of Homebrew. VTK is not built with the patch
+  PrePoMax applies on Windows (`vtkNative/patches`), so with ambient occlusion on the background is drawn in one color
+  instead of the gradient.
+- Linux: the 3D view of 3.0.2 draws with an OpenGL context of macOS (CGL); its Linux version is not written yet, so on
+  Linux the view stays empty (not tested).
 - The help page of the Python editor is not built yet; [Python_API_Overview.md](Python_API_Overview.md) has its content.
 - Files of the composites modeler of Yvan Blanchard (PrePoMax 2.4.5 dev) open; their laminae keep the out-of-plane
   constants of that version (v23 = v12).
@@ -246,8 +251,8 @@ cd macOS
 ```
 
 `build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one. The build also compiles the native
-parts: `Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh) and
-`Native/Mmg` (downloaded and built once). How to contribute a change is in [CONTRIBUTING.md](CONTRIBUTING.md); every
+parts: `Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh),
+`Native/Mmg` (downloaded and built once) and `vtkNative` (the 3D view, by `Native/vtkNative/build.sh`). How to contribute a change is in [CONTRIBUTING.md](CONTRIBUTING.md); every
 push and pull request is built on a macOS runner of GitHub Actions.
 
 ### Structure
@@ -266,7 +271,8 @@ and replace only what depends on Windows.
 | `GmshCaller`, `STL`, `3MF` | the gmsh process, STL import, 3MF export |
 | `macOS/WinFormsCompat` | Windows Forms on [Avalonia](https://avaloniaui.net) |
 | `macOS/DrawingCompat` | System.Drawing on SkiaSharp |
-| `macOS/vtkControl/Mac/Vtk` | the VTK classes PrePoMax uses, on OpenGL |
+| `vtkNative` | the 3D view: a C library on VTK 9.7; on macOS it draws with the OpenGL context of Avalonia |
+| `macOS/vtkControl/Mac` | the host of the 3D view in the window, its mouse, keyboard and trackpad input |
 | `macOS/FastColoredTextBox`, `macOS/ZedGraph` | the code editor and the charts |
 | `macOS/Native` | NetGenMesher, Mmg, the Win32 stubs, the Code_Aster image |
 | `APIs/Python/Test_Scripts` | the test suite |

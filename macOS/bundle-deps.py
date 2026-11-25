@@ -5,8 +5,9 @@
 #
 #   python3 bundle-deps.py <PrePoMax.app>          (make-app.sh --standalone runs it)
 #
-# PrePoMax looks for these files in the bundle before it looks in Homebrew: libgmsh.dylib and liblpsolve55.dylib in
-# Contents/Frameworks, ccx in Contents/MacOS/Solver, the Python home in Contents/MacOS/Python.
+# PrePoMax looks for these files in the bundle before it looks in Homebrew: libgmsh.dylib and libhighs.dylib in
+# Contents/Frameworks, ccx in Contents/MacOS/Solver, the Python home in Contents/MacOS/Python. libvtkNative.dylib, the
+# 3D view, sits next to the assemblies and loads the VTK libraries of Homebrew, which are copied as well.
 
 import glob
 import os
@@ -182,8 +183,10 @@ def main():
     bundler = Bundler(app)
     # The CAD and mesher process
     bundler.program(os.path.join(macos, "Meshers", "Netgen", "NetGenMesher"))
+    # The 3D view and the VTK libraries it links
+    bundler.program(os.path.join(macos, "libvtkNative.dylib"))
     # The libraries PrePoMax itself loads by name
-    for name in ("libgmsh.dylib", "liblpsolve55.dylib"):
+    for name in ("libgmsh.dylib", "libhighs.dylib"):
         bundler.library(os.path.realpath(os.path.join(HOMEBREW, "lib", name)), name)
     # The other programs of the bundle, in case one of them loads a Homebrew library
     for path in glob.glob(os.path.join(macos, "Meshers", "**", "*"), recursive=True):

@@ -12,13 +12,14 @@ Homebrew and linked at run time; only Mmg is built by this repository and shippe
 | Gmsh 4.15 | Homebrew `gmsh`, linked by NetGenMesher | GPL-2.0-or-later, with an exception permitting combination with OpenCASCADE | [gmsh/](gmsh/) |
 | OpenCASCADE 7.9 | Homebrew `opencascade`, linked by NetGenMesher | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
 | Mmg 5.7.0 | `Meshers/Mmg/mmgs`, `Meshers/Mmg/mmg3d`, built from the upstream sources by `macOS/Native/Mmg/build.sh` | LGPL-3.0-or-later | [mmg/](mmg/) |
-| lp_solve 5.5 | Homebrew `lp_solve` | LGPL-2.1 | [lpsolve/](lpsolve/) |
+| HiGHS 1.16 | Homebrew `highs`, the solver of the element counts of the meshers | MIT | [highs/](highs/) |
+| VTK 9.7 | Homebrew `vtk`, linked by `libvtkNative.dylib` (the 3D view, built from `vtkNative/`) | BSD-3-Clause; the libraries bundled in VTK under their own permissive licenses | [vtk/](vtk/) |
 | Avalonia 11.3 | NuGet package, the user interface | MIT | github.com/AvaloniaUI/Avalonia |
 | SkiaSharp | NuGet package, drawing | MIT | github.com/mono/SkiaSharp |
 | CalculiX | installed separately (Homebrew tap `costerwi/calculix`), run as a separate program; the downloaded app carries it in `Contents/MacOS/Solver` | GPL-2.0 | [calculix/](calculix/) |
 | Code_Aster 18.1 (optional) | conda-forge package in a Docker image built by `macOS/Native/CodeAster/build.sh`, run as a separate program | GPL-3.0 | code-aster.org |
 
-Gmsh, Mmg and lp_solve are GPL/LGPL licenses compatible with PrePoMax's own GPL-3.0. Mmg's license
+Gmsh and Mmg are GPL/LGPL licenses and HiGHS and VTK permissive ones, all compatible with PrePoMax's own GPL-3.0. Mmg's license
 requires that both `COPYING.LESSER` (LGPL-3) and `COPYING` (GPL-3) travel with the binaries, which is
 why all three files are in [mmg/](mmg/).
 

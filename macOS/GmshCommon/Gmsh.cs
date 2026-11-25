@@ -80,6 +80,8 @@ namespace GmshCommon
         [DllImport(Lib)] public static extern int gmshModelAddDiscreteEntity(int dim, int tag, int[] boundary, nuint boundary_n, int* ierr);
         [DllImport(Lib)] public static extern void gmshModelRemoveEntities(int[] dimTags, nuint dimTags_n, int recursive, int* ierr);
         [DllImport(Lib)] public static extern void gmshModelSetVisibility(int[] dimTags, nuint dimTags_n, int value, int recursive, int* ierr);
+        [DllImport(Lib)] public static extern void gmshModelGetVisibility(int dim, int tag, int* value, int* ierr);
+        [DllImport(Lib)] public static extern void gmshModelReparametrizeOnSurface(int dim, int tag, double[] parametricCoord, nuint parametricCoord_n, int surfaceTag, double** surfaceParametricCoord, nuint* surfaceParametricCoord_n, int which, int* ierr);
         [DllImport(Lib)] public static extern void gmshModelGetType(int dim, int tag, IntPtr* entityType, int* ierr);
         [DllImport(Lib)] public static extern void gmshModelGetValue(int dim, int tag, double[] parametricCoord, nuint parametricCoord_n, double** coord, nuint* coord_n, int* ierr);
         [DllImport(Lib)] public static extern void gmshModelGetNormal(int tag, double[] parametricCoord, nuint parametricCoord_n, double** normals, nuint* normals_n, int* ierr);
@@ -487,6 +489,14 @@ namespace GmshCommon
                 Native.gmshModelSetVisibility(flat, Native.N(flat), value, recursive ? 1 : 0, &ierr);
                 Native.Check(ierr, "model.setVisibility");
             }
+            public static int GetVisibility(int dim, int tag)
+            {
+                int ierr;
+                int value;
+                Native.gmshModelGetVisibility(dim, tag, &value, &ierr);
+                Native.Check(ierr, "model.getVisibility");
+                return value;
+            }
             public static new string GetType(int dim, int tag)
             {
                 int ierr;
@@ -532,6 +542,17 @@ namespace GmshCommon
                 Native.Check(ierr, "model.getParametrizationBounds");
                 min = Native.Take(a, an);
                 max = Native.Take(b, bn);
+            }
+            public static void ReparametrizeOnSurface(int dim, int tag, double[] parametricCoord, int surfaceTag,
+                                                      out double[] surfaceParametricCoord, int which)
+            {
+                int ierr;
+                double* p;
+                nuint n;
+                Native.gmshModelReparametrizeOnSurface(dim, tag, parametricCoord, Native.N(parametricCoord), surfaceTag,
+                                                       &p, &n, which, &ierr);
+                Native.Check(ierr, "model.reparametrizeOnSurface");
+                surfaceParametricCoord = Native.Take(p, n);
             }
             public static int IsInside(int dim, int tag, double[] coord, bool parametric)
             {
@@ -758,6 +779,20 @@ namespace GmshCommon
                     nodeTags = Native.TakeSize(tags, tn);
                     coord = Native.Take(c, cn);
                     Native.Take(pc, pcn);
+                }
+                // The nodes inside a curve, without its end nodes, and their parameters on the curve
+                public static void GetCurveNodes(int tag, out IntPtr[] nodeTags, out double[] coord, out double[] parameters)
+                {
+                    int ierr;
+                    nuint* tags;
+                    double* c;
+                    double* pc;
+                    nuint tn, cn, pcn;
+                    Native.gmshModelMeshGetNodes(&tags, &tn, &c, &cn, &pc, &pcn, 1, tag, 0, 1, &ierr);
+                    Native.Check(ierr, "model.mesh.getNodes");
+                    nodeTags = Native.TakeSize(tags, tn);
+                    coord = Native.Take(c, cn);
+                    parameters = Native.Take(pc, pcn);
                 }
                 public static void GetElement(IntPtr elementTag, int elementType, out IntPtr[] nodeTags, out int dim,
                                               out int tag)

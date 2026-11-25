@@ -18,7 +18,7 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(50036)]
     public enum CompositeMaterialType
     {
         None,

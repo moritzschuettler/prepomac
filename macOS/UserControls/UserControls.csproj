@@ -5,6 +5,7 @@
     <RootNamespace>UserControls</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(RepoRoot)UserControls\ProperyGrid\IMissingPropertyValues.cs" />
     <Compile Include="$(RepoRoot)UserControls\AnalysisProgressView.cs" />
     <Compile Include="$(RepoRoot)UserControls\AnalysisProgressView.Designer.cs" />
     <Compile Include="$(RepoRoot)UserControls\AutocompleteMenu\AutocompleteItem.cs" />

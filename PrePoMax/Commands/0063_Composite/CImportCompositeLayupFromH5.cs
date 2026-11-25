@@ -14,15 +14,15 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50048)]
     class CImportCompositeLayupFromH5 : PreprocessCommand, IImportFileCommand
     {
         // Variables
-        private string _fileName;
-        private string _layupName;
-        private string _regionName;
-        private double _drillDepth;
-        private double _tolerance;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private string _layupName;
+        [PmxKey(2)] private string _regionName;
+        [PmxKey(3)] private double _drillDepth;
+        [PmxKey(4)] private double _tolerance;
 
 
         // Properties

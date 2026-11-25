@@ -4,11 +4,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(50025)]
     internal class CalHyperelasticNeoHooke : CalculixKeyword
     {
         // Variables
-        private HyperelasticNeoHooke _neoHooke;
+        [PmxKey(0)] private HyperelasticNeoHooke _neoHooke;
 
 
         // Constructor

@@ -6,11 +6,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(50063)]
     public class ViewHyperelasticOgden : ViewMaterialProperty
     {
         // Variables
-        private HyperelasticOgden _ogden;
+        [PmxKey(0)] private HyperelasticOgden _ogden;
 
 
         // Properties

@@ -19,13 +19,13 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50055)]
     class CImportRosetteCurvesFromStep : PreprocessCommand
     {
         // Variables
-        private string _rosetteName;
-        private string _fileName;
-        private double _chordTolerance;
+        [PmxKey(0)] private string _rosetteName;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private double _chordTolerance;
 
 
         // Constructor

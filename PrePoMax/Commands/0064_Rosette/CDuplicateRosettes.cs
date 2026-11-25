@@ -19,11 +19,11 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(50054)]
     class CDuplicateRosettes : PreprocessCommand
     {
         // Variables
-        private string[] _rosetteNames;
+        [PmxKey(0)] private string[] _rosetteNames;
 
 
         // Constructor
