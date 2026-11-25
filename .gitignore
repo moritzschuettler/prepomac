@@ -59,3 +59,6 @@ PrePoMax.Mac/
 # Made by the bike frame study
 assets_composites/bike-frame/bike_frame_study.pmx
 /Dev/Plans/Vtk/Vtk_Native_Pilot_Plan.md
+macOS/Native/Gmsh/src/
+macOS/Native/Gmsh/build/
+macOS/Native/Gmsh/cmake_options.texi

@@ -19,7 +19,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Install the libraries
-        run: brew install cmake ninja opencascade gmsh highs vtk
+        run: brew install cmake ninja opencascade highs vtk
 
       - name: Build
         run: macOS/build.sh Release

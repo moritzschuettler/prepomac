@@ -11,7 +11,7 @@ It runs as a normal Mac app on Apple Silicon, without Windows, a virtual machine
 an official PrePoMax release. PrePoMax is written by Matej Borovinšek (University of Maribor), and the composites
 modeler by Yvan Blanchard.
 
-**Status:** usable, still being tested. 77 of the 79 API test scripts pass; see [Known limitations](#known-limitations).
+**Status:** usable, still being tested. 106 of the 110 API test scripts pass; see [Known limitations](#known-limitations).
 Bug reports are very welcome: [open an issue](https://github.com/moritzschuettler/prepomac/issues) with the
 steps, a small model (.pmx or the CAD file), and your macOS version and chip. Pull requests are welcome too, see
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -53,7 +53,7 @@ or newer should work, Intel Macs are untested.
 ```sh
 xcode-select --install                          # compilers for the native parts
 # .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
-brew install cmake ninja opencascade gmsh highs vtk    # Homebrew: https://brew.sh
+brew install cmake ninja opencascade highs vtk    # Homebrew: https://brew.sh
 brew install costerwi/calculix/calculix-ccx     # CalculiX
 ```
 
@@ -223,8 +223,9 @@ meant for quick optimization loops, with a final check of the layered model.
 
 ## Known limitations
 
-- Two API tests fail: the mirrored revolve mesh of `revolve_end_cap.brep`, and the second-order tetrahedra of
-  `sweep_plate_overhang.brep`, whose volume is about 1 % off (gmsh 4.15 of Homebrew, 4.13 on Windows).
+- Four meshing tests of the submapping of PrePoMax 3.0.2 fail (`Test_Model_Meshing_Quad_Dominant`, `_Side_Spacing`,
+  `_Submap`, `_Submap_Sweep`): the element counts differ slightly from those of Windows (712 against 720 elements, for
+  example). The gmsh is the patched one of the Windows build; the OpenCASCADE is 7.9 of Homebrew, 7.7 on Windows.
 - Netgen meshing is done by gmsh (its 3D algorithm is the Frontal/Netgen one). Structured (transfinite) four-sided
   faces, three-sided faces as three blocks ("Mapped") or polar, and the numbers of elements set on edges are supported.
 - QuadWild is not available: PrePoMax ships modified Windows binaries of QuadWild-BiMDF whose source is not public.
@@ -251,7 +252,8 @@ cd macOS
 ```
 
 `build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one. The build also compiles the native
-parts: `Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh),
+parts: `Native/Win32Compat.c`, `Native/Gmsh` (the patched gmsh 4.13 PrePoMax ships on Windows, downloaded and built
+once), `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh),
 `Native/Mmg` (downloaded and built once) and `vtkNative` (the 3D view, by `Native/vtkNative/build.sh`). How to contribute a change is in [CONTRIBUTING.md](CONTRIBUTING.md); every
 push and pull request is built on a macOS runner of GitHub Actions.
 

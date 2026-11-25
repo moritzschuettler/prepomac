@@ -908,7 +908,11 @@
           Inputs="..\Native\Win32Compat.c;..\Native\build.sh" Outputs="..\Native\bin\libWin32Compat.$(NativeLibExtension)">
     <Exec Command="sh ../Native/build.sh" />
   </Target>
-  <Target Name="BuildNetGenMesher" BeforeTargets="BeforeBuild"
+  <!-- The patched gmsh 4.13 of PrePoMax, built once (see Native/Gmsh); NetGenMesher links it -->
+  <Target Name="BuildGmsh" BeforeTargets="BeforeBuild" Condition="!Exists('..\Native\Gmsh\build\libgmsh.4.13.dylib') And '$(NativeLibExtension)' == 'dylib'">
+    <Exec Command="sh ../Native/Gmsh/build.sh" />
+  </Target>
+  <Target Name="BuildNetGenMesher" BeforeTargets="BeforeBuild" DependsOnTargets="BuildGmsh"
           Inputs="@(NetGenMesherSource)" Outputs="..\Native\NetGenMesher\build\NetGenMesher">
     <Exec Command="sh ../Native/NetGenMesher/build.sh" />
   </Target>
@@ -916,6 +920,7 @@
     <NetGenMesherSource Include="..\Native\NetGenMesher\*.cpp;..\Native\NetGenMesher\*.h;..\Native\NetGenMesher\CMakeLists.txt" />
     <None Include="..\Native\NetGenMesher\build\NetGenMesher" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Netgen\NetGenMesher" />
     <None Include="PrePoMax.com" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Native\Gmsh\build\libgmsh.4.13.0.dylib" Condition="'$(NativeLibExtension)' == 'dylib'" CopyToOutputDirectory="PreserveNewest" Link="libgmsh.4.13.dylib" />
     <None Include="..\Native\bin\libWin32Compat.$(NativeLibExtension);..\Native\bin\libkernel32.dll.$(NativeLibExtension);..\Native\bin\libuser32.dll.$(NativeLibExtension);..\Native\bin\libuser32.$(NativeLibExtension);..\Native\bin\libgdi32.dll.$(NativeLibExtension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Native\Mmg\build\bin\mmgs_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmgs" />
     <None Include="..\Native\Mmg\build\bin\mmg3d_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmg3d" />

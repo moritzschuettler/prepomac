@@ -9,7 +9,7 @@ Homebrew and linked at run time; only Mmg is built by this repository and shippe
 |---|---|---|---|
 | PrePoMax | the application | GPL-3.0 | [LICENSE](../LICENSE) |
 | NetGenMesher (macOS) | `Meshers/Netgen/NetGenMesher`, built from `macOS/Native/NetGenMesher` | GPL-3.0 (same as PrePoMax) | [LICENSE](../LICENSE) |
-| Gmsh 4.15 | Homebrew `gmsh`, linked by NetGenMesher | GPL-2.0-or-later, with an exception permitting combination with OpenCASCADE | [gmsh/](gmsh/) |
+| Gmsh 4.13, patched | `libgmsh.4.13.dylib`, built by `macOS/Native/Gmsh/build.sh` from the branch `prepomax-quadqs-transfinite` of github.com/PrePoMax/Gmsh (the gmsh of the Windows build), loaded by PrePoMax and NetGenMesher | GPL-2.0-or-later, with an exception permitting combination with OpenCASCADE | [gmsh/](gmsh/) |
 | OpenCASCADE 7.9 | Homebrew `opencascade`, linked by NetGenMesher | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
 | Mmg 5.7.0 | `Meshers/Mmg/mmgs`, `Meshers/Mmg/mmg3d`, built from the upstream sources by `macOS/Native/Mmg/build.sh` | LGPL-3.0-or-later | [mmg/](mmg/) |
 | HiGHS 1.16 | Homebrew `highs`, the solver of the element counts of the meshers | MIT | [highs/](highs/) |

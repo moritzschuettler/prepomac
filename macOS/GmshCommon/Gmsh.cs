@@ -23,13 +23,15 @@ namespace GmshCommon
 
         public static void EnsureResolver() { }
 
-        // libgmsh.dylib next to the application (app bundle), from GMSH_LIBRARY, or from Homebrew; libgmsh.so on Linux
+        // From GMSH_LIBRARY, the patched libgmsh.4.13.dylib next to the application, or from Homebrew; libgmsh.so on Linux
         private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
         {
             if (libraryName != Lib) return IntPtr.Zero;
             List<string> candidates = new List<string>();
             string env = Environment.GetEnvironmentVariable("GMSH_LIBRARY");
             if (!string.IsNullOrEmpty(env)) candidates.Add(env);
+            // The patched gmsh 4.13 of PrePoMax (Native/Gmsh) next to the application
+            candidates.Add(Path.Combine(AppContext.BaseDirectory, "libgmsh.4.13.dylib"));
             candidates.Add(Path.Combine(AppContext.BaseDirectory, "libgmsh.dylib"));
             candidates.Add(Path.Combine(AppContext.BaseDirectory, "..", "Frameworks", "libgmsh.dylib"));
             candidates.Add("/opt/homebrew/lib/libgmsh.dylib");

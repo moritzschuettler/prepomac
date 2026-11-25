@@ -25,7 +25,7 @@ jobs:
 
       - name: Install the libraries and CalculiX
         run: |
-          brew install cmake ninja opencascade gmsh highs vtk
+          brew install cmake ninja opencascade highs vtk
           brew install costerwi/calculix/calculix-ccx
 
       - name: Build the stand-alone app
