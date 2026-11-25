@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,14 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3092)]
     internal class CalMaterial : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Material _material;
+        [PmxKey(0)] private Material _material;
 
 
         // Properties                                                                                                               

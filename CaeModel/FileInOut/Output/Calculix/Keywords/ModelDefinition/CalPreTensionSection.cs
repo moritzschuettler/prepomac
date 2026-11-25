@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,16 +18,16 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3073)]
     internal class CalPreTensionSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _surfaceName;
-        private int _nodeId;
-        bool _autoCompute;
-        double _x;
-        double _y;
-        double _z;
+        [PmxKey(0)] private string _surfaceName;
+        [PmxKey(1)] private int _nodeId;
+        [PmxKey(2)] bool _autoCompute;
+        [PmxKey(3)] double _x;
+        [PmxKey(4)] double _y;
+        [PmxKey(5)] double _z;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,13 +21,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10053)]
     class CTranslateGeometryParts : PreprocessCommand
     {
         // Variables
-        private string[] _partNames;
-        private double[] _translateVector;
-        private int _numberOfCopies;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _translateVector;
+        [PmxKey(2)] private int _numberOfCopies;
 
 
         // Constructor

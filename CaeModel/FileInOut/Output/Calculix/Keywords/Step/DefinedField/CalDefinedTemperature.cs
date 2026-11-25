@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,14 +19,14 @@ using System.Threading.Tasks;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3137)]
     internal class CalDefinedTemperature : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _regionName;
-        private OpTypeEnum _opType;
-        private DefinedTemperature _definedTemperature;
-        private DefinedTemperature[] _definedTemperatures;
+        [PmxKey(0)] private string _regionName;
+        [PmxKey(1)] private OpTypeEnum _opType;
+        [PmxKey(2)] private DefinedTemperature _definedTemperature;
+        [PmxKey(3)] private DefinedTemperature[] _definedTemperatures;
 
 
 

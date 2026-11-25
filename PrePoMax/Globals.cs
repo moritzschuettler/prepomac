@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,7 +21,7 @@ namespace PrePoMax
     public static class Globals
     {
         public static string HomePage = "https://prepomax.fs.um.si/";
-        public static string ReleaseCandidate = "RC2";
+        public static string ReleaseCandidate = "";
         //
         public static string ProgramName
         {
@@ -75,7 +75,9 @@ namespace PrePoMax
         // Color by names
         public static string ColorByNone = "None";
         // File names
-        public static string SettingsFileName = "settings.bin";
+        public static string SettingsFileName = "settings.json";
+        // The settings file of the versions before the JSON settings, read once and rewritten as the settings file
+        public static string LegacySettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";
         public static string HistoryFileName = "history.pmh";
         private static bool IsWindows { get { return System.Environment.OSVersion.Platform == System.PlatformID.Win32NT; } }

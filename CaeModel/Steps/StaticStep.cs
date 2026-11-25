@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,20 +13,21 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class StaticStep : Step, ISerializable
+    [PmxType(3276)]
+    public class StaticStep : Step
     {
         // Variables                                                                                                                
-        private double _timePeriod;                 //ISerializable
-        private double _initialTimeIncrement;       //ISerializable
-        private double _minTimeIncrement;           //ISerializable
-        private double _maxTimeIncrement;           //ISerializable
-        private bool _direct;                       //ISerializable
-        private bool _stabilize;                    //ISerializable
+        [PmxKey(0)] private double _timePeriod;                 //ISerializable
+        [PmxKey(1)] private double _initialTimeIncrement;       //ISerializable
+        [PmxKey(2)] private double _minTimeIncrement;           //ISerializable
+        [PmxKey(3)] private double _maxTimeIncrement;           //ISerializable
+        [PmxKey(4)] private bool _direct;                       //ISerializable
+        [PmxKey(900)] private bool _stabilize;                    //ISerializable
 
 
         // Properties                                                                                                               
@@ -155,10 +156,12 @@ namespace CaeModel
                 loadType == typeof(HydrostaticPressure) ||
                 loadType == typeof(ImportedPressure) ||
                 loadType == typeof(STLoad) ||
+                loadType == typeof(EdgeLoad) ||
                 loadType == typeof(ImportedSTLoad) ||
                 loadType == typeof(ShellEdgeLoad) ||
                 loadType == typeof(GravityLoad) ||
                 loadType == typeof(CentrifLoad) ||
+                loadType == typeof(BodyForce) ||
                 loadType == typeof(PreTensionLoad) ||
                 loadType == typeof(BladeAeroLoad) ||
                 loadType == typeof(BladeAeroPressureLoad))
@@ -179,19 +182,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return true;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_timePeriod", _timePeriod, typeof(double));
-            info.AddValue("_initialTimeIncrement", _initialTimeIncrement, typeof(double));
-            info.AddValue("_minTimeIncrement", _minTimeIncrement, typeof(double));
-            info.AddValue("_maxTimeIncrement", _maxTimeIncrement, typeof(double));
-            info.AddValue("_direct", _direct, typeof(bool));
-            info.AddValue("_stabilize", _stabilize, typeof(bool));
         }
     }
 }

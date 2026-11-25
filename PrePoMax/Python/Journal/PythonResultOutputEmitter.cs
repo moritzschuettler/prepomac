@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -67,14 +67,18 @@ namespace PrePoMax.Python.Journal
             }
             else if (output is ResultFieldOutputShellPlaneStress shellPlaneStress)
             {
-                method = verb + "_shell_plane_stress";
+                method = verb + "_shell_in_plane_state";
                 arguments.Add(PythonValueFormatter.Text(shellPlaneStress.FieldName));
+                if (shellPlaneStress.Quantity != ShellInPlaneQuantityEnum.Stress)
+                    arguments.Add("quantity=" + PythonValueFormatter.Text(shellPlaneStress.Quantity.ToString()));
             }
             else if (output is ResultFieldOutputCompositeFailure compositeFailure)
             {
                 method = verb + "_composite_failure";
                 arguments.Add(PythonValueFormatter.Text(compositeFailure.FieldName));
                 arguments.Add(PythonValueFormatter.Text(compositeFailure.Criterion.ToString()));
+                if (compositeFailure.Quantity != ShellInPlaneQuantityEnum.Stress)
+                    arguments.Add("quantity=" + PythonValueFormatter.Text(compositeFailure.Quantity.ToString()));
             }
             else throw new NotSupportedException("the result field output type " + output.GetType().Name +
                                                  " has no API form");

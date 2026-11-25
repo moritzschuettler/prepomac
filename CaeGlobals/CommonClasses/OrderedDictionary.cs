@@ -44,15 +44,14 @@ namespace CaeGlobals
     /// <typeparam name="TKey">The types of the keys in the dictionary.</typeparam>
     /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
     /// 
-    [Serializable]
-    public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, ISerializable, IDeserializationCallback,
-                                                   IOrderedDictionaryItemLayout<TKey>
+    [PmxType(1011)]
+    public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDeserializationCallback, IOrderedDictionaryItemLayout<TKey>
     {
         // Variables                                                                                                                
-        private string _name;                               //ISerializable
-        private List<TKey> _list;                           //ISerializable
-        private Dictionary<TKey, TValue> _dictionary;       //ISerializable
-        private OrderedDictionaryItemLayout<TKey> _itemLayout;
+        [PmxKey(0)] private string _name;                               //ISerializable
+        [PmxKey(1)] private List<TKey> _list;                           //ISerializable
+        [PmxKey(2)] private Dictionary<TKey, TValue> _dictionary;       //ISerializable
+        [PmxKey(3)] private OrderedDictionaryItemLayout<TKey> _itemLayout;
 
         private const int _itemLayoutMagic = 0x314C444F;     // "ODL1"
         private const int _itemLayoutVersion = 1;
@@ -1101,6 +1100,7 @@ namespace CaeGlobals
         public void OnDeserialization(object sender)
         {
             _dictionary.OnDeserialization(sender);
+            if (sender is LegacyReadReport report) RemoveItemsOfRemovedTypes(report);
             //
             if (!IsOrderedKeyListValid())
             {
@@ -1122,13 +1122,25 @@ namespace CaeGlobals
                 }
             }
         }
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        private void RemoveItemsOfRemovedTypes(LegacyReadReport report)
         {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_list", _list, typeof(List<TKey>));
-            info.AddValue("_dictionary", _dictionary, typeof(Dictionary<TKey, TValue>));
-            info.AddValue("_itemLayout", SerializeItemLayout(), typeof(byte[]));
+            List<TKey> keys = new List<TKey>();
+            foreach (var entry in _dictionary)
+            {
+                if (entry.Value == null) keys.Add(entry.Key);
+            }
+            //
+            int index;
+            OrderedDictionaryItemNode<TKey> node;
+            List<OrderedDictionaryItemNode<TKey>> parent;
+            foreach (var key in keys)
+            {
+                _dictionary.Remove(key);
+                if (_list != null && (index = FindKeyIndex(key)) >= 0) _list.RemoveAt(index);
+                if (_itemLayout != null && TryFindItemNode(_itemLayout.MutableNodes, key, out node, out parent))
+                    parent.Remove(node);
+                report.AddWarning("The item " + key + " of " + _name + " was not read since its type no longer exists.");
+            }
         }
         private bool IsOrderedKeyListValid()
         {

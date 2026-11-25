@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class MassSection : Section, ISerializable
+    [PmxType(3199)]
+    public class MassSection : Section
     {
         // Variables                                                                                                                
-        private EquationContainer _mass;            //ISerializable
+        [PmxKey(0)] private EquationContainer _mass;            //ISerializable
         [NonSerialized]
         public string ElementSetName;               // used only for temporary storage while exporting to Calculix .inp
 
@@ -54,6 +54,11 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMass(_mass, false);
+        }
         private void SetMass(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _mass, value, CheckPositive, checkEquation);
@@ -80,14 +85,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_mass", _mass, typeof(EquationContainer));
         }
     }
 }

@@ -2,23 +2,24 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2081)]
     public class FeReferencePointMotion
     {
         // Variables                                                                                                                
-        private int[] _nodeIds;
-        private double[] _weights;
-        private bool[] _directions;
-        private bool _twoD;
+        [PmxKey(0)] private int[] _nodeIds;
+        [PmxKey(1)] private double[] _weights;
+        [PmxKey(2)] private bool[] _directions;
+        [PmxKey(3)] private bool _twoD;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,12 +22,12 @@ using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10506)]
     public abstract class ViewResultHistoryOutput : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private ResultHistoryOutput _resultHistoryOutput;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private ResultHistoryOutput _resultHistoryOutput;
 
 
         // Properties                                                                                                               

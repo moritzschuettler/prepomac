@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {   
-    [Serializable]
+    [PmxType(5019)]
     public abstract class ResultFieldOutput : NamedClass
     {
         // Variables                                                                                                                
-        private FieldResultFilter _filter1;
-        private FieldResultFilter _filter2;
+        [PmxKey(0)] private FieldResultFilter _filter1;
+        [PmxKey(1)] private FieldResultFilter _filter2;
 
 
         // Properties                                                                                                               

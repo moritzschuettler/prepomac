@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,15 +19,17 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10198)]
     class CAddLoad : PreprocessCommand, IFileDependentCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private Load _load;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private Load _load;
 
 
         // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string LoadName { get { return _load != null ? _load.Name : null; } }
         public string FileName
         {
             get

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -12,14 +12,14 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5044)]
     public enum AffineFitPointSourceEnum
     {
         Nodes,
         CellCentroids
     }
 
-    [Serializable]
+    [PmxType(5045)]
     public enum AffineFitWeightingEnum
     {
         Equal,
@@ -27,7 +27,7 @@ namespace CaeResults
         Perimeter
     }
 
-    [Serializable]
+    [PmxType(5046)]
     public enum AffineFitStrainMeasureEnum
     {
         Linear,
@@ -35,24 +35,24 @@ namespace CaeResults
         Logarithmic
     }
 
-    [Serializable]
+    [PmxType(5047)]
     public class ResultHistoryOutputFromAffineFit : ResultHistoryOutput
     {
         // Variables
-        private double _centerX;
-        private double _centerY;
-        private double _radius;
-        private double _taperStartFraction;
-        private AffineFitPointSourceEnum _pointSource;
-        private AffineFitWeightingEnum _weighting;
-        private double _cellAreaToleranceFraction;
-        private double _areaFilterRelativeMedian;
-        private AffineFitStrainMeasureEnum _strainMeasure;
-        private double _loadingDirectionX;
-        private double _loadingDirectionY;
-        private int _stepId;
-        private int _stepIncrementId;
-        private int _radiusSweepStepCount;
+        [PmxKey(0)] private double _centerX;
+        [PmxKey(1)] private double _centerY;
+        [PmxKey(2)] private double _radius;
+        [PmxKey(3)] private double _taperStartFraction;
+        [PmxKey(4)] private AffineFitPointSourceEnum _pointSource;
+        [PmxKey(5)] private AffineFitWeightingEnum _weighting;
+        [PmxKey(6)] private double _cellAreaToleranceFraction;
+        [PmxKey(7)] private double _areaFilterRelativeMedian;
+        [PmxKey(8)] private AffineFitStrainMeasureEnum _strainMeasure;
+        [PmxKey(9)] private double _loadingDirectionX;
+        [PmxKey(10)] private double _loadingDirectionY;
+        [PmxKey(11)] private int _stepId;
+        [PmxKey(12)] private int _stepIncrementId;
+        [PmxKey(13)] private int _radiusSweepStepCount;
         //
         private static readonly string[] _parentNames = new string[] { FOFieldNames.Disp };
 

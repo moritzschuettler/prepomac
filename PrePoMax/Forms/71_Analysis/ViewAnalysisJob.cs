@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -26,13 +26,13 @@ namespace PrePoMax.Forms
 {
     
 
-    [Serializable]
+    [PmxType(10495)]
     public class ViewAnalysisJob
     {
         // Variables                                                                                                                
-        protected AnalysisJob _job;
-        protected Dictionary<FEMSolverEnum, string[]> _solverSettings;
-        protected DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] protected AnalysisJob _job;
+        [PmxKey(1)] protected Dictionary<FEMSolverEnum, string[]> _solverSettings;
+        [PmxKey(2)] protected DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

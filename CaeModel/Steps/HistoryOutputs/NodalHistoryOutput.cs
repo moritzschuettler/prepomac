@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,7 +18,7 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3249)]
     [Flags]
     public enum NodalHistoryVariable
     {
@@ -31,11 +31,11 @@ namespace CaeModel
         RFL = 16,
     }
 
-    [Serializable]
-    public class NodalHistoryOutput : HistoryOutput, ISerializable
+    [PmxType(3250)]
+    public class NodalHistoryOutput : HistoryOutput
     {
         // Variables                                                                                                                
-        private NodalHistoryVariable _variables;            //ISerializable
+        [PmxKey(0)] private NodalHistoryVariable _variables;            //ISerializable
 
 
         // Properties                                                                                                               
@@ -63,16 +63,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_variables", _variables, typeof(NodalHistoryVariable));
-        }
     }
 }

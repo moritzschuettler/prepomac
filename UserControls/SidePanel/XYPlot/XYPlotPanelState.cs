@@ -2,25 +2,26 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
 using System.Collections.Generic;
+using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6215)]
     public class XYPlotPanelState
     {
         // Variables                                                                                                                
-        private string _title;
-        private int _columnCount;
-        private double _splitterRatio;
-        private List<XYPlotState> _plots;
-        private int _selectedPlotIndex;
+        [PmxKey(0)] private string _title;
+        [PmxKey(1)] private int _columnCount;
+        [PmxKey(2)] private double _splitterRatio;
+        [PmxKey(3)] private List<XYPlotState> _plots;
+        [PmxKey(4)] private int _selectedPlotIndex;
 
 
         // Properties                                                                                                               

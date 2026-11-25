@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,11 +19,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10376)]
     public class ViewSlipWear : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private SlipWear _slipWear;
+        [PmxKey(0)] private SlipWear _slipWear;
 
 
         // Properties                                                                                                               

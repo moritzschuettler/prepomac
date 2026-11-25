@@ -467,6 +467,21 @@ def write_plate_mesh(file_name):
         mesh_file.write("\n".join(lines) + "\n")
 
 
+def test_plus_sign_in_name(work):
+    # Load cases of offshore analyses carry signed directions in their names, so an analysis name takes a plus sign
+    name = PREFIX + "Wave+90"
+    pmx.jobs.add(name, work_directory=work)
+    check(name in list(pmx.jobs.get_names()), "the analysis name with a plus sign was not stored")
+    check_raises(lambda: pmx.jobs.add(PREFIX + "Wave*90"), "an analysis name with an asterisk was accepted")
+    check_raises(lambda: pmx.model.steps.add_static(PREFIX + "Step+1"), "a step name with a plus sign was accepted")
+    status = pmx.jobs[name].run(timeout=300)
+    check(status == "OK", "the analysis " + name + " did not succeed, got " + status + "\n" +
+          pmx.jobs[name].get_output()[-3000:])
+    check(os.path.isfile(os.path.join(work, name + ".frd")), "the analysis with a plus sign wrote no results file")
+    pmx.jobs.open_results(name)
+    pmx.jobs.remove(name)
+
+
 def solve_complex_frequency(name, work):
     pmx.jobs.add(name, work_directory=work)
     status = pmx.jobs[name].run(timeout=300)
@@ -1625,6 +1640,7 @@ def main():
         test_environment_variable_refusals()
         test_kill_and_open_results_refusals(work)
         test_long_names(work)
+        test_plus_sign_in_name(work)
         clean()
         test_complex_frequency_modes(work)
         clean()

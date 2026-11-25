@@ -1,8 +1,8 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -25,6 +25,9 @@ namespace APIs.Python.Model
         // so a selection targets parts while a named region is an element set or a part
         private static readonly string[] PartTargets = new string[] { "parts" };
         private static readonly string[] ElementRegionTargets = new string[] { "elements" };
+        // The dialog picks geometry edges, which the controller keeps in a node set, so a named region is a node set
+        private static readonly string[] EdgeTargets = new string[] { "edges" };
+        private static readonly string[] NodeTargets = new string[] { "nodes" };
         private readonly LoadService _service;
 
 
@@ -41,8 +44,8 @@ namespace APIs.Python.Model
                    "nonzero, as the dialog refuses a zero force. A two dimensional model refuses a nonzero " +
                    "f3. The phase_deg applies only in a steady_state_dynamics step, where a load is complex, " +
                    "and is refused elsewhere; it is at least 0 and below 360 degrees. Only a concentrated " +
-                   "force and a surface traction take a coordinate_system_name other than Global; the other " +
-                   "loads refuse it. The selection target is nodes.",
+                   "force, a surface traction, a body force and an edge load take a coordinate_system_name " +
+                   "other than Global; the other loads refuse it. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, " +
                                "f2: float = None, f3: float = None, amplitude_name: str = None, " +
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
@@ -130,7 +133,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             DLoad load = new DLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveScalarDistributionName(distribution_name, "a pressure");
@@ -179,7 +182,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             HydrostaticPressure load =
                 new HydrostaticPressure(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyHydrostaticPressure(load, first_point, second_point, direction,
                                                  first_point_pressure, second_point_pressure, cutoff);
             //
@@ -229,7 +232,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             ImportedPressure load =
                 new ImportedPressure(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             load.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             LoadFactory.ApplyImportedPressure(load, pressure_time, pressure_variable_name, interpolator_type,
                                               magnitude_factor, geometry_scale_factor);
@@ -281,7 +284,7 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", false);
             _service.ValidateName(StepName, nameText, null);
             STLoad load = new STLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
             LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
@@ -311,7 +314,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a shell edge load using command history. A magnitude of 0 is refused. The selection " +
-                   "target is surfaces.",
+                   "target is surfaces. The dialog no longer offers it for a new load: add_edge_load with a " +
+                   "normal replaces it, and it is kept for existing models and scripts.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
         public LoadAPI add_shell_edge_load(object name, object region, object magnitude,
@@ -326,7 +330,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("A shell edge load loads the edges of shell elements, which a two " +
                                              "dimensional model does not have, as the dialog does not offer it there.");
             ShellEdgeLoad load = new ShellEdgeLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -429,6 +433,109 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
+        [PythonAPI("Adds a body force using command history: a force per unit volume written as *Dload BX, BY " +
+                   "and BZ. At least one of f1, f2 and f3 must be nonzero, and a two dimensional model refuses a " +
+                   "nonzero f3. With a distribution, the distribution is evaluated at the element centroids and " +
+                   "multiplies the components, a scalar one all three and a vector one each its own. In a " +
+                   "cylindrical coordinate system the components are radial, tangential and axial. The selection " +
+                   "target is parts, as the dialog picks them.",
+                   Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
+                               "f3: float = None, distribution_name: str = None, and the shared load arguments",
+                   Returns = "Load",
+                   Example = "step.loads.add_body_force('Magnet_force', part_selection, f1=2e-3, " +
+                             "coordinate_system_name='Cylindrical')")]
+        public LoadAPI add_body_force(object name, object region, object f1 = null, object f2 = null,
+                                      object f3 = null, object distribution_name = null,
+                                      object amplitude_name = null, object coordinate_system_name = null,
+                                      object phase_deg = null, object color = null)
+        {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            BodyForce load = new BodyForce(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyBodyForce(load, f1, f2, f3);
+            //
+            return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
+        [PythonAPI("Replaces an existing body force using command history.",
+                   Arguments = "old_name: str, name: str = None, and the arguments of add_body_force",
+                   Returns = "Load")]
+        public LoadAPI replace_body_force(object old_name, object name = null, object region = null,
+                                          object f1 = null, object f2 = null, object f3 = null,
+                                          object distribution_name = null, object amplitude_name = null,
+                                          object coordinate_system_name = null, object phase_deg = null,
+                                          object color = null)
+        {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            BodyForce load = _service.CloneForReplace<BodyForce>(StepName, oldName, "body_force");
+            if (region != null) _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyBodyForce(load, f1, f2, f3);
+            //
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
+        [PythonAPI("Adds an edge load using command history: a force per unit length on geometry edges of solid, " +
+                   "shell or two dimensional parts, written as the equivalent nodal forces in *Cload lines. At " +
+                   "least one of f1, f2 and f3 must be nonzero, and a two dimensional model refuses a nonzero f3. " +
+                   "An axisymmetric model refuses an edge load. With a distribution, the distribution is evaluated " +
+                   "at the edge nodes and multiplies the components, a scalar one all three and a vector one each " +
+                   "its own. In a cylindrical coordinate system the components are radial, tangential and axial. " +
+                   "A nonzero normal instead of the components acts normal to the edge in the plane of the shell " +
+                   "or of the two dimensional part, a positive one pointing into the part as a pressure does; it " +
+                   "needs edges that bound one shell or two dimensional element each, a scalar distribution and " +
+                   "no coordinate system, and replaces the normal shell edge load. On a shell it is written as " +
+                   "*Dload EDNOR with the mean value over each element edge, on a two dimensional part as nodal " +
+                   "forces. " +
+                   "The selection target is edges; a named region is a node set created by picking geometry edges.",
+                   Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
+                               "f3: float = None, normal: float = None, distribution_name: str = None, and the " +
+                               "shared load arguments",
+                   Returns = "Load",
+                   Example = "step.loads.add_edge_load('Line_load', edge_selection, f3=-2.5)")]
+        public LoadAPI add_edge_load(object name, object region, object f1 = null, object f2 = null,
+                                     object f3 = null, object normal = null,
+                                     object distribution_name = null, object amplitude_name = null,
+                                     object coordinate_system_name = null, object phase_deg = null,
+                                     object color = null)
+        {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            EdgeLoad load = new EdgeLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            _service.ApplyRegion(load, region, EdgeTargets, NodeTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyEdgeLoad(load, f1, f2, f3, normal);
+            //
+            return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
+        [PythonAPI("Replaces an existing edge load using command history.",
+                   Arguments = "old_name: str, name: str = None, and the arguments of add_edge_load",
+                   Returns = "Load")]
+        public LoadAPI replace_edge_load(object old_name, object name = null, object region = null,
+                                         object f1 = null, object f2 = null, object f3 = null,
+                                         object normal = null,
+                                         object distribution_name = null, object amplitude_name = null,
+                                         object coordinate_system_name = null, object phase_deg = null,
+                                         object color = null)
+        {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            EdgeLoad load = _service.CloneForReplace<EdgeLoad>(StepName, oldName, "edge_load");
+            if (region != null) _service.ApplyRegion(load, region, EdgeTargets, NodeTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyEdgeLoad(load, f1, f2, f3, normal);
+            //
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
                    "unless a non-zero one is given; auto_direction=True, the default, cannot be combined with a " +
                    "direction, " +
@@ -448,7 +555,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             PreTensionLoad load = new PreTensionLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, auto_direction);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -522,7 +629,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             DFlux load = new DFlux(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceFlux(load, magnitude);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -596,7 +703,7 @@ namespace APIs.Python.Model
             RefuseNone(sink_temperature, "sink_temperature");
             RefuseNone(film_coefficient, "film_coefficient");
             FilmHeatTransfer load = new FilmHeatTransfer(nameText, null, RegionTypeEnum.Selection, 0, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyFilmHeatTransfer(load, sink_temperature, film_coefficient);
             if (coefficient_amplitude_name != null)
                 load.CoefficientAmplitudeName =
@@ -652,7 +759,7 @@ namespace APIs.Python.Model
             RefuseNone(emissivity, "emissivity");
             RadiationHeatTransfer load =
                 new RadiationHeatTransfer(nameText, null, RegionTypeEnum.Selection, 0, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyRadiationHeatTransfer(load, sink_temperature, emissivity, cavity_radiation);
             ApplyRadiationNames(load, cavity_name, emissivity_amplitude_name);
             //
@@ -757,7 +864,7 @@ namespace APIs.Python.Model
         }
         private void ApplyRegionIfGiven(Load load, object region, string target)
         {
-            if (region != null) _service.ApplyRegion(load, region, target);
+            if (region != null) _service.ApplyLoadRegion(load, region, target);
         }
         private void ApplyRadiationNames(RadiationHeatTransfer load, object cavityName,
                                          object emissivityAmplitudeName)

@@ -2,36 +2,37 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class ShellQuadWild : MeshSetupItem, ISerializable
+    [PmxType(2128)]
+    public class ShellQuadWild : MeshSetupItem
     {
         // Variables
-        private MesherTypeEnum _triangulationMesher;                      // ISerializable
-        private bool _preview;                                           // ISerializable
-        private bool _smooth;                                            // ISerializable
-        private double _alpha;                                           // ISerializable
-        private QuadWildFlowProfileEnum _flowProfile;                     // ISerializable
-        private QuadWildBoundaryLayerEnum _boundaryLayer;                 // ISerializable
-        private bool _keepFilesOnFailure;                                // ISerializable
-        private bool _debugVisualization;                                // ISerializable
-        private bool _oldAlgorithm;                                      // ISerializable
-        private bool _pinEdgeNodes;                                      // ISerializable
-        private bool _edgeRotations;                                     // ISerializable
-        private double _singularityPosition;                             // ISerializable
-        private int _countSearch;                                        // ISerializable
-        private TransfiniteThreeSidedEnum _transfiniteThreeSided;        // ISerializable
-        private bool _transfiniteFourSided;                              // ISerializable
-        private double _transfiniteAngleDeg;                             // ISerializable
+        [PmxKey(0)] private MesherTypeEnum _triangulationMesher;                      // ISerializable
+        [PmxKey(1)] private bool _preview;                                           // ISerializable
+        [PmxKey(2)] private bool _smooth;                                            // ISerializable
+        [PmxKey(3)] private double _alpha;                                           // ISerializable
+        [PmxKey(4)] private QuadWildFlowProfileEnum _flowProfile;                     // ISerializable
+        [PmxKey(5)] private QuadWildBoundaryLayerEnum _boundaryLayer;                 // ISerializable
+        [PmxKey(6)] private bool _keepFilesOnFailure;                                // ISerializable
+        [PmxKey(7)] private bool _debugVisualization;                                // ISerializable
+        [PmxKey(8)] private bool _oldAlgorithm;                                      // ISerializable
+        [PmxKey(9)] private bool _pinEdgeNodes;                                      // ISerializable
+        [PmxKey(10)] private bool _edgeRotations;                                     // ISerializable
+        [PmxKey(11)] private double _singularityPosition;                             // ISerializable
+        [PmxKey(12)] private int _countSearch;                                        // ISerializable
+        [PmxKey(13)] private TransfiniteThreeSidedEnum _transfiniteThreeSided;        // ISerializable
+        [PmxKey(14)] private bool _transfiniteFourSided;                              // ISerializable
+        [PmxKey(15)] private double _transfiniteAngleDeg;                             // ISerializable
 
 
         // Properties
@@ -188,28 +189,6 @@ namespace CaeMesh
             _transfiniteThreeSided = shellQuadWild._transfiniteThreeSided;
             _transfiniteFourSided = shellQuadWild._transfiniteFourSided;
             _transfiniteAngleDeg = shellQuadWild._transfiniteAngleDeg;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_triangulationMesher", _triangulationMesher, typeof(MesherTypeEnum));
-            info.AddValue("_preview", _preview, typeof(bool));
-            info.AddValue("_smooth", _smooth, typeof(bool));
-            info.AddValue("_alpha", _alpha, typeof(double));
-            info.AddValue("_flowProfile", _flowProfile, typeof(QuadWildFlowProfileEnum));
-            info.AddValue("_boundaryLayer", _boundaryLayer, typeof(QuadWildBoundaryLayerEnum));
-            info.AddValue("_keepFilesOnFailure", _keepFilesOnFailure, typeof(bool));
-            info.AddValue("_debugVisualization", _debugVisualization, typeof(bool));
-            info.AddValue("_oldAlgorithm", _oldAlgorithm, typeof(bool));
-            info.AddValue("_pinEdgeNodes", _pinEdgeNodes, typeof(bool));
-            info.AddValue("_edgeRotations", _edgeRotations, typeof(bool));
-            info.AddValue("_singularityPosition", _singularityPosition, typeof(double));
-            info.AddValue("_countSearch", _countSearch, typeof(int));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
-            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }
     }
 }

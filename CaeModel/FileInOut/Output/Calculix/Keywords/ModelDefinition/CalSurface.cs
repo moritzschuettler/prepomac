@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,15 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3075)]
     internal class CalSurface : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected FeSurface _surface;
-        protected bool _twoD;
+        [PmxKey(0)] protected FeSurface _surface;
+        [PmxKey(1)] protected bool _twoD;
 
 
         // Properties                                                                                                               

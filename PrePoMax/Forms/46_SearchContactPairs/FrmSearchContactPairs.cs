@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -28,7 +28,8 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private string missing = "Missing";
         private string[] _surfaceInteractionNames;
-        private static string[] _contactPairMethodNames;
+        // Static, because a script adds the searched pairs without the dialog ever having been opened
+        private static readonly string[] _contactPairMethodNames = new string[] { "Node to surface", "Surface to surface" };
         private ContactSearch _contactSearch;
         private List<SearchContactPair> _selectedContactPairs;
         private bool _firstTime;
@@ -58,7 +59,6 @@ namespace PrePoMax.Forms
             cbType.SelectedIndex = 0;
             cbSurfaceInteraction.Enabled = false;
             // Method
-            _contactPairMethodNames = new string[] { "Node to surface", "Surface to surface" };
             cbContactPairMethod.Items.Add(_contactPairMethodNames[0]);
             cbContactPairMethod.Items.Add(_contactPairMethodNames[1]);
             cbContactPairMethod.SelectedIndex = 1;
@@ -201,18 +201,7 @@ namespace PrePoMax.Forms
                 if (binding != null)
                 {
                     List<SearchContactPair> contactPairs = binding.DataSource as List<SearchContactPair>;
-                    List<SearchContactPair> tiedContactPairs = new List<SearchContactPair>();
-                    List<SearchContactPair> contactContactPairs = new List<SearchContactPair>();
-                    //
-                    foreach (SearchContactPair contactPair in contactPairs)
-                    {
-                        if (contactPair.Type == SearchContactPairType.Tie) tiedContactPairs.Add(contactPair);
-                        else if (contactPair.Type == SearchContactPairType.Contact) contactContactPairs.Add(contactPair);
-                        else throw new NotSupportedException();
-                    }
-                    //
-                    _controller.AutoCreateTiedPairs(tiedContactPairs);
-                    _controller.AutoCreateContactPairs(contactContactPairs);
+                    _controller.AddSearchedContactPairsCommand(contactPairs);
                     //
                     btnCancel_Click(null, null);
                 }

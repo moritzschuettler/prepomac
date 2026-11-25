@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2060)]
     public enum SplitExtrusionLengthTypeEnum
     {
         [StandardValue("ThroughRegion", DisplayName = "Through the region")]

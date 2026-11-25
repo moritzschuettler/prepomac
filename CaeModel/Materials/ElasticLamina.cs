@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,8 +13,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ElasticLamina : MaterialProperty, ISerializable
+    [PmxType(3178)]
+    public class ElasticLamina : MaterialProperty
     {
         // Variables                                                                                                                
         public const int YoungsModulus1Id = 0;
@@ -25,10 +25,10 @@ namespace CaeModel
         public const int ShearModulus23Id = 5;
         public const int TemperatureId = 6;
         public const int NumberOfValues = 7;
-        private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
         // The Lamina of the composites modeler of Yvan Blanchard completed the out-of-plane constants with v23 = v12; the
         // laminae of its files keep that, so the models made with it are analyzed as they were
-        private bool _poissonsRatio23IsPoissonsRatio12;             //ISerializable
+        [PmxKey(900)] private bool _poissonsRatio23IsPoissonsRatio12;             //ISerializable
 
 
         // Properties                                                                                                               
@@ -75,6 +75,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetLaminaConstantsTemp(_laminaConstantsTemp, false);
+        }
         private void SetLaminaConstantsTemp(double[][] value, bool checkEquation = true)
         {
             CheckDataSize(value);
@@ -200,14 +205,6 @@ namespace CaeModel
                 CheckStability(i);
             }
             CheckTemperatures();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_laminaConstantsTemp", _laminaConstantsTemp, typeof(EquationContainer[][]));
-            info.AddValue("_poissonsRatio23IsPoissonsRatio12", _poissonsRatio23IsPoissonsRatio12);
         }
     }
 }

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,12 +18,12 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3077)]
     internal class CalTransform : CalculixKeyword
     {
         // Variables                                                                                                                
-        private CoordinateSystem _coordinateSystem;
-        private string _nodeSetName;
+        [PmxKey(0)] private CoordinateSystem _coordinateSystem;
+        [PmxKey(1)] private string _nodeSetName;
 
 
         // Properties                                                                                                               

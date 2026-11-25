@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,12 +18,12 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class VariablePressure : Load, ISerializable
+    [PmxType(3271)]
+    public abstract class VariablePressure : Load
     {
         // Variables                                                                                                                
-        protected string _surfaceName;          //ISerializable
-        protected RegionTypeEnum _regionType;   //ISerializable
+        [PmxKey(0)] protected string _surfaceName;          //ISerializable
+        [PmxKey(1)] protected RegionTypeEnum _regionType;   //ISerializable
 
 
         // Properties                                                                                                               
@@ -62,14 +62,5 @@ namespace CaeModel
         // Methods                                                                                                                  
         public abstract double GetPressureForPoint(FeModel model, double[] point);
         public abstract double[] GetPressuresForPoints(FeModel model, double[][] points);
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-        }
     }
 }

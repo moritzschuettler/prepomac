@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,11 +20,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10472)]
     public class ViewRadiationHeatTransfer : ViewLoad
     {
         // Variables                                                                                                                
-        private RadiationHeatTransfer _radiationHeatTransfer;
+        [PmxKey(0)] private RadiationHeatTransfer _radiationHeatTransfer;
 
 
         // Properties                                                                                                               

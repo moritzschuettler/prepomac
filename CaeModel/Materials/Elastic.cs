@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,11 +20,11 @@ using System.Xml.Linq;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class Elastic : MaterialProperty, ISerializable
+    [PmxType(3176)]
+    public class Elastic : MaterialProperty
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _youngsPoissonsTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _youngsPoissonsTemp;         //ISerializable
 
 
         // Properties                                                                                                               
@@ -82,6 +82,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetYoungsPoissonsTemp(_youngsPoissonsTemp, false);
+        }
         private void SetYoungsPoissonsTemp(double[][] value, bool checkEquation = true)
         {
             _youngsPoissonsTemp = new EquationContainer[value.Length][];
@@ -115,14 +120,6 @@ namespace CaeModel
                 _youngsPoissonsTemp[i][1].CheckEquation();
                 _youngsPoissonsTemp[i][2].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_youngsPoissonsTemp", _youngsPoissonsTemp, typeof(EquationContainer[][]));
         }
     }
 }

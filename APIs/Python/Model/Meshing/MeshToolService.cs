@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -97,6 +97,25 @@ namespace APIs.Python.Model
             //
             EnsureCommandsAvailable();
             _meshGateway.ThickenShellMesh(names, thicknessValue, layers, offsetValue, keepModelEdges);
+        }
+        public void ChangeElementOrder(object partNames, bool secondOrder, bool projectToGeometry)
+        {
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
+            if (names == null || names.Length == 0)
+                throw new PythonAPIException("The argument 'part_names' must not be empty.");
+            //
+            PythonNameComparer.RefuseRepeated(names, "part_names");
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            names = PythonModelArgumentCheck.ToStoredPartNames(mesh, names, "model");
+            string error;
+            foreach (string name in names)
+            {
+                error = FeMesh.GetChangeElementOrderError(mesh.Parts[name], mesh.Elements);
+                if (error != null) throw new PythonAPIException(error + " The argument 'part_names' names it.");
+            }
+            //
+            EnsureCommandsAvailable();
+            _meshGateway.ChangeElementOrder(names, secondOrder, projectToGeometry);
         }
         public void SplitPartMeshUsingSurface(object basePartRegion, object splitterSurfaceRegion,
                                               object offset, object maxSize, object minSize, object hausdorff,

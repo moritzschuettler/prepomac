@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -135,8 +135,10 @@ namespace CaeMesh.Sweep
                 //
                 double[] closestCoord;
                 double[] parametricCoord;
-                Gmsh.Model.GetClosestPoint(2, entry.Key, input, out closestCoord, out parametricCoord);
-                if (closestCoord.Length != 3 * count || parametricCoord.Length != 2 * count) continue;
+                Gmsh.Model.GetClosestPoint(2, entry.Key, input, out closestCoord, out _);
+                if (closestCoord.Length != 3 * count) continue;
+                Gmsh.Model.GetParametrization(2, entry.Key, closestCoord, out parametricCoord);
+                if (parametricCoord.Length != 2 * count) continue;
                 // Accept a move only if it does not make the elements around the node worse. gmsh projects onto the
                 // surface a face is cut from, unbounded, so a node of a target split into faces of one plane could
                 // slide onto the face beside its own and keep the parameters of its own; it stays inside its face

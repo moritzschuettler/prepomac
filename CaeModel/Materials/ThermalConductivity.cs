@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ThermalConductivity : MaterialProperty, ISerializable
+    [PmxType(3186)]
+    public class ThermalConductivity : MaterialProperty
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _thermalConductivityTemp;
+        [PmxKey(0)] private EquationContainer[][] _thermalConductivityTemp;
 
 
         // Properties                                                                                                               
@@ -63,6 +63,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetThermalConductivityTemp(_thermalConductivityTemp, false);
+        }
         private void SetThermalConductivityTemp(double[][] value, bool checkEquation = true)
         {
             _thermalConductivityTemp = new EquationContainer[value.Length][];
@@ -94,14 +99,6 @@ namespace CaeModel
                 _thermalConductivityTemp[i][0].CheckEquation();
                 _thermalConductivityTemp[i][1].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_thermalConductivityTemp", _thermalConductivityTemp, typeof(EquationContainer[][]));
         }
     }
 }

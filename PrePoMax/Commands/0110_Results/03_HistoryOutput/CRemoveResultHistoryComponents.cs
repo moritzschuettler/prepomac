@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,16 +16,17 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10262)]
     class CRemoveResultHistoryComponents : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _historyResultSetName;
-        private string _historyResultFieldName;
-        private string[] _historyResultComponentNames;
+        [PmxKey(0)] private string _historyResultSetName;
+        [PmxKey(1)] private string _historyResultFieldName;
+        [PmxKey(2)] private string[] _historyResultComponentNames;
 
 
         // Constructor                                                                                                              

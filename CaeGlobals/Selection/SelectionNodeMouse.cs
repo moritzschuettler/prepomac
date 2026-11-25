@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,20 +16,20 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
-    public class SelectionNodeMouse : SelectionNode, ISerializable
+    [PmxType(1029)]
+    public class SelectionNodeMouse : SelectionNode
     {
         // Variables                                                                                                                
-        private double[] _pickedPoint;                                  //ISerializable
-        private double[] _selectionDirection;                           //ISerializable
-        private double[][] _planeParameters; // Ox,Oy,Oz,Nx,Ny,Nz       //ISerializable
-        private bool _completelyInside;                                 //ISerializable
-        private vtkSelectBy _selectBy;                                  //ISerializable
-        private double _angle;                                          //ISerializable
-        private double[][] _partOffsets;                                //ISerializable
-        private double _precision;                                      //ISerializable
-        private bool _pickedOnUndeformedGeometry;                       //ISerializable
-        private bool _partIdsGiven;                                     //ISerializable
+        [PmxKey(0)] private double[] _pickedPoint;                                  //ISerializable
+        [PmxKey(1)] private double[] _selectionDirection;                           //ISerializable
+        [PmxKey(2)] private double[][] _planeParameters; // Ox,Oy,Oz,Nx,Ny,Nz       //ISerializable
+        [PmxKey(3)] private bool _completelyInside;                                 //ISerializable
+        [PmxKey(4)] private vtkSelectBy _selectBy;                                  //ISerializable
+        [PmxKey(5)] private double _angle;                                          //ISerializable
+        [PmxKey(6)] private double[][] _partOffsets;                                //ISerializable
+        [PmxKey(7)] private double _precision;                                      //ISerializable
+        [PmxKey(8)] private bool _pickedOnUndeformedGeometry;                       //ISerializable
+        [PmxKey(9)] private bool _partIdsGiven;                                     //ISerializable
 
 
         // Properties                                                                                                               
@@ -186,22 +186,6 @@ namespace CaeGlobals
             if (length == 0) return vector;
             return new double[] { vector[0] * targetLength / length, vector[1] * targetLength / length,
                                   vector[2] * targetLength / length };
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_pickedPoint", _pickedPoint, typeof(double[]));
-            info.AddValue("_selectionDirection", _selectionDirection, typeof(double[]));
-            info.AddValue("_planeParameters", _planeParameters, typeof(double[][]));
-            info.AddValue("_completelyInside", _completelyInside, typeof(bool));
-            info.AddValue("_selectBy", _selectBy, typeof(vtkSelectBy));
-            info.AddValue("_angle", _angle, typeof(double));
-            info.AddValue("_partOffsets", _partOffsets, typeof(double[][]));
-            info.AddValue("_precision", _precision, typeof(double));
-            info.AddValue("_pickedOnUndeformedGeometry", _pickedOnUndeformedGeometry, typeof(bool));
-            info.AddValue("_partIdsGiven", _partIdsGiven, typeof(bool));
         }
 
 

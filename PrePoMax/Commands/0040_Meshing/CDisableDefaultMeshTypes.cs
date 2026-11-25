@@ -2,13 +2,14 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
@@ -25,7 +26,7 @@ namespace PrePoMax.Commands
     /// Removing this command from the command history is what asks an older model to be meshed the way this
     /// version meshes it.
     /// </summary>
-    [Serializable]
+    [PmxType(10073)]
     class CDisableDefaultMeshTypes : PreprocessCommand
     {
         // Constructor

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using CaeJob;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10229)]
     class CReplaceJob : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldJobName;
-        private AnalysisJob _newJob;
+        [PmxKey(0)] private string _oldJobName;
+        [PmxKey(1)] private AnalysisJob _newJob;
 
         // Constructor                                                                                                              
         public CReplaceJob(string oldJobName, AnalysisJob newJob)

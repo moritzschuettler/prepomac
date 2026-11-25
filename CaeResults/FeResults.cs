@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -37,8 +37,8 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeResults
 {
-    [Serializable]
-    public class FeResults : ISerializable
+    [PmxType(5008)]
+    public class FeResults
     {
         // Variables                                                                                                                
         [NonSerialized]
@@ -142,19 +142,20 @@ namespace CaeResults
                            FOComponentNames.ME12, FOComponentNames.ME23, FOComponentNames.ME13 }
         };
         //
-        private string _hashName;
-        private string _fileName;
-        private FeMesh _mesh;
-        private CaeGlobals.OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
-        private ShellResultData _shellResultData;
-        private CaeGlobals.OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
+        [PmxKey(0)] private string _hashName;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private FeMesh _mesh;
+        [PmxKey(3)] private CaeGlobals.OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
+        [PmxKey(4)] private ShellResultData _shellResultData;
+        [PmxKey(5)] private CaeGlobals.OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
         [NonSerialized]
         private HistoryResults _history;
-        private DateTime _dateTime;
-        private UnitSystem _unitSystem;
-        private string _deformationFieldOutputName;
-        private ComplexResultTypeEnum _complexResultType;
-        private float _complexAngleDeg;
+        [PmxKey(6)] private DateTime _dateTime;
+        [PmxKey(7)] private UnitSystem _unitSystem;
+        [PmxKey(8)] private string _deformationFieldOutputName;
+        [PmxKey(9)] private ComplexResultTypeEnum _complexResultType;
+        [PmxKey(10)] private float _complexAngleDeg;
+        [PmxKey(11)]
         private string _modelSpace;                             // null for a results file whose heading does not name it
 
 
@@ -293,28 +294,11 @@ namespace CaeResults
             //
             return rhofi;
         }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_hashName", _hashName, typeof(string));
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_resultFieldOutputs", _resultFieldOutputs, typeof(CaeGlobals.OrderedDictionary<string, ResultFieldOutput>));
-            info.AddValue("_resultHistoryOutputs", _resultHistoryOutputs, typeof(CaeGlobals.OrderedDictionary<string, ResultHistoryOutput>));
-            //info.AddValue("_history", _history, typeof(HistoryResults)); - not needed - Compatibility for version v2.3.5
-            info.AddValue("_dateTime", _dateTime, typeof(DateTime));
-            info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
-            info.AddValue("_deformationFieldOutputName", _deformationFieldOutputName, typeof(string));
-            info.AddValue("_complexResultType", _complexResultType, typeof(ComplexResultTypeEnum));
-            info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
-            info.AddValue("_modelSpace", _modelSpace, typeof(string));
-            info.AddValue("_shellResultData", _shellResultData, typeof(ShellResultData));
-        }
 
 
         // Static methods                                                                                                           
-        public static void WriteToFileStream(FeResults results, FileStream fileStream, CompressionLevel compressionLevel)
+        public static void WriteToFileStream(FeResults results, Stream fileStream, CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (results == null)
             {
@@ -349,7 +333,8 @@ namespace CaeResults
                     bw.Flush();
                     bw.BaseStream.Position = 0;
                     // Compress the writer
-                    byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                    byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                            ((MemoryStream)bw.BaseStream).ToArray();
                     // Write the length of the compressed data
                     Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                     // Write the compressed data
@@ -386,7 +371,8 @@ namespace CaeResults
                             bw.Flush();
                             bw.BaseStream.Position = 0;
                             // Compress the writer
-                            byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                            byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                                    ((MemoryStream)bw.BaseStream).ToArray();
                             // Write the length of the compressed data
                             Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                             // Write the compressed data
@@ -411,11 +397,11 @@ namespace CaeResults
                     // Write the history state
                     Tools.WriteIntToFileStream(fileStream, 1);
                     //
-                    HistoryResults.WriteToFileStream(results._history, fileStream, compressionLevel);
+                    HistoryResults.WriteToFileStream(results._history, fileStream, compressionLevel, compressBlocks);
                 }
             }
         }
-        public static void ReadFromFileStream(FeResults results, FileStream fileStream, int version)
+        public static void ReadFromFileStream(FeResults results, Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             int numOfBytes;
@@ -433,7 +419,7 @@ namespace CaeResults
                 fileStream.Read(compressedData, 0, compressedData.Length);
                 //
                 using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                 {
                     FeMesh.ReadFromBinaryReader(results.Mesh, br, version);
                     //
@@ -461,7 +447,7 @@ namespace CaeResults
                         fileStream.Read(compressedData, 0, compressedData.Length);
                         //
                         using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                        using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                        using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                         {
                             try
                             {
@@ -496,7 +482,7 @@ namespace CaeResults
                     exists = Tools.ReadIntFromFileStream(fileStream);
                     if (exists == 1)
                     {
-                        results._history = HistoryResults.ReadFromFileStream(fileStream, version);
+                        results._history = HistoryResults.ReadFromFileStream(fileStream, version, blocksCompressed);
                     }
                 }
             }
@@ -643,6 +629,11 @@ namespace CaeResults
                         {
                             valid &= HasShellResultData();
                             valid &= IsShellSourceField(resultFieldOutput.GetParentNames()[0]);
+                            if (resultFieldOutput is ResultFieldOutputShellPlaneStress rfosps)
+                                valid &= IsShellQuantityValid(rfosps.FieldName, rfosps.Quantity);
+                            else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
+                                valid &= rfocf.Quantity != ShellInPlaneQuantityEnum.Strain &&
+                                         IsShellQuantityValid(rfocf.FieldName, rfocf.Quantity);
                         }
                         else throw new NotSupportedException();
                     }
@@ -2064,6 +2055,14 @@ namespace CaeResults
                         unitConverter = new StringPressureConverter();
                         unitAbbreviation = _unitSystem.PressureUnitAbbreviation;
                         break;
+                    case FOFieldNames.ForcePerVolume:
+                        unitConverter = new StringForcePerVolumeConverter();
+                        unitAbbreviation = _unitSystem.ForceUnitAbbreviation + "/" + _unitSystem.VolumeUnitAbbreviation;
+                        break;
+                    case FOFieldNames.ForcePerLength:
+                        unitConverter = new StringForcePerLengthConverter();
+                        unitAbbreviation = _unitSystem.ForcePerLengthUnitAbbreviation;
+                        break;
                     // Preview
                     case FOFieldNames.PrescribedDisp:
                         unitConverter = new StringLengthConverter();
@@ -2106,6 +2105,12 @@ namespace CaeResults
                             {
                                 unitConverter = new StringAngleDegConverter();
                                 unitAbbreviation = StringAngleDegConverter.GetUnitAbbreviation();
+                            }
+                            else if (rfo4 is ResultFieldOutputShellPlaneStress rfosps &&
+                                     rfosps.Quantity == ShellInPlaneQuantityEnum.PlaneStressFromStrain)
+                            {
+                                unitConverter = new StringPressureConverter();
+                                unitAbbreviation = _unitSystem.PressureUnitAbbreviation;
                             }
                             else
                             {
@@ -2785,6 +2790,19 @@ namespace CaeResults
                  resultFieldOutput is ResultFieldOutputShellPlaneStress)) return false;
             return true;
         }
+        // A strain field has no unit, which a stress field has
+        public bool IsStrainField(string fieldName)
+        {
+            string[] componentNames = GetFieldComponentNames(fieldName);
+            if (componentNames == null || componentNames.Length == 0) return false;
+            return GetFieldUnitAbbreviation(fieldName, componentNames[0], 1, 1) == "/";
+        }
+        // The stresses as solved need a stress field, and the plane stresses from the strains and the strains a strain
+        // field, or the stiffness of the plies would turn stresses into stresses
+        public bool IsShellQuantityValid(string fieldName, ShellInPlaneQuantityEnum quantity)
+        {
+            return IsStrainField(fieldName) == (quantity != ShellInPlaneQuantityEnum.Stress);
+        }
         public bool DoesFieldContainsAllNecessaryComponents(string fieldName)
         {
             foreach (var entry in _fields)
@@ -3330,6 +3348,11 @@ namespace CaeResults
         {
             if (fieldData == null) return false;
             //
+            if (_resultFieldOutputs.TryGetValue(fieldData.Name, out ResultFieldOutput resultFieldOutput) &&
+                resultFieldOutput is ResultFieldOutputShellPlaneStress rfosps)
+                return HasShellResultData() && GetFieldForPlot(fieldData) != null &&
+                       IsShellPlaneStressPlotComponent(rfosps, fieldData.Component);
+            //
             Field field = GetFieldForPlot(fieldData);
             if (field == null || field.DataType != DataTypeEnum.Tensor ||
                 !field.ContainsComponent(fieldData.Component)) return false;
@@ -3349,6 +3372,9 @@ namespace CaeResults
             directions = null;
             values = null;
             if (globalNodeIds == null || !IsTensorPlotComponent(fieldData)) return false;
+            if (_resultFieldOutputs.TryGetValue(fieldData.Name, out ResultFieldOutput resultFieldOutput) &&
+                resultFieldOutput is ResultFieldOutputShellPlaneStress)
+                return GetShellPlaneStressPlotValues(fieldData, globalNodeIds, out directions, out values);
             //
             Field field = GetFieldForPlot(fieldData);
             if (!TryGetTensorComponentNames(field, out string[] componentNames)) return false;
@@ -3382,9 +3408,14 @@ namespace CaeResults
                 }
             }
             //
-            // Components in the material axes of each element have no common frame to plot in
+            // Components in the material axes are drawn along the material axes of the node
+            Dictionary<int, ShellResultElement[]> nodeElements = null;
             if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
-                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputMaterialAxes) return false;
+                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputMaterialAxes)
+            {
+                if (!HasShellResultData()) return false;
+                nodeElements = _shellResultData.GetNodeElements(_mesh);
+            }
             CoordinateSystem coordinateSystem = null;
             if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
                 _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform transform)
@@ -3433,7 +3464,19 @@ namespace CaeResults
                 double x;
                 double y;
                 double z;
-                if (coordinateSystem != null && _undeformedNodes.TryGetValue(globalNodeIds[i], out FeNode node))
+                if (nodeElements != null)
+                {
+                    if (!nodeElements.TryGetValue(globalNodeIds[i], out ShellResultElement[] elements))
+                    {
+                        directions[i] = null;
+                        continue;
+                    }
+                    double[] global = GetGlobalDirection(elements[0], lx, ly, lz);
+                    x = global[0];
+                    y = global[1];
+                    z = global[2];
+                }
+                else if (coordinateSystem != null && _undeformedNodes.TryGetValue(globalNodeIds[i], out FeNode node))
                 {
                     Vec3D dx = coordinateSystem.DirectionX(node.Coor);
                     Vec3D dy = coordinateSystem.DirectionY(node.Coor, dx);
@@ -3456,6 +3499,78 @@ namespace CaeResults
                     directions[i] = new double[] { x / length, y / length, z / length };
             }
             return true;
+        }
+        // The first two components lie along material axes 1 and 2
+        private static bool IsShellPlaneStressPlotComponent(ResultFieldOutputShellPlaneStress resultFieldOutput,
+                                                            string componentName)
+        {
+            string[] componentNames = resultFieldOutput.GetComponentNames();
+            return componentName == componentNames[0] || componentName == componentNames[1] ||
+                   componentName == ResultFieldOutputShellPlaneStress.ComponentPrincipalMax ||
+                   componentName == ResultFieldOutputShellPlaneStress.ComponentPrincipalMin;
+        }
+        // S11 and S22 lie along material axes 1 and 2, and the in-plane principal stresses along the principal
+        // directions the angle turns from axis 1 about axis 3; the axes of a node are those of its first element, as
+        // an element whose axes 1 and 2 point the other way gives the same lines
+        private bool GetShellPlaneStressPlotValues(FieldData fieldData, int[] globalNodeIds, out double[][] directions,
+                                                   out float[] values)
+        {
+            directions = null;
+            values = GetValues(fieldData, globalNodeIds);
+            if (values == null) return false;
+            directions = new double[globalNodeIds.Length][];
+            if (fieldData.StepId == 1 && fieldData.StepIncrementId == 0) return true;
+            //
+            float[] angles = null;
+            bool principalMax = fieldData.Component == ResultFieldOutputShellPlaneStress.ComponentPrincipalMax;
+            bool principalMin = fieldData.Component == ResultFieldOutputShellPlaneStress.ComponentPrincipalMin;
+            if (principalMax || principalMin)
+            {
+                FieldData angleFieldData = new FieldData(fieldData);
+                angleFieldData.Component = ResultFieldOutputShellPlaneStress.ComponentAngle;
+                angles = GetValues(angleFieldData, globalNodeIds);
+                if (angles == null) return false;
+            }
+            Dictionary<int, ShellResultElement[]> nodeElements = _shellResultData.GetNodeElements(_mesh);
+            string[] componentNames = _resultFieldOutputs[fieldData.Name].GetComponentNames();
+            ShellResultElement[] elements;
+            double angle;
+            double l1;
+            double l2;
+            for (int i = 0; i < globalNodeIds.Length; i++)
+            {
+                if (float.IsNaN(values[i]) || float.IsInfinity(values[i]) ||
+                    !nodeElements.TryGetValue(globalNodeIds[i], out elements)) continue;
+                //
+                if (fieldData.Component == componentNames[0])
+                {
+                    l1 = 1;
+                    l2 = 0;
+                }
+                else if (fieldData.Component == componentNames[1])
+                {
+                    l1 = 0;
+                    l2 = 1;
+                }
+                else
+                {
+                    if (float.IsNaN(angles[i])) continue;
+                    angle = angles[i] * Math.PI / 180;
+                    l1 = principalMax ? Math.Cos(angle) : -Math.Sin(angle);
+                    l2 = principalMax ? Math.Sin(angle) : Math.Cos(angle);
+                }
+                directions[i] = GetGlobalDirection(elements[0], l1, l2, 0);
+            }
+            return true;
+        }
+        private static double[] GetGlobalDirection(ShellResultElement axes, double l1, double l2, double l3)
+        {
+            double[] direction = new double[3];
+            for (int j = 0; j < 3; j++) direction[j] = l1 * axes.Axis1[j] + l2 * axes.Axis2[j] + l3 * axes.Normal[j];
+            double length = Math.Sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                                      direction[2] * direction[2]);
+            if (length > 0) for (int j = 0; j < 3; j++) direction[j] /= length;
+            return direction;
         }
         private Field GetFieldForPlot(FieldData fieldData)
         {
@@ -4127,7 +4242,7 @@ namespace CaeResults
                                                    stepIncrementId, true);
                     sourceField = GetField(sourceFieldData);
                     componentNames = rfosps.GetComponentNames();
-                    values = ComputeFieldFromResultFieldOutputShellPlaneStress(sourceField);
+                    values = ComputeFieldFromResultFieldOutputShellPlaneStress(rfosps, sourceField);
                     sourceField = null;
                 }
                 else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
@@ -4690,9 +4805,10 @@ namespace CaeResults
         // Plane stress in the material axes: the components through the thickness are neglected. The angle of the
         // maximum principal direction from axis 1 lies in (-90, 90]; a ply whose shear is negligible is in its principal
         // axes and gets exactly 0 or 90, and a node without in-plane stress has no principal direction
-        private float[][] ComputeFieldFromResultFieldOutputShellPlaneStress(Field sourceField)
+        private float[][] ComputeFieldFromResultFieldOutputShellPlaneStress(ResultFieldOutputShellPlaneStress resultFieldOutput,
+                                                                             Field sourceField)
         {
-            float[][] axes = ComputeFieldInMaterialAxes(sourceField, false);
+            float[][] axes = GetPlyInPlaneValues(sourceField, resultFieldOutput.Quantity);
             if (axes == null) return null;
             //
             double shearTolerance = 1E-3;
@@ -4740,19 +4856,63 @@ namespace CaeResults
             return values;
         }
         // The criterion at the nodes of the plies whose material has ply strengths; any other node gets NaN
-        private float[][] ComputeFieldFromResultFieldOutputCompositeFailure(ResultFieldOutputCompositeFailure resultFieldOutput,
-                                                                             Field sourceField)
+        // The in-plane values in the ply axes at the indices 0, 1 and 3, as the components of a tensor in the material
+        // axes: the stresses of a stress field, the plane stresses the elastic constants of the material of the ply give
+        // the in-plane strains of a strain field, NaN where the material has none, or the strains of a strain field;
+        // a field of the other kind gives NaN
+        private float[][] GetPlyInPlaneValues(Field sourceField, ShellInPlaneQuantityEnum quantity)
         {
             float[][] axes = ComputeFieldInMaterialAxes(sourceField, false);
             if (axes == null) return null;
             //
             int count = axes[0].Length;
-            float[][] values = new float[3][];
-            for (int i = 0; i < 3; i++)
+            float[][] stresses = new float[6][];
+            for (int i = 0; i < 6; i++)
+            {
+                stresses[i] = new float[count];
+                for (int j = 0; j < count; j++) stresses[i][j] = float.NaN;
+            }
+            if (!IsShellQuantityValid(sourceField.Name, quantity)) return stresses;
+            if (quantity != ShellInPlaneQuantityEnum.PlaneStressFromStrain) return axes;
+            int resultNodeId;
+            double s11;
+            double s22;
+            double s12;
+            string materialName;
+            PlyStiffness stiffness;
+            foreach (var entry in _shellResultData.GetNodeElements(_mesh))
+            {
+                if (!TryGetResultNodeId(entry.Key, out resultNodeId)) continue;
+                materialName = entry.Value[0].MaterialName;
+                if (materialName == null || !_shellResultData.PlyStiffnesses.TryGetValue(materialName, out stiffness))
+                    continue;
+                //
+                stiffness.GetPlaneStress(axes[0][resultNodeId], axes[1][resultNodeId], axes[3][resultNodeId],
+                                         out s11, out s22, out s12);
+                stresses[0][resultNodeId] = (float)s11;
+                stresses[1][resultNodeId] = (float)s22;
+                stresses[2][resultNodeId] = 0;
+                stresses[3][resultNodeId] = (float)s12;
+                stresses[4][resultNodeId] = 0;
+                stresses[5][resultNodeId] = 0;
+            }
+            return stresses;
+        }
+        private float[][] ComputeFieldFromResultFieldOutputCompositeFailure(ResultFieldOutputCompositeFailure resultFieldOutput,
+                                                                             Field sourceField)
+        {
+            float[][] axes = GetPlyInPlaneValues(sourceField, resultFieldOutput.Quantity);
+            if (axes == null) return null;
+            //
+            int count = axes[0].Length;
+            float[][] values = new float[6][];
+            for (int i = 0; i < values.Length; i++)
             {
                 values[i] = new float[count];
                 for (int j = 0; j < count; j++) values[i][j] = float.NaN;
             }
+            // A failure criterion evaluates stresses, not strains
+            if (resultFieldOutput.Quantity == ShellInPlaneQuantityEnum.Strain) return values;
             int resultNodeId;
             int mode;
             double failureIndex;
@@ -4772,7 +4932,64 @@ namespace CaeResults
                 values[1][resultNodeId] = (float)reserveFactor;
                 values[2][resultNodeId] = mode;
             }
+            SetExtremesOverLayers(values[0], values[1], values[3], values[4], values[5]);
             return values;
+        }
+        // The largest failure index and the smallest reserve factor of all layers of a shell element, at the nodes of
+        // every one of its layers, and the layer the smallest reserve factor is reached in, which is the layer that
+        // fails first; a node takes the most critical of the shell elements around it
+        private void SetExtremesOverLayers(float[] failureIndices, float[] reserveFactors, float[] maxFailureIndices,
+                                           float[] criticalLayers, float[] minReserveFactors)
+        {
+            Dictionary<int, float> shellMaxIndices = new Dictionary<int, float>();
+            Dictionary<int, int> shellCriticalLayers = new Dictionary<int, int>();
+            Dictionary<int, float> shellMinReserveFactors = new Dictionary<int, float>();
+            FeElement element;
+            int resultNodeId;
+            float index;
+            float reserveFactor;
+            float shellMaxIndex;
+            float shellMinReserveFactor;
+            foreach (var entry in _shellResultData.Elements)
+            {
+                if (!_mesh.Elements.TryGetValue(entry.Key, out element)) continue;
+                //
+                foreach (int nodeId in element.NodeIds)
+                {
+                    if (!TryGetResultNodeId(nodeId, out resultNodeId)) continue;
+                    index = failureIndices[resultNodeId];
+                    if (!float.IsNaN(index) &&
+                        (!shellMaxIndices.TryGetValue(entry.Value.ShellElementId, out shellMaxIndex) || index > shellMaxIndex))
+                        shellMaxIndices[entry.Value.ShellElementId] = index;
+                    reserveFactor = reserveFactors[resultNodeId];
+                    if (!float.IsNaN(reserveFactor) &&
+                        (!shellMinReserveFactors.TryGetValue(entry.Value.ShellElementId, out shellMinReserveFactor) ||
+                         reserveFactor < shellMinReserveFactor))
+                    {
+                        shellMinReserveFactors[entry.Value.ShellElementId] = reserveFactor;
+                        shellCriticalLayers[entry.Value.ShellElementId] = entry.Value.LayerNumber;
+                    }
+                }
+            }
+            //
+            foreach (var entry in _shellResultData.GetNodeElements(_mesh))
+            {
+                if (!TryGetResultNodeId(entry.Key, out resultNodeId)) continue;
+                //
+                foreach (ShellResultElement layer in entry.Value)
+                {
+                    if (shellMaxIndices.TryGetValue(layer.ShellElementId, out shellMaxIndex) &&
+                        (float.IsNaN(maxFailureIndices[resultNodeId]) || shellMaxIndex > maxFailureIndices[resultNodeId]))
+                        maxFailureIndices[resultNodeId] = shellMaxIndex;
+                    if (shellMinReserveFactors.TryGetValue(layer.ShellElementId, out shellMinReserveFactor) &&
+                        (float.IsNaN(minReserveFactors[resultNodeId]) ||
+                         shellMinReserveFactor < minReserveFactors[resultNodeId]))
+                    {
+                        minReserveFactors[resultNodeId] = shellMinReserveFactor;
+                        criticalLayers[resultNodeId] = shellCriticalLayers[layer.ShellElementId];
+                    }
+                }
+            }
         }
         private float[][] ComputeFieldFromResultFieldOutputCoordinateSystemTransform(
             ResultFieldOutputCoordinateSystemTransform resultFieldOutput, Field sourceField)

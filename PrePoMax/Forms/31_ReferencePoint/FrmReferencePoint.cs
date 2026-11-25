@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -205,6 +205,9 @@ namespace PrePoMax.Forms
                 else  ReferencePoint = new FeReferencePoint(GetReferencePointName(), 0, 0, 0);
                 //
                 ReferencePoint.Color = _controller.Settings.Pre.ConstraintSymbolColor;
+                //
+                if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                    _controller.Model.Mesh.SetFreeReferencePointNodeIds(ReferencePoint);
             }
             // Edit existing reference point
             else
@@ -231,6 +234,7 @@ namespace PrePoMax.Forms
             }
             //
             _viewReferencePoint.PopulateDropDownLists(_nodeSetNames, _surfaceNames);
+            _viewReferencePoint.SetNodeIdsBrowsable(_controller.CurrentView == ViewGeometryModelResults.Model);
             //
             propertyGrid.SelectedObject = _viewReferencePoint;
             //

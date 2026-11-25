@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,15 +13,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CaeResults;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10016)]
     public class TransformationsCollection
     {
         // Variables                                                                                                                
         [NonSerialized] private Controller _controller;
-        private Dictionary<string, List<Transformation>> _allTransformations;
+        [PmxKey(0)] private Dictionary<string, List<Transformation>> _allTransformations;
 
 
         // Properties                                                                                                               

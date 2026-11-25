@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,18 +13,18 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class CompositeStrength : MaterialProperty, ISerializable
+    [PmxType(3174)]
+    public class CompositeStrength : MaterialProperty
     {
         // Variables                                                                                                                
         public const double DefaultTsaiWuCoefficient = -0.5;
-        private EquationContainer _tensileStrength1;            //ISerializable
-        private EquationContainer _compressiveStrength1;        //ISerializable
-        private EquationContainer _tensileStrength2;            //ISerializable
-        private EquationContainer _compressiveStrength2;        //ISerializable
-        private EquationContainer _shearStrength12;             //ISerializable
-        private EquationContainer _shearStrength23;             //ISerializable
-        private EquationContainer _tsaiWuCoefficient;           //ISerializable
+        [PmxKey(0)] private EquationContainer _tensileStrength1;            //ISerializable
+        [PmxKey(1)] private EquationContainer _compressiveStrength1;        //ISerializable
+        [PmxKey(2)] private EquationContainer _tensileStrength2;            //ISerializable
+        [PmxKey(3)] private EquationContainer _compressiveStrength2;        //ISerializable
+        [PmxKey(4)] private EquationContainer _shearStrength12;             //ISerializable
+        [PmxKey(5)] private EquationContainer _shearStrength23;             //ISerializable
+        [PmxKey(6)] private EquationContainer _tsaiWuCoefficient;           //ISerializable
 
 
         // Properties                                                                                                               
@@ -100,6 +100,17 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetTensileStrength1(_tensileStrength1, false);
+            SetCompressiveStrength1(_compressiveStrength1, false);
+            SetTensileStrength2(_tensileStrength2, false);
+            SetCompressiveStrength2(_compressiveStrength2, false);
+            SetShearStrength12(_shearStrength12, false);
+            SetShearStrength23(_shearStrength23, false);
+            SetTsaiWuCoefficient(_tsaiWuCoefficient, false);
+        }
         private void SetTensileStrength1(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _tensileStrength1, value, CheckPositive, checkEquation);
@@ -151,20 +162,6 @@ namespace CaeModel
             _shearStrength12.CheckEquation();
             _shearStrength23.CheckEquation();
             _tsaiWuCoefficient.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_tensileStrength1", _tensileStrength1, typeof(EquationContainer));
-            info.AddValue("_compressiveStrength1", _compressiveStrength1, typeof(EquationContainer));
-            info.AddValue("_tensileStrength2", _tensileStrength2, typeof(EquationContainer));
-            info.AddValue("_compressiveStrength2", _compressiveStrength2, typeof(EquationContainer));
-            info.AddValue("_shearStrength12", _shearStrength12, typeof(EquationContainer));
-            info.AddValue("_shearStrength23", _shearStrength23, typeof(EquationContainer));
-            info.AddValue("_tsaiWuCoefficient", _tsaiWuCoefficient, typeof(EquationContainer));
         }
     }
 }

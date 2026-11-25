@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -37,9 +37,9 @@ namespace PrePoMax.Forms
         /// </summary>
         private void InitializeComponent()
         {
-            System.Windows.Forms.ListViewItem listViewItem13 = new System.Windows.Forms.ListViewItem("1");
-            System.Windows.Forms.ListViewItem listViewItem14 = new System.Windows.Forms.ListViewItem("2");
-            System.Windows.Forms.ListViewItem listViewItem15 = new System.Windows.Forms.ListViewItem("3");
+            System.Windows.Forms.ListViewItem listViewItem4 = new System.Windows.Forms.ListViewItem("1");
+            System.Windows.Forms.ListViewItem listViewItem5 = new System.Windows.Forms.ListViewItem("2");
+            System.Windows.Forms.ListViewItem listViewItem6 = new System.Windows.Forms.ListViewItem("3");
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnOK = new System.Windows.Forms.Button();
             this.gbViews = new System.Windows.Forms.GroupBox();
@@ -61,7 +61,7 @@ namespace PrePoMax.Forms
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(217, 618);
+            this.btnCancel.Location = new System.Drawing.Point(217, 486);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 14;
@@ -73,7 +73,7 @@ namespace PrePoMax.Forms
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnOK.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnOK.Location = new System.Drawing.Point(136, 618);
+            this.btnOK.Location = new System.Drawing.Point(136, 486);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 15;
@@ -177,9 +177,9 @@ namespace PrePoMax.Forms
             this.lvViews.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
             this.lvViews.HideSelection = false;
             this.lvViews.Items.AddRange(new System.Windows.Forms.ListViewItem[] {
-            listViewItem13,
-            listViewItem14,
-            listViewItem15});
+            listViewItem4,
+            listViewItem5,
+            listViewItem6});
             this.lvViews.Location = new System.Drawing.Point(6, 22);
             this.lvViews.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.lvViews.MultiSelect = false;
@@ -205,7 +205,7 @@ namespace PrePoMax.Forms
             this.gbProperties.IsCollapsed = false;
             this.gbProperties.Location = new System.Drawing.Point(12, 220);
             this.gbProperties.Name = "gbProperties";
-            this.gbProperties.Size = new System.Drawing.Size(280, 392);
+            this.gbProperties.Size = new System.Drawing.Size(280, 260);
             this.gbProperties.TabIndex = 17;
             this.gbProperties.TabStop = false;
             this.gbProperties.Text = "Properties";
@@ -217,12 +217,13 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pgProperties.DisabledItemForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
+            this.pgProperties.FocusOnSelectedObjectChanged = true;
             this.pgProperties.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.pgProperties.LineColor = System.Drawing.SystemColors.Control;
             this.pgProperties.Location = new System.Drawing.Point(6, 17);
             this.pgProperties.Name = "pgProperties";
             this.pgProperties.ReadOnly = false;
-            this.pgProperties.Size = new System.Drawing.Size(268, 369);
+            this.pgProperties.Size = new System.Drawing.Size(268, 237);
             this.pgProperties.TabIndex = 17;
             this.pgProperties.ToolbarVisible = false;
             this.pgProperties.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.pgProperties_PropertyValueChanged);
@@ -232,19 +233,17 @@ namespace PrePoMax.Forms
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(304, 653);
+            this.ClientSize = new System.Drawing.Size(304, 521);
             this.Controls.Add(this.gbProperties);
             this.Controls.Add(this.gbViews);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.btnCancel);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(300, 300);
+            this.MinimumSize = new System.Drawing.Size(300, 325);
             this.Name = "FrmUserVew";
             this.ShowInTaskbar = false;
-            this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "User Views";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmFollowerView_FormClosing);
             this.Load += new System.EventHandler(this.FrmUserVew_Load);

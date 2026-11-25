@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -31,32 +31,32 @@ using System.Collections.Concurrent;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class FeModel : ISerializable
+    [PmxType(3035)]
+    public class FeModel
     {
         // Variables                                                                                                                
-        private string _name;                                                                   //ISerializable
-        private string _hashName;                                                               //ISerializable
-        private FeMesh _geometry;                                                               //ISerializable
-        private FeMesh _mesh;                                                                   //ISerializable
-        protected CaeGlobals.OrderedDictionary<string, UserViewParameters> _userViews;                     //ISerializable
-        private EquationParameterCollection _parameters;                                        //ISerializable
-        private CaeGlobals.OrderedDictionary<string, Material> _materials;                                 //ISerializable
-        private CaeGlobals.OrderedDictionary<string, Section> _sections;                                   //ISerializable
-        private CaeGlobals.OrderedDictionary<string, MaterialOrientation> _materialOrientations;           //ISerializable
-        private CaeGlobals.OrderedDictionary<string, CompositeLayup> _compositeLayups;                     //ISerializable
-        private CaeGlobals.OrderedDictionary<string, Rosette> _rosettes;                                   //ISerializable
-        private CaeGlobals.OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
-        private CaeGlobals.OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
-        private CaeGlobals.OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
-        private CaeGlobals.OrderedDictionary<string, Distribution> _distributions;                         //ISerializable
-        private CaeGlobals.OrderedDictionary<string, Amplitude> _amplitudes;                               //ISerializable
-        private CaeGlobals.OrderedDictionary<string, InitialCondition> _initialConditions;                 //ISerializable
-        private StepCollection _stepCollection;                                                 //ISerializable
-        private CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> _calculixUserKeywords;   //ISerializable
-        private List<Calculix.CalculixKeywordOverride> _calculixKeywordOverrides;                //ISerializable
-        private ModelProperties _properties;                                                    //ISerializable
-        private UnitSystem _unitSystem;                                                         //ISerializable
+        [PmxKey(0)] private string _name;                                                                   //ISerializable
+        [PmxKey(1)] private string _hashName;                                                               //ISerializable
+        [PmxKey(2)] private FeMesh _geometry;                                                               //ISerializable
+        [PmxKey(3)] private FeMesh _mesh;                                                                   //ISerializable
+        [PmxKey(4)] protected CaeGlobals.OrderedDictionary<string, UserViewParameters> _userViews;                     //ISerializable
+        [PmxKey(5)] private EquationParameterCollection _parameters;                                        //ISerializable
+        [PmxKey(6)] private CaeGlobals.OrderedDictionary<string, Material> _materials;                                 //ISerializable
+        [PmxKey(7)] private CaeGlobals.OrderedDictionary<string, Section> _sections;                                   //ISerializable
+        [PmxKey(8)] private CaeGlobals.OrderedDictionary<string, MaterialOrientation> _materialOrientations;           //ISerializable
+        [PmxKey(9)] private CaeGlobals.OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
+        [PmxKey(10)] private CaeGlobals.OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
+        [PmxKey(11)] private CaeGlobals.OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
+        [PmxKey(12)] private CaeGlobals.OrderedDictionary<string, Distribution> _distributions;                         //ISerializable
+        [PmxKey(13)] private CaeGlobals.OrderedDictionary<string, Amplitude> _amplitudes;                               //ISerializable
+        [PmxKey(14)] private CaeGlobals.OrderedDictionary<string, InitialCondition> _initialConditions;                 //ISerializable
+        [PmxKey(15)] private StepCollection _stepCollection;                                                 //ISerializable
+        [PmxKey(16)] private CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> _calculixUserKeywords;   //ISerializable
+        [PmxKey(17)] private List<Calculix.CalculixKeywordOverride> _calculixKeywordOverrides;                //ISerializable
+        [PmxKey(18)] private ModelProperties _properties;                                                    //ISerializable
+        [PmxKey(19)] private UnitSystem _unitSystem;                                                         //ISerializable
+        [PmxKey(900)] private CaeGlobals.OrderedDictionary<string, CompositeLayup> _compositeLayups;                     //ISerializable
+        [PmxKey(901)] private CaeGlobals.OrderedDictionary<string, Rosette> _rosettes;                                   //ISerializable
         [NonSerialized] private Dictionary<int, int> _elementIdSectionId;
         [NonSerialized] private List<Section> _assignedSections;
         [NonSerialized] private int[] _unAssignedElementIds;
@@ -311,6 +311,15 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        // A file of a PrePoMax without the composites modeler has no composite layups and rosettes
+        [OnDeserialized]
+        private void InitializeCompositeCollections(StreamingContext context)
+        {
+            StringComparer sc = StringComparer.OrdinalIgnoreCase;
+            if (_compositeLayups == null)
+                _compositeLayups = new CaeGlobals.OrderedDictionary<string, CompositeLayup>("Composite Layups", sc);
+            if (_rosettes == null) _rosettes = new CaeGlobals.OrderedDictionary<string, Rosette>("Rosettes", sc);
+        }
         public static void WriteToBinaryWriter(FeModel model, BinaryWriter bw)
         {
             // Write geometry
@@ -1214,29 +1223,39 @@ namespace CaeModel
             }
             else if (load is DLoad dl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(dl.RegionName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(dl, dl.RegionName);
             }
             else if (load is HydrostaticPressure hpl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(hpl.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(hpl, hpl.SurfaceName);
             }
             else if (load is ImportedPressure ip)
             {
-                valid = (_mesh.Surfaces.TryGetValue(ip.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(ip, ip.SurfaceName);
             }
             else if (load is STLoad stl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(stl.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(stl, stl.SurfaceName);
             }
             else if (load is ImportedSTLoad istl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(istl.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(istl, istl.SurfaceName);
             }
             else if (load is ShellEdgeLoad sel)
             {
                 // CalculiX loads only the edges of shell elements, which a 2D model does not have
                 valid = !sel.TwoD && _mesh.Surfaces.TryGetValue(sel.SurfaceName, out s) && s.Valid &&
                         IsShellEdgeSurface(s);
+            }
+            else if (load is EdgeLoad edl)
+            {
+                FeNodeSet nodeSet;
+                valid = _properties.ModelSpace != ModelSpaceEnum.Axisymmetric &&
+                        ((edl.RegionType == RegionTypeEnum.NodeSetName &&
+                          _mesh.NodeSets.TryGetValue(edl.RegionName, out nodeSet) && nodeSet.Valid &&
+                          GetGeometryEdgeIdsOfNodeSet(nodeSet).Length > 0) ||
+                         (edl.RegionType == RegionTypeEnum.Selection && edl.CreationIds != null &&
+                          GetGeometryEdgeIds(edl.CreationIds).Length > 0));
             }
             else if (load is GravityLoad gl)
             {
@@ -1254,6 +1273,13 @@ namespace CaeModel
                         (cf.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(cf.CreationIds) != null &&
                         _mesh.GetPartNamesFromPartIds(cf.CreationIds).Length == cf.CreationIds.Length);
             }
+            else if (load is BodyForce bfl)
+            {
+                valid = (bfl.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(bfl.RegionName)) ||
+                        (bfl.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(bfl.RegionName)) ||
+                        (bfl.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(bfl.CreationIds) != null &&
+                        _mesh.GetPartNamesFromPartIds(bfl.CreationIds).Length == bfl.CreationIds.Length);
+            }
             else if (load is PreTensionLoad ptl)
             {
                 valid = (_mesh.Surfaces.TryGetValue(ptl.SurfaceName, out s) && s.Valid && s.Type == FeSurfaceType.Element);
@@ -1265,7 +1291,7 @@ namespace CaeModel
             }
             else if (load is DFlux df)
             {
-                valid = (_mesh.Surfaces.TryGetValue(df.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(df, df.SurfaceName);
             }
             else if (load is BodyFlux bf)
             {
@@ -1277,11 +1303,11 @@ namespace CaeModel
             }
             else if (load is FilmHeatTransfer fht)
             {
-                valid = (_mesh.Surfaces.TryGetValue(fht.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(fht, fht.SurfaceName);
             }
             else if (load is RadiationHeatTransfer rht)
             {
-                valid = (_mesh.Surfaces.TryGetValue(rht.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(rht, rht.SurfaceName);
             }
             else if (load is BladeAeroLoad || load is BladeAeroPressureLoad)
             {
@@ -1411,27 +1437,10 @@ namespace CaeModel
                 }
                 else if (entry.Value.RegionType == RegionTypeEnum.ElementSetName)
                 {
-                    if (entry.Value is SolidSection)
+                    if (entry.Value is SolidSection || entry.Value is ShellSection || entry.Value is MembraneSection)
                     {
-                        FeElementSet elementSet = _mesh.ElementSets[entry.Value.RegionName];
-                        if (elementSet.CreatedFromParts)
-                        {
-                            string[] partNames = _mesh.GetPartNamesFromPartIds(elementSet.Labels);
-                            foreach (var partName in partNames)
-                            {
-                                foreach (var elementId in _mesh.Parts[partName].Labels)
-                                    elementIdSectionId[elementId] = sectionId;
-                            }
-                        }
-                        else
-                        {
-                            foreach (var elementId in elementSet.Labels) elementIdSectionId[elementId] = sectionId;
-                        }
-                    }
-                    else if (entry.Value is ShellSection || entry.Value is MembraneSection)
-                    {
-                        FeElementSet elementSet = _mesh.ElementSets[entry.Value.RegionName];
-                        foreach (var elementId in elementSet.Labels) elementIdSectionId[elementId] = sectionId;
+                        foreach (var elementId in GetElementIdsOfRegion(entry.Value))
+                            elementIdSectionId[elementId] = sectionId;
                     }
                     else throw new NotSupportedException();
                 }
@@ -2586,7 +2595,8 @@ namespace CaeModel
             Dictionary<string, Dictionary<int, int>> partNameNewEdgeIdOldEdgeId = new Dictionary<string, Dictionary<int, int>>();
             FeMesh mmgMesh = MmgFileReader.Read(fileName, ElementsToImport.Shell,
                                                                 MeshRepresentation.Mesh, convertToSecondOrder,
-                                                                _mesh.MaxNodeId + 1, _mesh.MaxElementId + 1,
+                                                                _mesh.GetMaxNodeIdWithReferencePoints() + 1,
+                                                                _mesh.MaxElementId + 1,
                                                                 borderNodes, midNodes,
                                                                 epsilon * max,
                                                                 partNameNewSurfIdOldSurfId, partNameNewEdgeIdOldEdgeId);
@@ -2728,6 +2738,8 @@ namespace CaeModel
             //
             CalculixUserKeywords = indexedUserKeywords;
             //
+            AssignMissingReferencePointNodeIds();
+            //
             return InpFileReader.Errors;
         }
         public List<string> ImportMaterialsFromInpFile(string fileName, Action<string> WriteDataToOutput)
@@ -2816,6 +2828,30 @@ namespace CaeModel
             }
             _mesh.AddMesh(mesh, reservedPartNames, GetReservedPartIds(), forceRenameParts, renumberNodesAndElements,
                           updateNodeIdElementIds);
+        }
+        public void AssignMissingReferencePointNodeIds()
+        {
+            if (_mesh == null || _mesh.ReferencePoints == null) return;
+            // Number the reference points the way the input file writer numbered them before the node ids were stored
+            HashSet<string> rigidBodyReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in _constraints)
+            {
+                if (entry.Value.Active && entry.Value is RigidBody rigidBody && rigidBody.ReferencePointName != null)
+                    rigidBodyReferencePointNames.Add(rigidBody.ReferencePointName);
+            }
+            //
+            int maxNodeId = _mesh.GetMaxNodeIdWithReferencePoints();
+            List<FeReferencePoint> referencePointsWithoutRotNodeId = new List<FeReferencePoint>();
+            foreach (var entry in _mesh.ReferencePoints)
+            {
+                if (entry.Value.RefNodeId <= 0) entry.Value.RefNodeId = ++maxNodeId;
+                if (entry.Value.RotNodeId <= 0)
+                {
+                    if (rigidBodyReferencePointNames.Contains(entry.Key)) entry.Value.RotNodeId = ++maxNodeId;
+                    else referencePointsWithoutRotNodeId.Add(entry.Value);
+                }
+            }
+            foreach (var referencePoint in referencePointsWithoutRotNodeId) referencePoint.RotNodeId = ++maxNodeId;
         }
         // Update                                                                                   
         public void UpdateGeometryPartMassPropertiesFromVisFile(string visFileName, string partName)
@@ -4324,7 +4360,7 @@ namespace CaeModel
                 choices = problem.Solve();
                 if (choices == null)
                 {
-                    return new SweepDetectionData(null, "lp_solve found no way of sweeping the part " + groupName +
+                    return new SweepDetectionData(null, "HiGHS found no way of sweeping the part " + groupName +
                                                   ". Select the source surfaces by hand.", null, new HashSet<int>(),
                                                   stamp);
                 }
@@ -6474,7 +6510,7 @@ namespace CaeModel
                 // the body as a ring, one of its two loops on the source and the other on the target - the end of a
                 // tube swept through its wall - is no such wall: the mesher splits it into walls of four sides, when
                 // straight edges across it can be found to split it along
-                int numOfEdgeLoops = CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds);
+                int numOfEdgeLoops = CountEdgeLoops(vis, vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds);
                 if (numOfEdgeLoops == 2 && IsRingWall(vis.FaceEdgeIds[surfaceId], sourceEdgeIds, targetEdgeIdSet))
                 {
                     string ringWallError = GetRingWallSplitError(part, surfaceId, sourceEdgeIds, targetEdgeIdSet);
@@ -6670,7 +6706,7 @@ namespace CaeModel
             //
             foreach (var surfaceId in wallSurfaceIds)
             {
-                if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
+                if (CountEdgeLoops(vis, vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
                     return GetSweepSideHoleError(part, surfaceId);
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
@@ -7115,11 +7151,13 @@ namespace CaeModel
         /// <summary>
         /// The number of closed edge loops the given edges form, edges being joined at their vertices.
         /// </summary>
-        private static int CountEdgeLoops(int[] edgeIds, Dictionary<int, HashSet<int>> vertexIdEdgeIds)
+        private static int CountEdgeLoops(VisualizationData vis, int[] edgeIds,
+                                          Dictionary<int, HashSet<int>> vertexIdEdgeIds)
         {
             HashSet<int> edgeIdSet = new HashSet<int>(edgeIds);
             HashSet<int> visited = new HashSet<int>();
             Queue<int> pending = new Queue<int>();
+            HashSet<int> vertexEdgeIds;
             int numLoops = 0;
             foreach (var edgeId in edgeIds)
             {
@@ -7130,10 +7168,10 @@ namespace CaeModel
                 while (pending.Count > 0)
                 {
                     int currentEdgeId = pending.Dequeue();
-                    foreach (var entry in vertexIdEdgeIds)
+                    foreach (var nodeId in vis.GetNodeIdsForEdgeId(currentEdgeId))
                     {
-                        if (!entry.Value.Contains(currentEdgeId)) continue;
-                        foreach (var otherEdgeId in entry.Value)
+                        if (!vertexIdEdgeIds.TryGetValue(nodeId, out vertexEdgeIds)) continue;
+                        foreach (var otherEdgeId in vertexEdgeIds)
                         {
                             if (edgeIdSet.Contains(otherEdgeId) && visited.Add(otherEdgeId)) pending.Enqueue(otherEdgeId);
                         }
@@ -8312,6 +8350,400 @@ namespace CaeModel
             //
             return loads.ToArray();
         }
+        // An edge load acts on geometry edges, which a node set picked in the geometry keeps as its creation ids
+        public static int[] GetGeometryEdgeIds(int[] geometryIds)
+        {
+            List<int> geometryEdgeIds = new List<int>();
+            if (geometryIds == null) return geometryEdgeIds.ToArray();
+            //
+            GeometryType geometryType;
+            foreach (int geometryId in geometryIds)
+            {
+                geometryType = (GeometryType)FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[1];
+                if (geometryType == GeometryType.Edge || geometryType == GeometryType.ShellEdgeSurface)
+                    geometryEdgeIds.Add(geometryId);
+            }
+            return geometryEdgeIds.ToArray();
+        }
+        public int[] GetGeometryEdgeIdsOfNodeSet(FeNodeSet nodeSet)
+        {
+            if (nodeSet == null || nodeSet.CreationData == null || nodeSet.CreationIds == null) return new int[0];
+            if (nodeSet.CreationData.SelectItem != vtkSelectItem.Geometry &&
+                nodeSet.CreationData.SelectItem != vtkSelectItem.GeometryEdge) return new int[0];
+            //
+            return GetGeometryEdgeIds(nodeSet.CreationIds);
+        }
+        public bool IsGeometryEdgeNodeSet(FeNodeSet nodeSet)
+        {
+            return GetGeometryEdgeIdsOfNodeSet(nodeSet).Length > 0;
+        }
+        // The mesh edges of the geometry edges as node ids: two for a linear edge and three for a parabolic one, the
+        // end nodes first and the midside node last
+        public int[][] GetEdgeCellsOfEdgeLoad(EdgeLoad load)
+        {
+            int[] geometryEdgeIds;
+            if (load.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                FeNodeSet nodeSet;
+                _mesh.NodeSets.TryGetValue(load.RegionName, out nodeSet);
+                geometryEdgeIds = GetGeometryEdgeIdsOfNodeSet(nodeSet);
+            }
+            else if (load.RegionType == RegionTypeEnum.Selection) geometryEdgeIds = GetGeometryEdgeIds(load.CreationIds);
+            else throw new NotSupportedException();
+            //
+            int localEdgeId;
+            int[] itemTypePartIds;
+            BasePart part;
+            HashSet<string> edgeKeys = new HashSet<string>();
+            List<int[]> edgeCells = new List<int[]>();
+            foreach (int geometryEdgeId in geometryEdgeIds)
+            {
+                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryEdgeId);
+                localEdgeId = itemTypePartIds[0];
+                part = _mesh.GetPartFromId(itemTypePartIds[2]);
+                if (part == null || part.Visualization.EdgeCellIdsByEdge == null || localEdgeId < 0 ||
+                    localEdgeId >= part.Visualization.EdgeCellIdsByEdge.Length) continue;
+                //
+                foreach (int edgeCellId in part.Visualization.EdgeCellIdsByEdge[localEdgeId])
+                {
+                    int[] edgeCell = part.Visualization.EdgeCells[edgeCellId];
+                    string edgeKey = Math.Min(edgeCell[0], edgeCell[1]) + "_" + Math.Max(edgeCell[0], edgeCell[1]);
+                    if (edgeKeys.Add(edgeKey)) edgeCells.Add(edgeCell);
+                }
+            }
+            return edgeCells.ToArray();
+        }
+        public double GetEdgeLoadLength(EdgeLoad load)
+        {
+            double length = 0;
+            double[] weights;
+            double[][] coor;
+            foreach (int[] edgeCell in GetEdgeCellsOfEdgeLoad(load))
+            {
+                coor = new double[edgeCell.Length][];
+                for (int i = 0; i < edgeCell.Length; i++) coor[i] = _mesh.Nodes[edgeCell[i]].Coor;
+                weights = GetEdgeNodalWeights(coor, new double[] { 1, 1, 1 });
+                for (int i = 0; i < weights.Length; i++) length += weights[i];
+            }
+            return length;
+        }
+        // The force per length at the nodes of every edge cell. A normal one belongs to the edge cell, since a node at a
+        // corner lies on two edges of different normals.
+        public int[][] GetEdgeLoadCellForcesPerLength(EdgeLoad load, out double[][][] cellForcesPerLength,
+                                                      out Dictionary<int, double[]> nodeIdDistance)
+        {
+            int[][] edgeCells = GetEdgeCellsOfEdgeLoad(load);
+            // Collect all node ids - speed up
+            HashSet<int> allNodeIdsHash = new HashSet<int>();
+            foreach (int[] edgeCell in edgeCells) allNodeIdsHash.UnionWith(edgeCell);
+            int[] allNodeIds = allNodeIdsHash.ToArray();
+            double[][] points = new double[allNodeIds.Length][];
+            for (int i = 0; i < allNodeIds.Length; i++) points[i] = _mesh.Nodes[allNodeIds[i]].Coor;
+            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
+            for (int i = 0; i < allNodeIds.Length; i++) nodeIdArrayId.Add(allNodeIds[i], i);
+            //
+            double[][] distances;
+            cellForcesPerLength = new double[edgeCells.Length][][];
+            if (load.Direction == EdgeLoadDirectionEnum.Normal)
+            {
+                double[] normalValues = load.GetNormalForcesPerLengthForPoints(this, points, out distances);
+                double[][][] cellNormals = GetEdgeCellInPlaneNormals(edgeCells);
+                for (int i = 0; i < edgeCells.Length; i++)
+                {
+                    cellForcesPerLength[i] = new double[edgeCells[i].Length][];
+                    for (int j = 0; j < edgeCells[i].Length; j++)
+                    {
+                        // A positive value points into the part, as a pressure and the *Dload EDNOR do
+                        double value = -normalValues[nodeIdArrayId[edgeCells[i][j]]];
+                        double[] normal = cellNormals[i][j];
+                        cellForcesPerLength[i][j] = new double[] { value * normal[0], value * normal[1],
+                                                                   value * normal[2] };
+                    }
+                }
+            }
+            else
+            {
+                double[][] forces = load.GetOrientedForcesPerLengthForPoints(this, points, out distances);
+                for (int i = 0; i < edgeCells.Length; i++)
+                {
+                    cellForcesPerLength[i] = new double[edgeCells[i].Length][];
+                    for (int j = 0; j < edgeCells[i].Length; j++)
+                        cellForcesPerLength[i][j] = forces[nodeIdArrayId[edgeCells[i][j]]];
+                }
+            }
+            //
+            nodeIdDistance = new Dictionary<int, double[]>();
+            for (int i = 0; i < allNodeIds.Length; i++)
+            {
+                if (distances != null && distances[i] != null) nodeIdDistance.Add(allNodeIds[i], distances[i]);
+            }
+            return edgeCells;
+        }
+        // The outward unit normal of an edge in the plane of the one shell or two dimensional element it bounds,
+        // at each node of the edge cell
+        // The one shell or two dimensional element each edge cell bounds
+        private FeElement2D[] GetEdgeCellElements(int[][] edgeCells)
+        {
+            HashSet<int> endNodeIds = new HashSet<int>();
+            foreach (int[] edgeCell in edgeCells)
+            {
+                endNodeIds.Add(edgeCell[0]);
+                endNodeIds.Add(edgeCell[1]);
+            }
+            Dictionary<int, List<FeElement2D>> nodeIdElements = new Dictionary<int, List<FeElement2D>>();
+            List<FeElement2D> nodeElements;
+            foreach (var entry in _mesh.Elements)
+            {
+                if (!(entry.Value is FeElement2D element2D)) continue;
+                //
+                foreach (int nodeId in element2D.NodeIds)
+                {
+                    if (!endNodeIds.Contains(nodeId)) continue;
+                    if (!nodeIdElements.TryGetValue(nodeId, out nodeElements))
+                    {
+                        nodeElements = new List<FeElement2D>();
+                        nodeIdElements.Add(nodeId, nodeElements);
+                    }
+                    nodeElements.Add(element2D);
+                }
+            }
+            //
+            FeElement2D[] edgeCellElements = new FeElement2D[edgeCells.Length];
+            for (int i = 0; i < edgeCells.Length; i++)
+            {
+                int[] edgeCell = edgeCells[i];
+                List<FeElement2D> elements = new List<FeElement2D>();
+                if (nodeIdElements.TryGetValue(edgeCell[0], out nodeElements))
+                {
+                    foreach (FeElement2D element in nodeElements)
+                    {
+                        if (element.NodeIds.Contains(edgeCell[1])) elements.Add(element);
+                    }
+                }
+                if (elements.Count != 1)
+                    throw new CaeException("The normal direction of an edge load needs edges that bound a shell or a " +
+                                           "two dimensional part, each edge lying on one element only.");
+                //
+                edgeCellElements[i] = elements[0];
+            }
+            return edgeCellElements;
+        }
+        private double[][][] GetEdgeCellInPlaneNormals(int[][] edgeCells)
+        {
+            FeElement2D[] edgeCellElements = GetEdgeCellElements(edgeCells);
+            double[][][] cellNormals = new double[edgeCells.Length][][];
+            for (int i = 0; i < edgeCells.Length; i++)
+            {
+                int[] edgeCell = edgeCells[i];
+                double[] elementNormal = GetElement2DNormal(edgeCellElements[i]);
+                double[] elementCenter = GetElement2DCenter(edgeCellElements[i]);
+                double[][] coor = new double[edgeCell.Length][];
+                for (int j = 0; j < edgeCell.Length; j++) coor[j] = _mesh.Nodes[edgeCell[j]].Coor;
+                double[] edgeCenter = edgeCell.Length == 3 ? coor[2] :
+                    new double[] { 0.5 * (coor[0][0] + coor[1][0]), 0.5 * (coor[0][1] + coor[1][1]),
+                                   0.5 * (coor[0][2] + coor[1][2]) };
+                double[] outward = new double[3];
+                for (int k = 0; k < 3; k++) outward[k] = edgeCenter[k] - elementCenter[k];
+                //
+                cellNormals[i] = new double[edgeCell.Length][];
+                double[] xis = edgeCell.Length == 3 ? new double[] { -1, 1, 0 } : new double[] { -1, 1 };
+                for (int j = 0; j < edgeCell.Length; j++)
+                {
+                    double[] tangent = GetEdgeTangent(coor, xis[j]);
+                    double[] normal = new double[] { tangent[1] * elementNormal[2] - tangent[2] * elementNormal[1],
+                                                     tangent[2] * elementNormal[0] - tangent[0] * elementNormal[2],
+                                                     tangent[0] * elementNormal[1] - tangent[1] * elementNormal[0] };
+                    double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+                    if (length == 0) throw new CaeException("The normal of an edge of the edge load is not defined.");
+                    double sign = normal[0] * outward[0] + normal[1] * outward[1] + normal[2] * outward[2] < 0 ? -1 : 1;
+                    for (int k = 0; k < 3; k++) normal[k] *= sign / length;
+                    cellNormals[i][j] = normal;
+                }
+            }
+            return cellNormals;
+        }
+        private double[] GetElement2DNormal(FeElement2D element)
+        {
+            int numOfCorners = element.NodeIds.Length == 6 ? 3 : element.NodeIds.Length == 8 ? 4 : element.NodeIds.Length;
+            double[] normal = new double[3];
+            double[] c1;
+            double[] c2;
+            for (int i = 0; i < numOfCorners; i++)
+            {
+                c1 = _mesh.Nodes[element.NodeIds[i]].Coor;
+                c2 = _mesh.Nodes[element.NodeIds[(i + 1) % numOfCorners]].Coor;
+                normal[0] += (c1[1] - c2[1]) * (c1[2] + c2[2]);
+                normal[1] += (c1[2] - c2[2]) * (c1[0] + c2[0]);
+                normal[2] += (c1[0] - c2[0]) * (c1[1] + c2[1]);
+            }
+            return normal;
+        }
+        private double[] GetElement2DCenter(FeElement2D element)
+        {
+            int numOfCorners = element.NodeIds.Length == 6 ? 3 : element.NodeIds.Length == 8 ? 4 : element.NodeIds.Length;
+            double[] center = new double[3];
+            double[] coor;
+            for (int i = 0; i < numOfCorners; i++)
+            {
+                coor = _mesh.Nodes[element.NodeIds[i]].Coor;
+                for (int k = 0; k < 3; k++) center[k] += coor[k] / numOfCorners;
+            }
+            return center;
+        }
+        private static double[] GetEdgeTangent(double[][] coor, double xi)
+        {
+            double[] dn = coor.Length == 3 ? new double[] { xi - 0.5, xi + 0.5, -2 * xi } : new double[] { -0.5, 0.5 };
+            double[] tangent = new double[3];
+            for (int i = 0; i < coor.Length; i++)
+            {
+                for (int k = 0; k < 3; k++) tangent[k] += dn[i] * coor[i][k];
+            }
+            return tangent;
+        }
+        public void GetNodalForcesFromEdgeLoad(EdgeLoad load, out int[] nodeIds, out double[][] forces)
+        {
+            double[][][] allCellForcesPerLength;
+            int[][] edgeCells = GetEdgeLoadCellForcesPerLength(load, out allCellForcesPerLength, out _);
+            //
+            double[] force;
+            double[] weights;
+            double[][] coor;
+            double[][] cellForcesPerLength;
+            Dictionary<int, double[]> nodeIdForce = new Dictionary<int, double[]>();
+            for (int cellId = 0; cellId < edgeCells.Length; cellId++)
+            {
+                int[] edgeCell = edgeCells[cellId];
+                coor = new double[edgeCell.Length][];
+                cellForcesPerLength = allCellForcesPerLength[cellId];
+                for (int i = 0; i < edgeCell.Length; i++) coor[i] = _mesh.Nodes[edgeCell[i]].Coor;
+                //
+                for (int component = 0; component < 3; component++)
+                {
+                    double[] values = new double[edgeCell.Length];
+                    for (int i = 0; i < edgeCell.Length; i++) values[i] = cellForcesPerLength[i][component];
+                    weights = GetEdgeNodalWeights(coor, values);
+                    //
+                    for (int i = 0; i < edgeCell.Length; i++)
+                    {
+                        if (!nodeIdForce.TryGetValue(edgeCell[i], out force))
+                        {
+                            force = new double[3];
+                            nodeIdForce.Add(edgeCell[i], force);
+                        }
+                        force[component] += weights[i];
+                    }
+                }
+            }
+            //
+            List<int> nodeIdList = new List<int>();
+            List<double[]> forceList = new List<double[]>();
+            foreach (var entry in nodeIdForce)
+            {
+                if (entry.Value[0] == 0 && entry.Value[1] == 0 && entry.Value[2] == 0) continue;
+                nodeIdList.Add(entry.Key);
+                forceList.Add(entry.Value);
+            }
+            nodeIds = nodeIdList.ToArray();
+            forces = forceList.ToArray();
+        }
+        // The shell element edges of a normal edge load with the mean normal force per length over each edge, for the
+        // *Dload EDNORn of CalculiX, numbered as the element edges from the first corner node on
+        public void GetShellEdgeNormalLoadsFromEdgeLoad(EdgeLoad load, out int[] elementIds, out int[] edgeNumbers,
+                                                        out double[] values)
+        {
+            int[][] edgeCells = GetEdgeCellsOfEdgeLoad(load);
+            FeElement2D[] edgeCellElements = GetEdgeCellElements(edgeCells);
+            //
+            HashSet<int> allNodeIdsHash = new HashSet<int>();
+            foreach (int[] edgeCell in edgeCells) allNodeIdsHash.UnionWith(edgeCell);
+            int[] allNodeIds = allNodeIdsHash.ToArray();
+            double[][] points = new double[allNodeIds.Length][];
+            for (int i = 0; i < allNodeIds.Length; i++) points[i] = _mesh.Nodes[allNodeIds[i]].Coor;
+            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
+            for (int i = 0; i < allNodeIds.Length; i++) nodeIdArrayId.Add(allNodeIds[i], i);
+            double[] normalValues = load.GetNormalForcesPerLengthForPoints(this, points, out _);
+            //
+            elementIds = new int[edgeCells.Length];
+            edgeNumbers = new int[edgeCells.Length];
+            values = new double[edgeCells.Length];
+            for (int i = 0; i < edgeCells.Length; i++)
+            {
+                int[] edgeCell = edgeCells[i];
+                FeElement2D element = edgeCellElements[i];
+                int numOfCorners = element.NodeIds.Length == 6 ? 3 : element.NodeIds.Length == 8 ? 4 :
+                                   element.NodeIds.Length;
+                int edgeNumber = -1;
+                for (int j = 0; j < numOfCorners; j++)
+                {
+                    int n1 = element.NodeIds[j];
+                    int n2 = element.NodeIds[(j + 1) % numOfCorners];
+                    if ((n1 == edgeCell[0] && n2 == edgeCell[1]) || (n1 == edgeCell[1] && n2 == edgeCell[0]))
+                    {
+                        edgeNumber = j + 1;
+                        break;
+                    }
+                }
+                if (edgeNumber < 0)
+                    throw new CaeException("The edge of the edge load is not an edge of the shell element " +
+                                           element.Id + ".");
+                //
+                double v1 = normalValues[nodeIdArrayId[edgeCell[0]]];
+                double v2 = normalValues[nodeIdArrayId[edgeCell[1]]];
+                elementIds[i] = element.Id;
+                edgeNumbers[i] = edgeNumber;
+                if (edgeCell.Length == 3) values[i] = (v1 + v2 + 4 * normalValues[nodeIdArrayId[edgeCell[2]]]) / 6;
+                else values[i] = 0.5 * (v1 + v2);
+            }
+        }
+        // The nodal shares of a value per length that varies over the edge as its shape functions do, integrated over
+        // the edge length by a three point Gauss rule, which is exact for a straight or a parabolic edge
+        private static double[] GetEdgeNodalWeights(double[][] coor, double[] nodalValues)
+        {
+            int numOfNodes = coor.Length;
+            double[] weights = new double[numOfNodes];
+            double[] gaussPoints = new double[] { -Math.Sqrt(0.6), 0, Math.Sqrt(0.6) };
+            double[] gaussWeights = new double[] { 5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0 };
+            double[] n = new double[numOfNodes];
+            double[] dn = new double[numOfNodes];
+            //
+            double xi;
+            double value;
+            double jacobian;
+            double[] tangent;
+            for (int gp = 0; gp < gaussPoints.Length; gp++)
+            {
+                xi = gaussPoints[gp];
+                if (numOfNodes == 2)
+                {
+                    n[0] = 0.5 * (1 - xi);
+                    n[1] = 0.5 * (1 + xi);
+                    dn[0] = -0.5;
+                    dn[1] = 0.5;
+                }
+                else if (numOfNodes == 3)
+                {
+                    n[0] = 0.5 * xi * (xi - 1);
+                    n[1] = 0.5 * xi * (xi + 1);
+                    n[2] = 1 - xi * xi;
+                    dn[0] = xi - 0.5;
+                    dn[1] = xi + 0.5;
+                    dn[2] = -2 * xi;
+                }
+                else throw new NotSupportedException();
+                //
+                tangent = new double[3];
+                value = 0;
+                for (int i = 0; i < numOfNodes; i++)
+                {
+                    value += n[i] * nodalValues[i];
+                    for (int j = 0; j < 3; j++) tangent[j] += dn[i] * coor[i][j];
+                }
+                jacobian = Math.Sqrt(tangent[0] * tangent[0] + tangent[1] * tangent[1] + tangent[2] * tangent[2]);
+                //
+                for (int i = 0; i < numOfNodes; i++) weights[i] += gaussWeights[gp] * n[i] * value * jacobian;
+            }
+            return weights;
+        }
         public void GetDistributedNodalValuesFromSurface(string surfaceName,
                                                          out Dictionary<int, double> nodalValues,
                                                          out double area)
@@ -9117,6 +9549,12 @@ namespace CaeModel
 
 
         // 3D - 2D                                                                                  
+        private bool IsLoadSurfaceValid(Load load, string surfaceName)
+        {
+            FeSurface surface;
+            return surfaceName != null && _mesh.Surfaces.TryGetValue(surfaceName, out surface) && surface.Valid &&
+                   (!load.TwoD || IsShellEdgeSurface(surface));
+        }
         private bool IsShellEdgeSurface(FeSurface surface)
         {
             if (surface.ElementFaces == null || surface.ElementFaces.Count == 0) return false;
@@ -9270,36 +9708,6 @@ namespace CaeModel
             {
                 return null;
             }
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_geometry", _geometry, typeof(FeMesh));
-            info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_userViews", _userViews, typeof(CaeGlobals.OrderedDictionary<string, UserViewParameters>));
-            info.AddValue("_parameters", _parameters, typeof(EquationParameterCollection));
-            info.AddValue("_materials", _materials, typeof(CaeGlobals.OrderedDictionary<string, Material>));
-            info.AddValue("_sections", _sections, typeof(CaeGlobals.OrderedDictionary<string, Section>));
-            info.AddValue("_materialOrientations", _materialOrientations,
-                          typeof(CaeGlobals.OrderedDictionary<string, MaterialOrientation>));
-            info.AddValue("_compositeLayups", _compositeLayups, typeof(CaeGlobals.OrderedDictionary<string, CompositeLayup>));
-            info.AddValue("_rosettes", _rosettes, typeof(CaeGlobals.OrderedDictionary<string, Rosette>));
-            info.AddValue("_constraints", _constraints, typeof(CaeGlobals.OrderedDictionary<string, Constraint>));
-            info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(CaeGlobals.OrderedDictionary<string, SurfaceInteraction>));
-            info.AddValue("_contactPairs", _contactPairs, typeof(CaeGlobals.OrderedDictionary<string, ContactPair>));
-            info.AddValue("_distributions", _distributions, typeof(CaeGlobals.OrderedDictionary<string, Distribution>));
-            info.AddValue("_amplitudes", _amplitudes, typeof(CaeGlobals.OrderedDictionary<string, Amplitude>));
-            info.AddValue("_initialConditions", _initialConditions, typeof(CaeGlobals.OrderedDictionary<string, InitialCondition>));
-            info.AddValue("_stepCollection", _stepCollection, typeof(StepCollection));
-            info.AddValue("_calculixUserKeywords", _calculixUserKeywords,
-                          typeof(CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
-            info.AddValue("_calculixKeywordOverrides", _calculixKeywordOverrides,
-                          typeof(List<Calculix.CalculixKeywordOverride>));
-            info.AddValue("_properties", _properties, typeof(ModelProperties));
-            info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
-            info.AddValue("_hashName", _hashName, typeof(string));
         }
 
     }

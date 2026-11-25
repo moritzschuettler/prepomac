@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,14 +19,14 @@ using System.Diagnostics;
 
 namespace PrePoMax
 {
-    [Serializable]
-    public class ViewMultiRegion
+    [PmxType(10521)]
+    public class ViewMultiRegion : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
-        private IMultiRegion _multiRegion;
-        private Dictionary<RegionTypeEnum, string> _regionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _regionNameRegionTypePairs;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private IMultiRegion _multiRegion;
+        [PmxKey(1)] private Dictionary<RegionTypeEnum, string> _regionTypePropertyNamePairs;
+        [PmxKey(2)] private Dictionary<string, RegionTypeEnum> _regionNameRegionTypePairs;
+        [PmxKey(3)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               
@@ -111,6 +111,12 @@ namespace PrePoMax
                 browsable = _multiRegion.RegionType == entry.Key;
                 _dctd.GetProperty(entry.Value).SetIsBrowsable(browsable);
             }
+        }
+        public virtual bool IsPropertyValueMissing(string propertyName)
+        {
+            return _multiRegion != null && propertyName == nameof(RegionType) &&
+                   _multiRegion.RegionType == RegionTypeEnum.Selection &&
+                   (_multiRegion.CreationIds == null || _multiRegion.CreationIds.Length == 0);
         }
     }
 }

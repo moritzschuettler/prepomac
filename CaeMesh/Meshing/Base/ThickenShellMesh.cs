@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,14 +18,14 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class ThickenShellMesh : MeshSetupItem, ISerializable
+    [PmxType(2096)]
+    public class ThickenShellMesh : MeshSetupItem
     {
         // Variables                                                                                                                
-        private double _thickness;          //ISerializable
-        private int _numberOfLayers;        //ISerializable
-        private double _offset;             //ISerializable
-        private bool _keepModelEdges;       //ISerializable
+        [PmxKey(0)] private double _thickness;          //ISerializable
+        [PmxKey(1)] private int _numberOfLayers;        //ISerializable
+        [PmxKey(2)] private double _offset;             //ISerializable
+        [PmxKey(3)] private bool _keepModelEdges;       //ISerializable
 
 
         // Properties                                                                                                               
@@ -100,16 +100,6 @@ namespace CaeMesh
             _numberOfLayers = thickenShellMesh.NumberOfLayers;
             _offset = thickenShellMesh.Offset;
             _keepModelEdges = thickenShellMesh.KeepModelEdges;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_thickness", _thickness, typeof(double));
-            info.AddValue("_numberOfLayers", _numberOfLayers, typeof(int));
-            info.AddValue("_offset", _offset, typeof(double));
-            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
 
     }

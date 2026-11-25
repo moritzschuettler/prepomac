@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinsek
 // Contributors:
@@ -18,15 +18,15 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10391)]
     public class ViewCyclicSymmetry : ViewTie
     {
         // Variables                                                                                                                
-        private CyclicSymmetry _cyclicSymmetry;
-        private ItemSetData _axisPointItemSetData;
-        private string _affectedSelectionHidden;
-        private Dictionary<RegionTypeEnum, string> _affectedRegionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _affectedRegionNameRegionTypePairs;
+        [PmxKey(0)] private CyclicSymmetry _cyclicSymmetry;
+        [PmxKey(1)] private ItemSetData _axisPointItemSetData;
+        [PmxKey(2)] private string _affectedSelectionHidden;
+        [PmxKey(3)] private Dictionary<RegionTypeEnum, string> _affectedRegionTypePropertyNamePairs;
+        [PmxKey(4)] private Dictionary<string, RegionTypeEnum> _affectedRegionNameRegionTypePairs;
 
 
         // Properties                                                                                                               
@@ -262,6 +262,13 @@ namespace PrePoMax
                 DynamicCustomTypeDescriptor.GetProperty(entry.Value).SetIsBrowsable(browsable);
             }
             DynamicCustomTypeDescriptor.GetProperty(nameof(AffectedSelectionHidden)).SetIsBrowsable(false);
+        }
+        public override bool IsPropertyValueMissing(string propertyName)
+        {
+            if (propertyName == nameof(AffectedRegionType))
+                return _cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                       IsSelectionEmpty(_cyclicSymmetry.RegionType, _cyclicSymmetry.CreationIds);
+            else return base.IsPropertyValueMissing(propertyName);
         }
         public override Constraint GetBase()
         {

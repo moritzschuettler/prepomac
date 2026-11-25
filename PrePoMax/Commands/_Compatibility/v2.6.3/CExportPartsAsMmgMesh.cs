@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,13 +22,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10293)]
     class CExportPartsAsMmgMesh : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private string _fileName;
-        private bool _combine;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private bool _combine;
 
 
         // Properties                                                                                                               

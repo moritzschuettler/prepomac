@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,10 +17,11 @@ using CaeGlobals;
 using System.IO;
 using DynamicTypeDescriptor;
 using System.Drawing;
+using System.Runtime.Serialization;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10530)]
     public enum BackgroundType
     {
         [StandardValue("White", Description = "White color background.")]
@@ -33,23 +34,39 @@ namespace PrePoMax
         Gradient,
     }
 
-    [Serializable]
+    [PmxType(10531)]
     public class GraphicsSettings : ISettings
     {
         // Variables                                                                                                                
-        private BackgroundType _backgroundType;
-        private Color _topColor;
-        private Color _bottomColor;
-        private bool _coorSysVisibility;
-        private bool _scaleWidgetVisibility;
-        private bool _widgetHighlightEnabled;
-        private double _ambientComponent;
-        private double _diffuseComponent;
-        private bool _pointSmoothing;
-        private bool _lineSmoothing;
-        private bool _linearDeflectionRelative;
-        private double _linearDeflection;
-        private double _angularDeflectionDeg;
+        [PmxKey(0)] private BackgroundType _backgroundType;
+        [PmxKey(1)] private Color _topColor;
+        [PmxKey(2)] private Color _bottomColor;
+        [PmxKey(3)] private bool _coorSysVisibility;
+        [PmxKey(4)] private bool _scaleWidgetVisibility;
+        [PmxKey(5)] private bool _widgetHighlightEnabled;
+        [PmxKey(6)] private double _ambientComponent;
+        [PmxKey(7)] private double _diffuseComponent;
+        [PmxKey(8)] private bool _pointSmoothing;
+        [PmxKey(9)] private bool _lineSmoothing;
+        [PmxKey(10)] private bool _linearDeflectionRelative;
+        [PmxKey(11)] private double _linearDeflection;
+        [PmxKey(12)] private double _angularDeflectionDeg;
+        // The choice of the ActiViz (VTK 5.8) view, which settings files of the builds that had it still carry; it is
+        // read and never used
+        [PmxKey(13)] [OptionalField]
+        private bool _activizView;
+        // Older settings files have no ambient occlusion, which reads as off
+        [PmxKey(14)] [OptionalField]
+        private bool _ambientOcclusion;
+        [PmxKey(15)] [OptionalField]
+        private double _ambientOcclusionRadius;
+        [PmxKey(16)] [OptionalField]
+        private int _ambientOcclusionKernelSize;
+        // Older settings files have no text font size, which reads as the default
+        [PmxKey(17)] [OptionalField]
+        private int _textFontSize;
+        [PmxKey(18)] [OptionalField]
+        private string _textFontFamily;
 
 
         // Properties                                                                                                               
@@ -83,6 +100,21 @@ namespace PrePoMax
             get { return _widgetHighlightEnabled; }
             set { _widgetHighlightEnabled = value; }
         }
+        public string TextFontFamily
+        {
+            get { return _textFontFamily; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    _textFontFamily = vtkControl.Native.VtkNativeViewFont.PreferredFamilyName;
+                else _textFontFamily = value.Trim();
+            }
+        }
+        public int TextFontSize
+        {
+            get { return _textFontSize; }
+            set { _textFontSize = vtkControl.Native.VtkNativeViewFont.ClampSize(value); }
+        }
         public double AmbientComponent
         {
             get { return _ambientComponent; }
@@ -115,6 +147,27 @@ namespace PrePoMax
                 if (_linearDeflection < 0) _linearDeflection = 0;
             }
         }
+        public bool AmbientOcclusion { get { return _ambientOcclusion; } set { _ambientOcclusion = value; } }
+        public double AmbientOcclusionRadius
+        {
+            get { return _ambientOcclusionRadius; }
+            set
+            {
+                _ambientOcclusionRadius = value;
+                if (_ambientOcclusionRadius < 0.001) _ambientOcclusionRadius = 0.001;
+                else if (_ambientOcclusionRadius > 1) _ambientOcclusionRadius = 1;
+            }
+        }
+        public int AmbientOcclusionKernelSize
+        {
+            get { return _ambientOcclusionKernelSize; }
+            set
+            {
+                _ambientOcclusionKernelSize = value;
+                if (_ambientOcclusionKernelSize < 8) _ambientOcclusionKernelSize = 8;
+                else if (_ambientOcclusionKernelSize > 512) _ambientOcclusionKernelSize = 512;
+            }
+        }
         public double AngularDeflectionRad
         {
             get { return Math.Round(_angularDeflectionDeg * Math.PI / 180, 2); }
@@ -138,6 +191,15 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context)
+        {
+            _ambientOcclusion = false;
+            _ambientOcclusionRadius = 0.05;
+            _ambientOcclusionKernelSize = 64;
+            _textFontSize = vtkControl.Native.VtkNativeViewFont.DefaultSize;
+            _textFontFamily = vtkControl.Native.VtkNativeViewFont.PreferredFamilyName;
+        }
         public void CheckValues()
         {
         }
@@ -156,6 +218,12 @@ namespace PrePoMax
             _linearDeflectionRelative = true;
             _linearDeflection = 0.01;
             _angularDeflectionDeg = 15;
+            _activizView = false;
+            _ambientOcclusion = false;
+            _ambientOcclusionRadius = 0.05;
+            _ambientOcclusionKernelSize = 64;
+            _textFontSize = vtkControl.Native.VtkNativeViewFont.DefaultSize;
+            _textFontFamily = vtkControl.Native.VtkNativeViewFont.PreferredFamilyName;
         }
     }
 }

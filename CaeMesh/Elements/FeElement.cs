@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -12,10 +12,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2027)]
     public enum FeFaceName
     {
         Empty,
@@ -28,13 +29,13 @@ namespace CaeMesh
     }
 
 
-    [Serializable]
+    [PmxType(2028)]
     public abstract class FeElement
     {
         // Properties                                                                                                               
-        public int Id;
-        public int PartId;
-        public int[] NodeIds;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public int PartId;
+        [PmxKey(2)] public int[] NodeIds;
         public abstract int Dimension { get; }
 
 
@@ -58,6 +59,7 @@ namespace CaeMesh
                    element is ParabolicTriangleElement ||
                    element is ParabolicQuadrilateralElement ||
                    element is ParabolicTetraElement ||
+                   element is ParabolicPyramidElement ||
                    element is ParabolicWedgeElement ||
                    element is ParabolicHexaElement; 
         }
@@ -67,6 +69,7 @@ namespace CaeMesh
                    elementType == typeof(ParabolicTriangleElement) ||
                    elementType == typeof(ParabolicQuadrilateralElement) ||
                    elementType == typeof(ParabolicTetraElement) ||
+                   elementType == typeof(ParabolicPyramidElement) ||
                    elementType == typeof(ParabolicWedgeElement) ||
                    elementType == typeof(ParabolicHexaElement);
         }

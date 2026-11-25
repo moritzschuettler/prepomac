@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,11 +19,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10338)]
     public class ViewTransfiniteMesh : ViewGmshSetupItem
     {
         // Variables                                                                                                                
-        private TransfiniteMesh _transfiniteMesh;
+        [PmxKey(0)] private TransfiniteMesh _transfiniteMesh;
 
 
         // Properties                                                                                                               
@@ -68,6 +68,7 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(AlgorithmRecombine)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(RecombineMinQuality)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(TransfiniteFourSided)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(TransfiniteSubmapped)).SetIsBrowsable(false);
             //
             _dctd.GetProperty(nameof(OptimizeFirstOrderShell)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(OptimizeFirstOrderSolid)).SetIsBrowsable(false);

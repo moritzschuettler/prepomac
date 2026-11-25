@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,13 +18,13 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ShellEdgeLoad : Load, ISerializable
+    [PmxType(3269)]
+    public class ShellEdgeLoad : Load
     {
         // Variables                                                                                                                
-        private string _surfaceName;            //ISerializable
-        private RegionTypeEnum _regionType;     //ISerializable
-        private EquationContainer _magnitude;   //ISerializable
+        [PmxKey(0)] private string _surfaceName;            //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;     //ISerializable
+        [PmxKey(2)] private EquationContainer _magnitude;   //ISerializable
 
 
         // Properties                                                                                                               
@@ -69,6 +69,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMagnitude(_magnitude, false);
+        }
         private void SetMagnitude(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitude, value, null, checkEquation);
@@ -79,16 +84,6 @@ namespace CaeModel
             base.CheckEquations();
             //
             _magnitude.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }
 }

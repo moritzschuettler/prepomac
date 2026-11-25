@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -54,11 +54,62 @@ namespace UserControls
         const int PFM_SPACEBEFORE = 0x00000040;
         const int PFM_SPACEAFTER = 0x00000080;
         const int PFM_LINESPACING = 0x00000100;
+        const int PFM_STARTINDENT = 0x00000001;
         const int SCF_SELECTION = 1;
         const int EM_SETPARAFORMAT = 1095;
+        const int EM_GETRECT = 0x00B2;
+        //
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
         //
         [DllImport("user32", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(HandleRef hWnd, int msg, int wParam, ref PARAFORMAT lParam);
+        [DllImport("user32", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(HandleRef hWnd, int msg, int wParam, ref RECT lParam);
+        [DllImport("user32", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(HandleRef hWnd, int msg, int wParam, IntPtr lParam);
+        const int WM_SETREDRAW = 0x000B;
+        //
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct TEXTMETRIC
+        {
+            public int tmHeight;
+            public int tmAscent;
+            public int tmDescent;
+            public int tmInternalLeading;
+            public int tmExternalLeading;
+            public int tmAveCharWidth;
+            public int tmMaxCharWidth;
+            public int tmWeight;
+            public int tmOverhang;
+            public int tmDigitizedAspectX;
+            public int tmDigitizedAspectY;
+            public char tmFirstChar;
+            public char tmLastChar;
+            public char tmDefaultChar;
+            public char tmBreakChar;
+            public byte tmItalic;
+            public byte tmUnderlined;
+            public byte tmStruckOut;
+            public byte tmPitchAndFamily;
+            public byte tmCharSet;
+        }
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool GetTextMetrics(IntPtr hdc, out TEXTMETRIC lptm);
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+        [DllImport("user32.dll")]
+        private static extern bool HideCaret(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool ShowCaret(IntPtr hWnd);
         // Scroll
         private const UInt32 SB_TOP = 0x6;
         private const UInt32 WM_VSCROLL = 0x115;
@@ -72,6 +123,16 @@ namespace UserControls
         private bool _beep;
         private Size _minSize;
         private Size _maxSize;
+        private byte _lineSpacingRule;
+        private int _lineSpacing;
+        private double _linePitchInPixels;
+        private bool _textOriginSet;
+        private Point _textOrigin;
+        private int _firstLineHeight;
+        private int _firstLineSpacing;
+        private int _startIndent;
+        private bool _applyingLineFormats;
+        private int _formattedLineCount;
 
 
         // Properties                                                                                                               
@@ -102,7 +163,7 @@ namespace UserControls
             set
             {
                 base.Text = value;
-                SetLineFormat(5, 23);
+                ApplyLineFormats();
             }
         }
 
@@ -111,10 +172,78 @@ namespace UserControls
         public ViewportEditorRichTextBox()
         {
             _beep = false;
+            _lineSpacingRule = 5;
+            _lineSpacing = 23;
         }
 
 
         // Methods                                                                                                                  
+        public void SetTextFont(string familyName, float sizeInPixels, double linePitchInPixels)
+        {
+            Font = new Font(familyName, sizeInPixels, FontStyle.Regular, GraphicsUnit.Pixel);
+            _linePitchInPixels = linePitchInPixels;
+            _textOriginSet = false;
+            _startIndent = 0;
+            using (Graphics graphics = CreateGraphics())
+            {
+                _lineSpacingRule = 4;
+                _lineSpacing = (int)Math.Round(linePitchInPixels * 1440 / graphics.DpiY);
+            }
+            ApplyLineFormats();
+        }
+        // Moves the text so that the left edge of its first line and the row the bottom of its capitals is drawn on
+        // fall on the point, in pixels from the top left corner of the text box. An exact line spacing puts the space a
+        // line has over its font above it, so the first line gets the exact height that ends one descent below the
+        // point, and every line after it the line pitch
+        // The leftmost column text can start at, which an origin further left cannot move it past
+        public int GetMinimumTextLeft()
+        {
+            RECT rectangle = new RECT();
+            SendMessage(new HandleRef(this, Handle), EM_GETRECT, 0, ref rectangle);
+            return rectangle.Left;
+        }
+        public void SetTextOrigin(Point textOrigin)
+        {
+            RECT rectangle = new RECT();
+            SendMessage(new HandleRef(this, Handle), EM_GETRECT, 0, ref rectangle);
+            _textOrigin = textOrigin;
+            _firstLineHeight = textOrigin.Y - rectangle.Top + 1 + GetFontDescent();
+            using (Graphics graphics = CreateGraphics())
+            {
+                _firstLineSpacing = (int)Math.Round(_firstLineHeight * 1440 / graphics.DpiY);
+                _startIndent = (int)Math.Round(Math.Max(0, textOrigin.X - rectangle.Left) * 1440 / graphics.DpiX);
+            }
+            _textOriginSet = true;
+            ApplyLineFormats();
+        }
+        public void ResetTextOrigin()
+        {
+            _textOriginSet = false;
+            _startIndent = 0;
+            ApplyLineFormats();
+        }
+        // The descent GDI draws the font with, which the rich edit control lays its lines out by
+        private int GetFontDescent()
+        {
+            using (Graphics graphics = CreateGraphics())
+            {
+                IntPtr deviceContext = graphics.GetHdc();
+                IntPtr font = Font.ToHfont();
+                try
+                {
+                    IntPtr previousFont = SelectObject(deviceContext, font);
+                    TEXTMETRIC textMetric;
+                    GetTextMetrics(deviceContext, out textMetric);
+                    SelectObject(deviceContext, previousFont);
+                    return textMetric.tmDescent;
+                }
+                finally
+                {
+                    DeleteObject(font);
+                    graphics.ReleaseHdc(deviceContext);
+                }
+            }
+        }
         /// <summary>
         /// 
         /// </summary>
@@ -130,20 +259,101 @@ namespace UserControls
         /// dyLineSpacing to 20 produces single-spaced text, 40 is double spaced, 60 is triple spaced, and so on.
         /// </param>
         /// <param name="space">Line spacing</param>
-        private void SetLineFormat(byte rule, int space)
+        private void SetLineFormat(int start, int length, byte rule, int space)
         {
             PARAFORMAT fmt = new PARAFORMAT();
             fmt.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(fmt);
-            fmt.dwMask = PFM_LINESPACING;
+            fmt.dwMask = PFM_LINESPACING | PFM_STARTINDENT;
             fmt.dyLineSpacing = space;
             fmt.bLineSpacingRule = rule;
-            this.SelectAll();
+            fmt.dxStartIndent = _startIndent;
+            Select(start, length);
             SendMessage(new HandleRef(this, this.Handle), EM_SETPARAFORMAT, SCF_SELECTION, ref fmt);
+        }
+        // Every line gets the line spacing, and with a text origin the first line its own height. Typed text takes the
+        // format of its line, so only a change of the lines needs the formats again. The formats are set through the
+        // selection, which is not drawn meanwhile
+        private void ApplyLineFormats()
+        {
+            ApplyLineFormats(true);
+        }
+        private void ApplyLineFormats(bool force)
+        {
+            if (_applyingLineFormats) return;
+            string text = base.Text;
+            int lineCount = 1;
+            foreach (char character in text) if (character == '\n') lineCount++;
+            if (!force && lineCount == _formattedLineCount) return;
+            _formattedLineCount = lineCount;
             //
-            this.SelectionLength = 0;
-            this.SelectionStart = 0;
+            _applyingLineFormats = true;
+            HandleRef handle = new HandleRef(this, Handle);
+            bool caretHidden = HideCaret(Handle);
+            SendMessage(handle, WM_SETREDRAW, 0, IntPtr.Zero);
+            try
+            {
+                int selectionStart = SelectionStart;
+                int selectionLength = SelectionLength;
+                SetLineFormat(0, TextLength, _lineSpacingRule, _lineSpacing);
+                if (_textOriginSet)
+                {
+                    int firstLineEnd = text.IndexOf('\n');
+                    SetLineFormat(0, firstLineEnd < 0 ? TextLength : firstLineEnd, 4, _firstLineSpacing);
+                }
+                Select(selectionStart, selectionLength);
+            }
+            finally
+            {
+                SendMessage(handle, WM_SETREDRAW, 1, IntPtr.Zero);
+                Invalidate();
+                if (caretHidden) ShowCaret(Handle);
+                _applyingLineFormats = false;
+            }
+        }
+        // The text over a text origin: its widest line as the control lays it out, from the origin and with room for
+        // the caret, and the first line and the line pitch of the others down to the bottom of the last line. A line
+        // wider than the control is scrolled to the caret, which moves both of its ends
+        private Size GetTextOriginSize()
+        {
+            string text = base.Text;
+            int lineCount = 1;
+            int width = 0;
+            int lineStart = 0;
+            while (true)
+            {
+                int lineEnd = text.IndexOf('\n', lineStart);
+                if (lineEnd < 0) lineEnd = text.Length;
+                width = Math.Max(width, GetPositionFromCharIndex(lineEnd).X - GetPositionFromCharIndex(lineStart).X);
+                if (lineEnd == text.Length) break;
+                lineStart = lineEnd + 1;
+                lineCount++;
+            }
+            int height = _firstLineHeight + (int)Math.Round((lineCount - 1) * _linePitchInPixels);
+            return new Size(_textOrigin.X + width + 2, height);
+        }
+        // A typed character that would end its line past the right edge scrolls the text to the caret before the
+        // control grows, so the control grows for it first
+        private void ReserveWidth(char character)
+        {
+            string text = base.Text;
+            int lineEnd = text.IndexOf('\n', Math.Min(SelectionStart, text.Length));
+            if (lineEnd < 0) lineEnd = text.Length;
+            int characterWidth = TextRenderer.MeasureText(character.ToString(), Font, Size.Empty,
+                                                          TextFormatFlags.NoPadding).Width;
+            int width = GetPositionFromCharIndex(lineEnd).X + characterWidth + 2;
+            if (width <= ClientSize.Width || _maxSize.Width <= 0) return;
+            width = Math.Min(width + Width - ClientSize.Width, _maxSize.Width);
+            if (width <= Width) return;
+            bool caretHidden = HideCaret(Handle);
+            Size = new Size(width, Height);
+            if (caretHidden) ShowCaret(Handle);
         }
         //
+        protected override void OnKeyPress(KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar)) ReserveWidth(e.KeyChar);
+            base.OnKeyPress(e);
+        }
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.Control && e.KeyCode == Keys.V)
@@ -176,15 +386,30 @@ namespace UserControls
         }
         protected override void OnTextChanged(EventArgs e)
         {
-            Size size = GetPreferredSize(Size.Empty);
-            Size newSize = new Size((int)(size.Width * 1.0), (int)(size.Height * 1.15));
+            Size newSize;
+            if (_textOriginSet)
+            {
+                ApplyLineFormats(false);
+                newSize = GetTextOriginSize();
+            }
+            else
+            {
+                Size size = GetPreferredSize(Size.Empty);
+                newSize = new Size((int)(size.Width * 1.0), (int)(size.Height * 1.15));
+            }
             //
             if (newSize.Width < _minSize.Width) newSize.Width = _minSize.Width;
             if (newSize.Height < _minSize.Height) newSize.Height = _minSize.Height;
             if (newSize.Width > _maxSize.Width) newSize.Width = _maxSize.Width;
             if (newSize.Height > _maxSize.Height) newSize.Height = _maxSize.Height;
             //
-            Size = newSize;
+            if (newSize != Size)
+            {
+                bool caretHidden = HideCaret(Handle);
+                Size = newSize;
+                Invalidate();
+                if (caretHidden) ShowCaret(Handle);
+            }
             //
             base.OnTextChanged(e);
         }

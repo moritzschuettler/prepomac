@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -59,12 +59,12 @@ namespace PrePoMax
         }
     }
 
-    [Serializable]
+    [PmxType(10308)]
     public class ViewExportFileProperties
     {
         // Variables                                                                                                                
-        protected DynamicCustomTypeDescriptor _dctd = null;
-        protected ExportFileProperties _properties;
+        [PmxKey(0)] protected DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] protected ExportFileProperties _properties;
 
 
         // Properties                                                                                                               

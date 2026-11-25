@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -663,6 +663,44 @@ namespace PrePoMax
                 throw new CaeException("The geometry normals of the part " + part.Name +
                                        " could not be computed. " + error);
             return gmsh.GmshData.NodeIdNormals;
+        }
+        /// <summary>
+        /// The coordinates of the nodes projected onto the CAD edges and faces of the part, by the node id, or null when
+        /// the projection fails. The edges and faces are given by their visualization ids and the exploded view of the
+        /// part must be suppressed.
+        /// </summary>
+        public Dictionary<int, double[]> ProjectNodesToGeometry(GeometryPart part, Dictionary<int, FeNode[]> edgeIdNodes,
+                                                                Dictionary<int, FeNode[]> faceIdNodes)
+        {
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                _controller.Form.WriteDataToOutput("The midside nodes of the part " + part.Name + " could not be " +
+                                                   "projected to the geometry since the work directory does not exist.");
+                return null;
+            }
+            //
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            File.WriteAllText(brepFileName, part.CADFileData);
+            //
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = brepFileName;
+            gmshData.EdgeIdNodes = edgeIdNodes.ToDictionary(entry => FeMesh.GmshTopologyId(entry.Key, part.PartId),
+                                                            entry => entry.Value);
+            gmshData.FaceIdNodes = faceIdNodes.ToDictionary(entry => FeMesh.GmshTopologyId(entry.Key, part.PartId),
+                                                            entry => entry.Value);
+            _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+            //
+            GmshAPI gmsh = new GmshAPI(gmshData, _controller.Form.WriteDataToOutput);
+            string error = gmsh.ProjectNodesToOccGeometry();
+            if (error != null)
+            {
+                _controller.Form.WriteDataToOutput("The midside nodes of the part " + part.Name + " could not be " +
+                                                   "projected to the geometry. " + error);
+                return null;
+            }
+            return gmsh.GmshData.NodeIdProjectedCoor;
         }
     }
 }

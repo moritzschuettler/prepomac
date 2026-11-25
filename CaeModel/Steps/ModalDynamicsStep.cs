@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,17 +13,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ModalDynamicsStep : StaticStep, ISerializable
+    [PmxType(3274)]
+    public class ModalDynamicsStep : StaticStep
     {
         // Variables                                                                                                                
-        private bool _steadyState;          //ISerializable
-        private ModalDamping _modalDamping; //ISerializable
-        private double _relativeError;      //ISerializable
+        [PmxKey(0)] private bool _steadyState;          //ISerializable
+        [PmxKey(1)] private ModalDamping _modalDamping; //ISerializable
+        [PmxKey(2)] private double _relativeError;      //ISerializable
 
 
         // Properties                                                                                                               
@@ -96,10 +97,12 @@ namespace CaeModel
                 loadType == typeof(HydrostaticPressure) ||
                 loadType == typeof(ImportedPressure) ||
                 loadType == typeof(STLoad) ||
+                loadType == typeof(EdgeLoad) ||
                 loadType == typeof(ImportedSTLoad) ||
                 loadType == typeof(ShellEdgeLoad) ||
                 loadType == typeof(GravityLoad) ||
                 loadType == typeof(CentrifLoad) ||
+                loadType == typeof(BodyForce) ||
                 loadType == typeof(PreTensionLoad) ||
                 loadType == typeof(BladeAeroLoad))
             {
@@ -119,16 +122,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_steadyState", _steadyState, typeof(bool));
-            info.AddValue("_modalDamping", _modalDamping, typeof(ModalDamping));
-            info.AddValue("_relativeError", _relativeError, typeof(double));
         }
     }
 }

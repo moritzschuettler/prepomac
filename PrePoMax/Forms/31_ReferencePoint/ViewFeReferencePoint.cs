@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,13 +20,13 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10357)]
     public class ViewFeReferencePoint : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private FeReferencePoint _referencePoint;
-        private int _numOfNodeSets;
-        private int _numOfSurfaces;
+        [PmxKey(0)] private FeReferencePoint _referencePoint;
+        [PmxKey(1)] private int _numOfNodeSets;
+        [PmxKey(2)] private int _numOfSurfaces;
 
 
 
@@ -100,6 +100,20 @@ namespace PrePoMax.Forms
         [Id(4, 3)]
         public EquationString Z { get { return _referencePoint.Z.Equation; } set { _referencePoint.Z.Equation = value; } }
         //
+        [Category("Node ids")]
+        [OrderedDisplayName(0, 10, "Reference node id")]
+        [Description("Id of the node that carries the translations of the reference point in the input file. " +
+                     "The id is fixed, so user keywords can refer to it.")]
+        [Id(1, 4)]
+        public int RefNodeId { get { return _referencePoint.RefNodeId; } set { _referencePoint.RefNodeId = value; } }
+        //
+        [Category("Node ids")]
+        [OrderedDisplayName(1, 10, "Rotation node id")]
+        [Description("Id of the node that carries the rotations of the reference point when a rigid body uses it. " +
+                     "The id is fixed, so user keywords can refer to it.")]
+        [Id(2, 4)]
+        public int RotNodeId { get { return _referencePoint.RotNodeId; } set { _referencePoint.RotNodeId = value; } }
+        //
         [Category("Appearance")]
         [DisplayName("Color")]
         [Description("Select reference point color.")]
@@ -130,6 +144,11 @@ namespace PrePoMax.Forms
         public FeReferencePoint GetBase()
         {
             return _referencePoint;
+        }
+        public void SetNodeIdsBrowsable(bool browsable)
+        {
+            DynamicCustomTypeDescriptor.GetProperty(nameof(RefNodeId)).SetIsBrowsable(browsable);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(RotNodeId)).SetIsBrowsable(browsable);
         }
         public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames)
         {

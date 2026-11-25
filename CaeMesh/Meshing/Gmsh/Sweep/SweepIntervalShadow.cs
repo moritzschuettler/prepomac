@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -82,7 +82,7 @@ namespace CaeMesh.Sweep
                 // The solve
                 string lpFileName = Path.Combine(Folder, "interval_" + index + ".lp");
                 IntervalSolution solution = problem.Solve(false, _timeoutSeconds, lpFileName);
-                report.AppendLine("lp_solve: " + solution.StatusName + " in " + solution.Seconds.ToString("0.###") + " s");
+                report.AppendLine("HiGHS: " + solution.StatusName + " in " + solution.Seconds.ToString("0.###") + " s");
                 string solved = solution.StatusName;
                 int numOfDifferent = 0;
                 if (solution.HasCounts)

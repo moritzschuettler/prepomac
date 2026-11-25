@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,24 +13,25 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10316)]
     public enum FollowerViewTypeEnum
     {
         Point,
         Plane
     }
     //
-    [Serializable]
+    [PmxType(10317)]
     public class FollowerViewParameters
     {
         // Variables                                                                                                                
-        private FollowerViewTypeEnum _followerViewType;
-        private int _centerNodeId;
-        private int _direction1NodeId;
-        private int _direction2NodeId;
+        [PmxKey(0)] private FollowerViewTypeEnum _followerViewType;
+        [PmxKey(1)] private int _centerNodeId;
+        [PmxKey(2)] private int _direction1NodeId;
+        [PmxKey(3)] private int _direction2NodeId;
 
 
         // Properties                                                                                                               

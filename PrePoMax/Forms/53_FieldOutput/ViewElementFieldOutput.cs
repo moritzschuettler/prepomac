@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,7 +19,7 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10448)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
     [Flags]
@@ -61,11 +61,11 @@ namespace PrePoMax
         SDV = 1073741824,
     }
 
-    [Serializable]
+    [PmxType(10449)]
     public class ViewElementFieldOutput : ViewFieldOutput
     {
         // Variables                                                                                                                
-        private ElementFieldOutput _fieldOutput;
+        [PmxKey(0)] private ElementFieldOutput _fieldOutput;
 
 
         // Properties                                                                                                               

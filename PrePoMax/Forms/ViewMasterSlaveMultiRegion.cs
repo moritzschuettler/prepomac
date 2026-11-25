@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,16 +18,16 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
-    public class ViewMasterSlaveMultiRegion
+    [PmxType(10520)]
+    public class ViewMasterSlaveMultiRegion : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
-        private IMasterSlaveMultiRegion _region;
-        private Dictionary<RegionTypeEnum, string> _masterRegionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _masterRegionNameRegionTypePairs;
-        private Dictionary<RegionTypeEnum, string> _slaveRegionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _slaveRegionNameRegionTypePairs;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private IMasterSlaveMultiRegion _region;
+        [PmxKey(1)] private Dictionary<RegionTypeEnum, string> _masterRegionTypePropertyNamePairs;
+        [PmxKey(2)] private Dictionary<string, RegionTypeEnum> _masterRegionNameRegionTypePairs;
+        [PmxKey(3)] private Dictionary<RegionTypeEnum, string> _slaveRegionTypePropertyNamePairs;
+        [PmxKey(4)] private Dictionary<string, RegionTypeEnum> _slaveRegionNameRegionTypePairs;
+        [PmxKey(5)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               
@@ -176,6 +176,19 @@ namespace PrePoMax
                     _dctd.GetProperty(entry.Value).SetIsBrowsable(browsable);
                 }
             }
+        }
+        public virtual bool IsPropertyValueMissing(string propertyName)
+        {
+            if (_region == null) return false;
+            else if (propertyName == nameof(MasterRegionType))
+                return IsSelectionEmpty(_region.MasterRegionType, _region.MasterCreationIds);
+            else if (propertyName == nameof(SlaveRegionType))
+                return IsSelectionEmpty(_region.SlaveRegionType, _region.SlaveCreationIds);
+            else return false;
+        }
+        protected static bool IsSelectionEmpty(RegionTypeEnum regionType, int[] creationIds)
+        {
+            return regionType == RegionTypeEnum.Selection && (creationIds == null || creationIds.Length == 0);
         }
     }
 }

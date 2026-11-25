@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,12 +22,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10077)]
     class CReplaceModelProperties : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _newModelName;
-        private ModelProperties _newModelProperties;
+        [PmxKey(0)] private string _newModelName;
+        [PmxKey(1)] private ModelProperties _newModelProperties;
 
 
         // Properties                                                                                                               
@@ -50,7 +50,7 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ReplaceModelProperties(_newModelName, _newModelProperties);
+            receiver.ReplaceModelProperties(_newModelName, _newModelProperties.DeepClone());
             return true;
         }
         // ICommandWithDialog

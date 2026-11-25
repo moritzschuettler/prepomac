@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,19 +13,19 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10361)]
     public class ElasticEngineeringConstantsDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _youngsModulus1;
-        private EquationContainer _youngsModulus2;
-        private EquationContainer _youngsModulus3;
-        private EquationContainer _poissonsRatio12;
-        private EquationContainer _poissonsRatio13;
-        private EquationContainer _poissonsRatio23;
-        private EquationContainer _shearModulus12;
-        private EquationContainer _shearModulus13;
-        private EquationContainer _shearModulus23;
+        [PmxKey(0)] private EquationContainer _youngsModulus1;
+        [PmxKey(1)] private EquationContainer _youngsModulus2;
+        [PmxKey(2)] private EquationContainer _youngsModulus3;
+        [PmxKey(3)] private EquationContainer _poissonsRatio12;
+        [PmxKey(4)] private EquationContainer _poissonsRatio13;
+        [PmxKey(5)] private EquationContainer _poissonsRatio23;
+        [PmxKey(6)] private EquationContainer _shearModulus12;
+        [PmxKey(7)] private EquationContainer _shearModulus13;
+        [PmxKey(8)] private EquationContainer _shearModulus23;
 
 
         // Properties                                                                                                               

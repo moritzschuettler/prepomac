@@ -2,27 +2,22 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using CaeGlobals;
-using Kitware.VTK;
-using static Kitware.VTK.vtkMultiThreshold;
+using vtkControl.Native;
 
 namespace vtkControl
 {
+    // The lines are made here, with the .NET number format; the native status block lays them out and finds the
+    // deformation scale factor among them
     class vtkMaxStatusBlockWidget : vtkMaxTextWidget
     {
-        // Variables                                                                                                                
-        private string _text;
+        // Variables
         private string _name;
         private DateTime _dateTime;
         private float _analysisTime;
@@ -35,11 +30,10 @@ namespace vtkControl
         private int _stepNumber;
         private int _incrementNumber;
         private int _nodalDiameter;
-        private bool _deformationScaleFactorTextClicked;
-        private System.Drawing.Rectangle _deformationScaleFactorRect;
+        private string[] _lines;
 
 
-        // Properties                                                                                                               
+        // Properties
         public string Name { get { return _name; } set { _name = value; SetText(); } }
         public DateTime DateTime { get { return _dateTime; } set { _dateTime = value; SetText(); } }
         public float AnalysisTime { get { return _analysisTime; } set { _analysisTime = value; SetText(); } }
@@ -51,26 +45,20 @@ namespace vtkControl
         }
         public string DeformationVariable { get { return _deformationVariable; } set { _deformationVariable = value; SetText(); } }
         public float AnimationScaleFactor
-        { 
-            get { return _animationScaleFactor; } 
-            set { _animationScaleFactor = value; SetText(); } 
+        {
+            get { return _animationScaleFactor; }
+            set { _animationScaleFactor = value; SetText(); }
         }
         public vtkMaxFieldDataType FieldType { get { return _fieldType; } set { _fieldType = value; SetText(); } }
         public vtkMaxAnimationType AnimationType { get { return _animationType; } set { _animationType = value; SetText(); } }
         public int StepNumber { get { return _stepNumber; } set { _stepNumber = value; SetText(); } }
         public int IncrementNumber { get { return _incrementNumber; } set { _incrementNumber = value; SetText(); } }
         public int NodalDiameter { get { return _nodalDiameter; } set { _nodalDiameter = value; SetText(); } }
-        public bool DeformationScaleFactorTextClicked
-        {
-            get { return _deformationScaleFactorTextClicked; }
-            set { _deformationScaleFactorTextClicked = value; }
-        }
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public vtkMaxStatusBlockWidget()
         {
-            _text = "text";
             _name = "name";
             _dateTime = DateTime.Now;
             _analysisTime = 0;
@@ -80,10 +68,11 @@ namespace vtkControl
             _fieldType = vtkMaxFieldDataType.Static;
             _nodalDiameter = -1;
             _animationType = vtkMaxAnimationType.ScaleFactor;
+            _mirrorText = false;
         }
 
 
-        // Private methods                                                                                                          
+        // Private methods
         private void SetText()
         {
             string sysUIFormat = System.Globalization.CultureInfo.CurrentUICulture.DateTimeFormat.ShortDatePattern;
@@ -148,39 +137,17 @@ namespace vtkControl
                 }
             }
             //
-            _text = line1 + Environment.NewLine + line2 + Environment.NewLine + line3fix + line3factor;
-            if (line4 != null) _text += Environment.NewLine + line4;
-            // Compute the position and size of the deformation scale factor text
-            this.SetText(line1);
-            double[] line1Size = _size.ToArray();
-            this.SetText(line1 + Environment.NewLine + line2);
-            double[] line1And2Size = _size.ToArray();
-            this.SetText(line1 + Environment.NewLine + line2 + Environment.NewLine + line3fix);
-            double[] line1And2And3Size = _size.ToArray();
-            this.SetText(line3fix);
-            double[] line3fixSize = _size.ToArray();
-            this.SetText(line3fix + line3factor);
-            double[] line3fixAndFactorSize = _size.ToArray();
+            string text = line1 + Environment.NewLine + line2 + Environment.NewLine + line3fix + line3factor;
+            if (line4 != null) text += Environment.NewLine + line4;
+            SetText(text);
             //
-            _deformationScaleFactorRect = new System.Drawing.Rectangle((int)line3fixSize[0],
-                                                                       (int)line1And2Size[1],
-                                                                       (int)(line3fixAndFactorSize[0] - line3fixSize[0]),
-                                                                       (int)(line1And2And3Size[1] - line1And2Size[1]));
-            //
-            this.SetText(_text);
+            _lines = new string[] { line1, line2, line3fix, line3factor, line4 ?? "" };
+            _nativeMirror?.SetStatusLines(_lines[0], _lines[1], _lines[2], _lines[3], _lines[4]);
         }
-
-
-        // Public methods                                                                                                           
-        public override bool LeftButtonPress(MouseEventArgs e)
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
         {
-            int[] size = _renderer.GetSize();
-            int localX = e.Location.X - (int)_position[0];
-            int loaclY = size[1] - e.Location.Y - (int)_position[1];
-            //
-            _deformationScaleFactorTextClicked = _deformationScaleFactorRect.Contains(localX, loaclY);
-            //
-            return base.LeftButtonPress(e);
+            if (_lines != null) nativeMirror.SetStatusLines(_lines[0], _lines[1], _lines[2], _lines[3], _lines[4]);
+            base.CopyStateToNativeMirror(nativeMirror);
         }
     }
 }

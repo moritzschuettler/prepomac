@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,11 +19,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10485)]
     public class ViewMeshingSettings : Forms.ViewMeshingParameters, IViewSettings, IReset
     {
         // Variables                                                                                                                
-        MeshingSettings _meshingSettings;
+        [PmxKey(0)] MeshingSettings _meshingSettings;
 
 
         // Properties                                                                                                               

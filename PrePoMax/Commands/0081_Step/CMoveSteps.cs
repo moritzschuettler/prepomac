@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinsek
 // Contributors:
@@ -20,12 +20,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10177)]
     class CMoveSteps : PreprocessCommand
     {
         // Variables
-        private string[] _stepNames;
-        private int _targetIndex;
+        [PmxKey(0)] private string[] _stepNames;
+        [PmxKey(1)] private int _targetIndex;
 
 
         // Constructor

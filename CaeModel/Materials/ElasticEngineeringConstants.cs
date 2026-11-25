@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,8 +13,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ElasticEngineeringConstants : MaterialProperty, ISerializable
+    [PmxType(3177)]
+    public class ElasticEngineeringConstants : MaterialProperty
     {
         // Variables                                                                                                                
         public const int YoungsModulus1Id = 0;
@@ -28,7 +28,7 @@ namespace CaeModel
         public const int ShearModulus23Id = 8;
         public const int TemperatureId = 9;
         public const int NumberOfValues = 10;
-        private EquationContainer[][] _engineeringConstantsTemp;    //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _engineeringConstantsTemp;    //ISerializable
 
 
         // Properties                                                                                                               
@@ -69,6 +69,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetEngineeringConstantsTemp(_engineeringConstantsTemp, false);
+        }
         private void SetEngineeringConstantsTemp(double[][] value, bool checkEquation = true)
         {
             CheckDataSize(value);
@@ -193,13 +198,6 @@ namespace CaeModel
                 CheckStability(i);
             }
             CheckTemperatures();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_engineeringConstantsTemp", _engineeringConstantsTemp, typeof(EquationContainer[][]));
         }
     }
 }

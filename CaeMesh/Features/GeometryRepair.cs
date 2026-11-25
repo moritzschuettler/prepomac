@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,19 +17,19 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class GeometryRepair : ISerializable
+    [PmxType(2067)]
+    public class GeometryRepair
     {
         // Variables                                                                                                                
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private bool _fixShape;                             //ISerializable
-        private bool _removeSmallEdges;                     //ISerializable
-        private bool _removeSmallFaces;                     //ISerializable
-        private bool _sewFaces;                             //ISerializable
-        private bool _fuseFaces;                            //ISerializable
-        private bool _joinEdges;                            //ISerializable
-        private double _tolerance;                          //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(1)] private Selection _creationData;                    //ISerializable
+        [PmxKey(2)] private bool _fixShape;                             //ISerializable
+        [PmxKey(3)] private bool _removeSmallEdges;                     //ISerializable
+        [PmxKey(4)] private bool _removeSmallFaces;                     //ISerializable
+        [PmxKey(5)] private bool _sewFaces;                             //ISerializable
+        [PmxKey(6)] private bool _fuseFaces;                            //ISerializable
+        [PmxKey(7)] private bool _joinEdges;                            //ISerializable
+        [PmxKey(8)] private double _tolerance;                          //ISerializable
 
 
         // Properties                                                                                                               
@@ -115,20 +115,6 @@ namespace CaeMesh
             if (!double.IsNaN(_tolerance) && _tolerance <= 0) return "The tolerance must be larger than zero.";
             //
             return null;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_fixShape", _fixShape, typeof(bool));
-            info.AddValue("_removeSmallEdges", _removeSmallEdges, typeof(bool));
-            info.AddValue("_removeSmallFaces", _removeSmallFaces, typeof(bool));
-            info.AddValue("_sewFaces", _sewFaces, typeof(bool));
-            info.AddValue("_fuseFaces", _fuseFaces, typeof(bool));
-            info.AddValue("_joinEdges", _joinEdges, typeof(bool));
-            info.AddValue("_tolerance", _tolerance, typeof(double));
         }
     }
 }

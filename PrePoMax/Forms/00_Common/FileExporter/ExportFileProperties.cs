@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -25,12 +25,12 @@ using System.Windows.Forms.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10305)]
     public class ExportFileProperties
     {
         // Variables                                                                                                                
-        private string _fileName;
-        private string _filter;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private string _filter;
 
 
         // Properties                                                                                                               

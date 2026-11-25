@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10212)]
     class CAddParameter : PreprocessCommand
     {
         // Variables                                                                                                                
-        private EquationParameter _parameter;
+        [PmxKey(0)] private EquationParameter _parameter;
 
 
         // Constructor                                                                                                              

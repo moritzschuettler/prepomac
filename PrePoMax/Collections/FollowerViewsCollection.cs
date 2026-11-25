@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,15 +13,16 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10014)]
     public class FollowerViewsCollection
     {
         // Variables                                                                                                                
         [NonSerialized] private Controller _controller;
-        private Dictionary<string, FollowerViewParameters> _resultNameViewParameters;
+        [PmxKey(0)] private Dictionary<string, FollowerViewParameters> _resultNameViewParameters;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,14 +16,14 @@ using System.Drawing;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1001)]
     public class CellsExchangeData
     {
         // Variables                                                                                                                
-        public int[] Ids;
-        public int[][] CellNodeIds;
-        public int[] Types;
-        public float[] Values;
+        [PmxKey(0)] public int[] Ids;
+        [PmxKey(1)] public int[][] CellNodeIds;
+        [PmxKey(2)] public int[] Types;
+        [PmxKey(3)] public float[] Values;
 
 
         // Constructors                                                                                                             

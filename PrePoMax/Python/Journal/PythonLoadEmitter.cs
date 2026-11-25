@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -37,7 +37,7 @@ namespace PrePoMax.Python.Journal
                                  Load load)
         {
             string collection = PythonStepItemEmitter.GetCollection(stepName, "loads");
-            if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
+            if (load is GravityLoad || load is CentrifLoad || load is BodyFlux || load is BodyForce)
                 PythonRegionEmitter.RefuseSelectionOtherThanParts(load.CreationData, "the region of the load '" +
                                                                                     load.Name + "'");
             bool replace = oldName != null;
@@ -51,9 +51,10 @@ namespace PrePoMax.Python.Journal
             string method = verb + "_" + AddTypeArguments(writer, arguments, load, replace);
             //
             PythonStepItemEmitter.AddAmplitude(writer, arguments, load.AmplitudeName, replace);
-            // The dialog offers a coordinate system for a concentrated force and a surface traction only, and the
-            // API refuses one elsewhere
-            if (load is CLoad || load is STLoad)
+            // The dialog offers a coordinate system for a concentrated force, a surface traction, a body force and an
+            // edge load only, and the API refuses one elsewhere
+            if (load is CLoad || load is STLoad || load is BodyForce ||
+                (load is EdgeLoad edgeLoad && edgeLoad.Direction == EdgeLoadDirectionEnum.Components))
                 PythonStepItemEmitter.AddCoordinateSystem(writer, arguments, load.CoordinateSystemName, replace);
             // A pre-tension is complex in a steady state dynamics step, but the solver input carries no phase for it
             PythonStepItemEmitter.AddPhase(arguments, load.Complex && !(load is PreTensionLoad), load.PhaseDeg);
@@ -154,6 +155,29 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("axis_direction=" + Point(centrifugal.N1, centrifugal.N2, centrifugal.N3));
                 arguments.Add("rotational_speed=" + PythonValueFormatter.Equation(centrifugal.RotationalSpeed));
                 return "centrifugal";
+            }
+            if (load is BodyForce bodyForce)
+            {
+                AddComponent(arguments, "f1", bodyForce.F1);
+                AddComponent(arguments, "f2", bodyForce.F2);
+                AddComponent(arguments, "f3", bodyForce.F3);
+                AddName(arguments, "distribution_name",
+                        writer.KeptReference(Distributions, bodyForce.DistributionName, replace));
+                return "body_force";
+            }
+            if (load is EdgeLoad edgeLoad)
+            {
+                if (edgeLoad.Direction == EdgeLoadDirectionEnum.Normal)
+                    arguments.Add("normal=" + PythonValueFormatter.Equation(edgeLoad.Normal));
+                else
+                {
+                    AddComponent(arguments, "f1", edgeLoad.F1);
+                    AddComponent(arguments, "f2", edgeLoad.F2);
+                    AddComponent(arguments, "f3", edgeLoad.F3);
+                }
+                AddName(arguments, "distribution_name",
+                        writer.KeptReference(Distributions, edgeLoad.DistributionName, replace));
+                return "edge_load";
             }
             if (load is PreTensionLoad preTension)
             {

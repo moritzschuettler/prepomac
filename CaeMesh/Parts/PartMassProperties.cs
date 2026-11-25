@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,14 +16,14 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2142)]
     public struct PartMassProperties
     {
-        public double Volume;
-        public double Area;
-        public double[] CenterOfMass;
-        public double[][] InertiaMatrixCG;
-        public double[][] InertiaMatrixOrigin;
+        [PmxKey(0)] public double Volume;
+        [PmxKey(1)] public double Area;
+        [PmxKey(2)] public double[] CenterOfMass;
+        [PmxKey(3)] public double[][] InertiaMatrixCG;
+        [PmxKey(4)] public double[][] InertiaMatrixOrigin;
 
 
         public PartMassProperties(bool initialize)

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -54,7 +54,7 @@ namespace PrePoMax.Forms
                 else if (clone is ResultFieldOutputMaterialAxes rfoma)
                     _viewResultFieldOutput = new ViewResultFieldOutputMaterialAxes(rfoma);
                 else if (clone is ResultFieldOutputShellPlaneStress rfosps)
-                    _viewResultFieldOutput = new ViewResultFieldOutputShellPlaneStress(rfosps);
+                    _viewResultFieldOutput = new ViewResultFieldOutputShellInPlaneState(rfosps);
                 else if (clone is ResultFieldOutputCompositeFailure rfocf)
                     _viewResultFieldOutput = new ViewResultFieldOutputCompositeFailure(rfocf);
                 else throw new NotImplementedException();
@@ -154,6 +154,18 @@ namespace PrePoMax.Forms
             else if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfosct)
             {
             }
+            else if (_viewResultFieldOutput is ViewResultFieldOutputShellInPlaneState vrfosips)
+            {
+                if (property == nameof(vrfosips.Quantity))
+                    UpdateShellFieldNames(vrfosips.Quantity, vrfosips.FieldName, vrfosips.PopulateDropDownLists,
+                                          s => { vrfosips.FieldName = s; });
+            }
+            else if (_viewResultFieldOutput is ViewResultFieldOutputCompositeFailure vrfocf)
+            {
+                if (property == nameof(vrfocf.Quantity))
+                    UpdateShellFieldNames(vrfocf.Quantity, vrfocf.FieldName, vrfocf.PopulateDropDownLists,
+                                          s => { vrfocf.FieldName = s; });
+            }
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -214,6 +226,15 @@ namespace PrePoMax.Forms
             if (shellFieldName != null && !GetShellSourceFieldNames().Contains(shellFieldName))
                 throw new CaeException("Only a tensor field output in global axes with all necessary components " +
                                        "can be used.");
+            ShellInPlaneQuantityEnum? quantity = null;
+            if (ResultFieldOutput is ResultFieldOutputShellPlaneStress inPlaneState) quantity = inPlaneState.Quantity;
+            else if (ResultFieldOutput is ResultFieldOutputCompositeFailure failure) quantity = failure.Quantity;
+            if (shellFieldName != null && quantity.HasValue &&
+                !_controller.CurrentResult.IsShellQuantityValid(shellFieldName, quantity.Value))
+                throw new CaeException(quantity.Value == ShellInPlaneQuantityEnum.Stress ?
+                                       "The stresses as solved need a stress field, such as STRESS." :
+                                       "The plane stresses from strains and the strains need a strain field, such as " +
+                                       "TOSTRAIN.");
             // Create
             if (_resultFieldOutputToEditName == null)
             {
@@ -319,20 +340,20 @@ namespace PrePoMax.Forms
                     //
                     vrfoma.PopulateDropDownLists(fieldNames);
                 }
-                else if (_viewResultFieldOutput is ViewResultFieldOutputShellPlaneStress vrfosps)
+                else if (_viewResultFieldOutput is ViewResultFieldOutputShellInPlaneState vrfosips)
                 {
                     selectedId = 5;
                     // Check
-                    string[] fieldNames = GetShellSourceFieldNames();
-                    CheckMissingValueRef(ref fieldNames, vrfosps.FieldName, s => { vrfosps.FieldName = s; });
+                    string[] fieldNames = GetShellSourceFieldNames(vrfosips.Quantity);
+                    CheckMissingValueRef(ref fieldNames, vrfosips.FieldName, s => { vrfosips.FieldName = s; });
                     //
-                    vrfosps.PopulateDropDownLists(fieldNames);
+                    vrfosips.PopulateDropDownLists(fieldNames);
                 }
                 else if (_viewResultFieldOutput is ViewResultFieldOutputCompositeFailure vrfocf)
                 {
                     selectedId = 6;
                     // Check
-                    string[] fieldNames = GetShellSourceFieldNames();
+                    string[] fieldNames = GetShellSourceFieldNames(vrfocf.Quantity);
                     CheckMissingValueRef(ref fieldNames, vrfocf.FieldName, s => { vrfocf.FieldName = s; });
                     //
                     vrfocf.PopulateDropDownLists(fieldNames);
@@ -449,14 +470,22 @@ namespace PrePoMax.Forms
             }
             else item.Tag = shellError;
             lvTypes.Items.Add(item);
-            // Shell plane stress
-            item = new ListViewItem("Shell Plane Stress");
+            // The in-plane state and the failure start from the stresses as solved, or from the strains without them
+            ShellInPlaneQuantityEnum stressQuantity = GetShellSourceFieldNames(ShellInPlaneQuantityEnum.Stress).Length > 0 ?
+                                                      ShellInPlaneQuantityEnum.Stress :
+                                                      ShellInPlaneQuantityEnum.PlaneStressFromStrain;
+            string[] stressFieldNames = GetShellSourceFieldNames(stressQuantity);
+            string stressFieldName = GetPreferredShellFieldName(stressFieldNames, stressQuantity);
+            // Shell in-plane state
+            item = new ListViewItem("Shell In-Plane State");
             if (shellError == null)
             {
-                ViewResultFieldOutputShellPlaneStress vrfosps = new ViewResultFieldOutputShellPlaneStress(
-                    new ResultFieldOutputShellPlaneStress(GetResultFieldOutputName("Plane_Stress"), shellFieldName));
-                vrfosps.PopulateDropDownLists(shellFieldNames);
-                item.Tag = vrfosps;
+                ResultFieldOutputShellPlaneStress rfosps =
+                    new ResultFieldOutputShellPlaneStress(GetResultFieldOutputName("In_Plane_State"), stressFieldName);
+                rfosps.Quantity = stressQuantity;
+                ViewResultFieldOutputShellInPlaneState vrfosips = new ViewResultFieldOutputShellInPlaneState(rfosps);
+                vrfosips.PopulateDropDownLists(stressFieldNames);
+                item.Tag = vrfosips;
             }
             else item.Tag = shellError;
             lvTypes.Items.Add(item);
@@ -464,20 +493,43 @@ namespace PrePoMax.Forms
             item = new ListViewItem("Composite Failure");
             if (shellError == null)
             {
-                ViewResultFieldOutputCompositeFailure vrfocf = new ViewResultFieldOutputCompositeFailure(
-                    new ResultFieldOutputCompositeFailure(GetResultFieldOutputName("Failure"), shellFieldName,
-                                                          CompositeFailureCriterionEnum.TsaiWu));
-                vrfocf.PopulateDropDownLists(shellFieldNames);
+                ResultFieldOutputCompositeFailure rfocf =
+                    new ResultFieldOutputCompositeFailure(GetResultFieldOutputName("Failure"), stressFieldName,
+                                                          CompositeFailureCriterionEnum.TsaiWu);
+                rfocf.Quantity = stressQuantity;
+                ViewResultFieldOutputCompositeFailure vrfocf = new ViewResultFieldOutputCompositeFailure(rfocf);
+                vrfocf.PopulateDropDownLists(stressFieldNames);
                 item.Tag = vrfocf;
             }
             else item.Tag = shellError;
             lvTypes.Items.Add(item);
         }
-        private string[] GetShellSourceFieldNames()
+        // The field list follows the quantity, and a field that does not fit it is replaced by one that does
+        private void UpdateShellFieldNames(ShellInPlaneQuantityEnum quantity, string fieldName,
+                                           Action<string[]> populateFieldNames, Action<string> setFieldName)
+        {
+            string[] fieldNames = GetShellSourceFieldNames(quantity);
+            populateFieldNames(fieldNames);
+            if (!fieldNames.Contains(fieldName))
+            {
+                string preferredFieldName = GetPreferredShellFieldName(fieldNames, quantity);
+                if (preferredFieldName != null) setFieldName(preferredFieldName);
+            }
+            propertyGrid.Refresh();
+        }
+        // The tensor fields in global axes, of the kind the quantity needs when it is given
+        private string[] GetShellSourceFieldNames(ShellInPlaneQuantityEnum? quantity = null)
         {
             FeResults results = _controller.CurrentResult;
             return results.GetAllVisibleFiledNameComponentNames().Keys.Where(name => name != _resultFieldOutputToEditName &&
-                                                                              results.IsShellSourceField(name)).ToArray();
+                results.IsShellSourceField(name) &&
+                (!quantity.HasValue || results.IsShellQuantityValid(name, quantity.Value))).ToArray();
+        }
+        private static string GetPreferredShellFieldName(string[] fieldNames, ShellInPlaneQuantityEnum quantity)
+        {
+            string preferredFieldName = quantity == ShellInPlaneQuantityEnum.Stress ? FOFieldNames.Stress :
+                                                                                       FOFieldNames.ToStrain;
+            return fieldNames.Contains(preferredFieldName) ? preferredFieldName : fieldNames.FirstOrDefault();
         }
         private string GetResultFieldOutputName(string name)
         {

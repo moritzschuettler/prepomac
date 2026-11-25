@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,15 +19,15 @@ using CaeResults;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10510)]
     public class ViewResultHistoryOutputFromField : ViewResultHistoryOutput
     {
         // Variables                                                                                                                
-        private bool _complexVisible;
-        private ResultHistoryOutputFromField _historyOutput;
-        private MultiChoiceContainer _componentContainer;
-        private Dictionary<string, string[]> _filedNameComponentNames;
-        private Dictionary<string, string[]> _stepIdStepIncrementIds;
+        [PmxKey(0)] private bool _complexVisible;
+        [PmxKey(1)] private ResultHistoryOutputFromField _historyOutput;
+        [PmxKey(2)] private MultiChoiceContainer _componentContainer;
+        [PmxKey(3)] private Dictionary<string, string[]> _filedNameComponentNames;
+        [PmxKey(4)] private Dictionary<string, string[]> _stepIdStepIncrementIds;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,8 +18,8 @@ using CaeMesh;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class MaterialProperty : ISerializable, IContainsEquations
+    [PmxType(3181)]
+    public abstract class MaterialProperty : IContainsEquations
     {
         // Variables                                                                                                                
         [NonSerialized]
@@ -49,10 +49,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
         }
     }
 }

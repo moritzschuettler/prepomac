@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10471)]
     public class ViewPreTensionLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CustomPropertyDescriptor cpd = null;
-        private CaeModel.PreTensionLoad _preTenLoad;
+        [PmxKey(0)] private CustomPropertyDescriptor cpd = null;
+        [PmxKey(1)] private CaeModel.PreTensionLoad _preTenLoad;
 
 
         // Properties                                                                                                               

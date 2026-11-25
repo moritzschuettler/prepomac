@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,20 +21,20 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10352)]
     public class TranslateParameters
     {
         // Variables                                                                                                                      
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private PointSelectionMethodEnum _startPointSelectionMethod;
-        private PointSelectionMethodEnum _endPointSelectionMethod;
-        private ItemSetData _startPointItemSetData;
-        private ItemSetData _endPointItemSetData;
-        private double[] _startPoint;
-        private double[] _endPoint;
-        private bool _translate;
-        private int _numberOfCopies;
-        private bool _twoD;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private PointSelectionMethodEnum _startPointSelectionMethod;
+        [PmxKey(2)] private PointSelectionMethodEnum _endPointSelectionMethod;
+        [PmxKey(3)] private ItemSetData _startPointItemSetData;
+        [PmxKey(4)] private ItemSetData _endPointItemSetData;
+        [PmxKey(5)] private double[] _startPoint;
+        [PmxKey(6)] private double[] _endPoint;
+        [PmxKey(7)] private bool _translate;
+        [PmxKey(8)] private int _numberOfCopies;
+        [PmxKey(9)] private bool _twoD;
 
 
         // Properties                                                                                                               

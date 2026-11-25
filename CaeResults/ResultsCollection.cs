@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,17 +19,17 @@ using System.Threading.Tasks;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5058)]
     public class ResultsCollection
     {
         // Variables                                                                                                                
-        private FeResults _currentResult;
-        private CaeGlobals.OrderedDictionary<string, FeResults> _results;
-        
+        [PmxKey(0)] private FeResults _currentResult;
+        [PmxKey(1)] private CaeGlobals.OrderedDictionary<string, FeResults> _results;
+        [NonSerialized] private Dictionary<object, Func<FeResults, bool>> _pendingLoads;
 
         // Properties                                                                                                               
         public int Count { get { return _results.Count; } }
-        public FeResults CurrentResult { get { return _currentResult; } }
+        public FeResults CurrentResult { get { return GetLoaded(_currentResult); } }
 
 
         //  Constructors                                                                                                            
@@ -45,6 +45,7 @@ namespace CaeResults
         public static void WriteToFileStream(ResultsCollection allResults, FileStream fileStream,
                                              CompressionLevel compressionLevel)
         {
+            allResults.LoadAll();
             // Write the number of results
             Tools.WriteIntToFileStream(fileStream, allResults.Count);
             //
@@ -125,13 +126,48 @@ namespace CaeResults
         //
         public void UpdateResultEquations()
         {
+            LoadAll();
             foreach (var entry in _results) entry.Value.UpdateResultEquations();
+        }
+        // The field data of a result read from a file is read the first time the result is used, so that opening a
+        // file reads only the result it shows
+        public void SetPendingLoad(string name, Func<FeResults, bool> load)
+        {
+            FeResults result;
+            if (!_results.TryGetValue(name, out result)) return;
+            if (_pendingLoads == null) _pendingLoads = new Dictionary<object, Func<FeResults, bool>>(PmxReferenceComparer.Instance);
+            lock (_pendingLoads) _pendingLoads[result] = load;
+        }
+        public bool IsLoaded(string name)
+        {
+            FeResults result;
+            if (!_results.TryGetValue(name, out result) || _pendingLoads == null) return true;
+            lock (_pendingLoads) return !_pendingLoads.ContainsKey(result);
+        }
+        private FeResults GetLoaded(FeResults result)
+        {
+            if (result == null || _pendingLoads == null) return result;
+            Func<FeResults, bool> load;
+            lock (_pendingLoads)
+            {
+                if (_pendingLoads.TryGetValue(result, out load))
+                {
+                    _pendingLoads.Remove(result);
+                    load(result);
+                }
+            }
+            return result;
+        }
+        public void LoadAll()
+        {
+            foreach (var entry in _results) GetLoaded(entry.Value);
         }
         //
         public void Clear()
         {
             _currentResult = null;
             _results.Clear();
+            _pendingLoads = null;
         }
         public string[] GetResultNames()
         {
@@ -149,7 +185,7 @@ namespace CaeResults
         {
             FeResults result;
             _results.TryGetValue(name, out result);
-            return result;
+            return GetLoaded(result);
         }
         public bool ContainsResult(string name)
         {
@@ -184,11 +220,12 @@ namespace CaeResults
             }
             return foundName;
         }
+        // A result not read yet is not read for it; a saved result holds no complex fields
         public bool ContainsComplexResults()
         {
             foreach (var entry in _results)
             {
-                if (entry.Value.ContainsComplexResults()) return true;
+                if (IsLoaded(entry.Key) && entry.Value.ContainsComplexResults()) return true;
             }
             return false;
         }

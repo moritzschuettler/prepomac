@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -119,6 +119,33 @@ namespace APIs.Python.Model
             SetEquation(load.F1, f1, "f1");
             SetEquation(load.F2, f2, "f2");
             SetInPlaneEquation(load, load.F3, f3, "f3");
+        }
+        public static void ApplyBodyForce(BodyForce load, object f1, object f2, object f3)
+        {
+            SetEquation(load.F1, f1, "f1");
+            SetEquation(load.F2, f2, "f2");
+            SetInPlaneEquation(load, load.F3, f3, "f3");
+        }
+        // The components and the normal set the direction they give, so a replace switches between the two
+        public static void ApplyEdgeLoad(EdgeLoad load, object f1, object f2, object f3, object normal)
+        {
+            bool components = f1 != null || f2 != null || f3 != null;
+            if (components && normal != null)
+                throw new PythonAPIException("An edge load takes either the components 'f1', 'f2' and 'f3' or the " +
+                                             "'normal', not both.");
+            //
+            if (normal != null)
+            {
+                load.Direction = EdgeLoadDirectionEnum.Normal;
+                SetEquation(load.Normal, normal, "normal");
+            }
+            else if (components)
+            {
+                load.Direction = EdgeLoadDirectionEnum.Components;
+                SetEquation(load.F1, f1, "f1");
+                SetEquation(load.F2, f2, "f2");
+                SetInPlaneEquation(load, load.F3, f3, "f3");
+            }
         }
         // An axisymmetric model turns about its y axis, which the load stores whatever it is given
         public static void ApplyCentrifugal(CentrifLoad load, object axisPoint, object axisDirection,

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using System.Security.Cryptography;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10345)]
     public class ViewSplitPartMeshData : ViewMasterSlaveMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private SplitPartMeshData _splitPartMeshData;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private SplitPartMeshData _splitPartMeshData;
 
         
         // BASE PART                                                                                                                

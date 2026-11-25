@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -15,17 +15,17 @@ using DynamicTypeDescriptor;
 
 namespace UserControls
 {
-    [System.Serializable]
+    [PmxType(6210)]
     public class XYPlotCurveSettings : IXYPlotSettings
     {
         // Variables                                                                                                                
         private static readonly float[] _lineWidths = new float[] { 0.5f, 1, 1.5f, 2, 2.5f, 3, 4, 5, 6, 8, 10 };
         [System.NonSerialized] protected DynamicCustomTypeDescriptor _dctd = null;
-        private string _name;
-        private Color _color;
-        private float _lineWidth;
-        private XYPlotLineStyleEnum _lineStyle;
-        private bool _visible;
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private Color _color;
+        [PmxKey(2)] private float _lineWidth;
+        [PmxKey(3)] private XYPlotLineStyleEnum _lineStyle;
+        [PmxKey(4)] private bool _visible;
 
 
         // Properties                                                                                                               

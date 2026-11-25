@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -31,9 +31,14 @@ namespace PrePoMax.Forms
         private ViewSection _viewSection;
         private Controller _controller;
         private UserControls.DoubleBufferedPanel pnlLayup;
+        private System.Windows.Forms.Splitter splLayup;
+        private System.Windows.Forms.CheckBox cbSymmetric;
+        private bool _updatingSymmetric;
         private const string _layerColumnName = "LayerName";
-        private const double _layupHatchSpacing = 8;
+        private static readonly double[] _layupHatchSpacings = new double[] { 6, 9, 13 };
+        private const int _layupMarkerWidth = 16;
         private const int _layupArrowWidth = 28;
+        private const int _layupArrowLength = 30;
 
 
         // Properties                                                                                                               
@@ -69,6 +74,8 @@ namespace PrePoMax.Forms
         private void InitializeComponent()
         {
             this.pnlLayup = new UserControls.DoubleBufferedPanel();
+            this.splLayup = new System.Windows.Forms.Splitter();
+            this.cbSymmetric = new System.Windows.Forms.CheckBox();
             this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
             this.tpDataPoints.SuspendLayout();
@@ -76,8 +83,33 @@ namespace PrePoMax.Forms
             //
             // tpDataPoints
             //
+            this.tpDataPoints.Controls.Add(this.splLayup);
             this.tpDataPoints.Controls.Add(this.pnlLayup);
+            this.tpDataPoints.Controls.Add(this.cbSymmetric);
             this.tpDataPoints.Text = "Layers";
+            //
+            // cbSymmetric
+            //
+            this.cbSymmetric.Dock = System.Windows.Forms.DockStyle.Top;
+            this.cbSymmetric.Location = new System.Drawing.Point(3, 3);
+            this.cbSymmetric.Name = "cbSymmetric";
+            this.cbSymmetric.Padding = new System.Windows.Forms.Padding(3, 0, 0, 0);
+            this.cbSymmetric.Size = new System.Drawing.Size(296, 24);
+            this.cbSymmetric.TabIndex = 0;
+            this.cbSymmetric.Text = "Symmetric layup";
+            this.cbSymmetric.UseVisualStyleBackColor = true;
+            this.cbSymmetric.CheckedChanged += new System.EventHandler(this.cbSymmetric_CheckedChanged);
+            //
+            // splLayup
+            //
+            this.splLayup.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.splLayup.Location = new System.Drawing.Point(3, 146);
+            this.splLayup.MinExtra = 60;
+            this.splLayup.MinSize = 60;
+            this.splLayup.Name = "splLayup";
+            this.splLayup.Size = new System.Drawing.Size(296, 4);
+            this.splLayup.TabIndex = 2;
+            this.splLayup.TabStop = false;
             //
             // pnlLayup
             //
@@ -137,8 +169,20 @@ namespace PrePoMax.Forms
         private void Binding_ListChanged(object sender, ListChangedEventArgs e)
         {
             _propertyItemChanged = true;
+            if (_viewSection is ViewCompositeShellSection vcss) vcss.UpdateLayupProperties();
             propertyGrid.Refresh();
             dgvData.Invalidate();
+            pnlLayup.Invalidate();
+        }
+        private void cbSymmetric_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_updatingSymmetric || !(_viewSection is ViewCompositeShellSection vcss)) return;
+            if (vcss.Symmetric == cbSymmetric.Checked) return;
+            //
+            vcss.Symmetric = cbSymmetric.Checked;
+            _propertyItemChanged = true;
+            propertyGrid.Refresh();
+            HighlightSection();
             pnlLayup.Invalidate();
         }
         private void pnlLayup_Resize(object sender, EventArgs e)
@@ -199,10 +243,10 @@ namespace PrePoMax.Forms
                 }
                 else throw new NotImplementedException();
                 // Layers
-                dgvData.DataSource = null;
-                dgvData.Columns.Clear();
                 tcProperties.TabPages.Clear();
                 tcProperties.TabPages.Add(_pages[0]);   // properties
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
                 if (_viewSection is ViewCompositeShellSection vcss)
                 {
                     tcProperties.TabPages.Add(_pages[1]);   // layers
@@ -223,6 +267,16 @@ namespace PrePoMax.Forms
             if (property == nameof(_viewSection.RegionType))
             {
                 ShowHideSelectionForm();
+            }
+            else if (_viewSection is ViewCompositeShellSection vcss &&
+                     (property == nameof(vcss.MaterialName) || property == nameof(vcss.TotalThickness)) &&
+                     dgvData.DataSource is BindingSource binding)
+            {
+                binding.ResetBindings(false);
+            }
+            else if (_viewSection is ViewCompositeShellSection vcssSymmetric && property == nameof(vcssSymmetric.Symmetric))
+            {
+                UpdateSymmetricCheckBox(vcssSymmetric);
             }
             //
             HighlightSection();
@@ -301,6 +355,11 @@ namespace PrePoMax.Forms
             _viewSection = null;
             lvTypes.Items.Clear();
             propertyGrid.SelectedObject = null;            
+            // Only a composite shell section shows its layers; the layers page is removed while its grid still has columns
+            tcProperties.TabPages.Clear();
+            tcProperties.TabPages.Add(_pages[0]);   // properties
+            dgvData.DataSource = null;
+            dgvData.Columns.Clear();
             //
             _sectionNames = _controller.GetSectionNames();
             _sectionToEditName = sectionToEditName;
@@ -612,6 +671,10 @@ namespace PrePoMax.Forms
                             if (Section is SolidSection && partType == PartType.Shell) return true;
                             else return false;
                         }
+                        else if (Section.RegionType == RegionTypeEnum.NodeSetName)
+                        {
+                            return true;
+                        }
                         else if (Section.RegionType == RegionTypeEnum.ElementSetName)
                         {
                             FeElementSet elementSet = _controller.Model.Mesh.ElementSets[Section.RegionName];
@@ -623,9 +686,14 @@ namespace PrePoMax.Forms
                         {
                             return true;
                         }
+                        else if (Section.RegionType == RegionTypeEnum.ReferencePointName)
+                        {
+                            return true;
+                        }
                         else if (Section.RegionType == RegionTypeEnum.Selection)
                         {
-                            if (Section.CreationIds != null)
+                            if (Section is PointMassSection) return Section.CreationIds != null;
+                            else if (Section.CreationIds != null)
                             {
                                 int partId;
                                 BasePart part;
@@ -735,69 +803,120 @@ namespace PrePoMax.Forms
             SetGridViewUnit(nameof(CompositeLayerDataPoint.AngleEq), StringAngleDegConverter.GetUnitAbbreviation(),
                             new StringAngleDegFromConverter());
             dgvData.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
+            UpdateSymmetricCheckBox(viewCompositeShellSection);
+        }
+        private void UpdateSymmetricCheckBox(ViewCompositeShellSection viewCompositeShellSection)
+        {
+            _updatingSymmetric = true;
+            cbSymmetric.Checked = viewCompositeShellSection.Symmetric;
+            _updatingSymmetric = false;
         }
         // The layers from layer 1 at the bottom, on the negative side of the normal (axis 3), to the top, each as high as
-        // it is thick, as a cross section hatched at 45 degrees, at -45 degrees and at both in turn, with the layer of
-        // the selected row outlined
+        // it is thick, as a cross section hatched by its row - a mirrored layer as the layer it mirrors - and named on the
+        // right, with the layer of the selected row marked in the margin and the reference surface the offset moves the
+        // layers from, where axis 3 starts
         private void DrawLayup(Graphics graphics, CompositeShellSection section)
         {
             Rectangle stack;
-            Rectangle[] bars = GetLayupBars(section, out stack);
+            int referenceY;
+            Rectangle[] bars = GetLayupBars(section, out stack, out referenceY);
             if (bars == null) return;
             //
             int numOfRows = section.Layers.Count;
             int selectedRow = dgvData.CurrentRow != null ? dgvData.CurrentRow.Index : -1;
-            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            // Axis 3 of the material axes points to the top
-            using (Pen arrowPen = new Pen(Color.Black, 1.5f))
-            {
-                arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(4, 5);
-                int x = stack.Left - _layupArrowWidth + 4;
-                graphics.DrawLine(arrowPen, x, stack.Bottom, x, stack.Top);
-                TextRenderer.DrawText(graphics, "3", Font, new Point(x + 4, stack.Top - 2), Color.Black);
-            }
-            //
+            int pattern;
             double hatchPhase = 0;
-            double[] risingPhases = Enumerable.Repeat(double.NaN, bars.Length).ToArray();
-            double[] fallingPhases = Enumerable.Repeat(double.NaN, bars.Length).ToArray();
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
             for (int i = 0; i < bars.Length; i++)
             {
                 if (bars[i].Height <= 0) continue;
                 //
-                if (i < numOfRows)
-                {
-                    if (i % 3 != 1) risingPhases[i] = hatchPhase;
-                    if (i % 3 != 0) fallingPhases[i] = hatchPhase;
-                }
-                // A mirrored layer is the mirror image of the layer it mirrors: its lines turn the other way and meet
-                // its top where those meet their bottom
-                else
-                {
-                    int mirroredLayer = GetLayupRow(i, bars.Length, numOfRows);
-                    risingPhases[i] = fallingPhases[mirroredLayer] - bars[i].Height;
-                    fallingPhases[i] = risingPhases[mirroredLayer] + bars[i].Height;
-                }
+                pattern = GetLayupRow(i, bars.Length, numOfRows);
+                //
                 using (SolidBrush brush = new SolidBrush(Color.FromArgb(245, 245, 245)))
                     graphics.FillRectangle(brush, bars[i]);
-                hatchPhase = DrawLayerHatch(graphics, bars[i], risingPhases[i], fallingPhases[i]);
+                hatchPhase = DrawLayerHatch(graphics, bars[i], pattern % 3 != 1 ? hatchPhase : double.NaN,
+                                            pattern % 3 != 0 ? hatchPhase : double.NaN,
+                                            _layupHatchSpacings[(pattern / 3) % _layupHatchSpacings.Length]);
                 using (Pen pen = new Pen(Color.Black)) graphics.DrawRectangle(pen, bars[i]);
             }
-            // The selected layer is outlined over the borders of its neighbours
+            int arrowX = stack.Left - _layupArrowWidth + 4;
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using (Pen linePen = new Pen(Color.Black, 1.5f))
+            {
+                linePen.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot;
+                graphics.DrawLine(linePen, arrowX - 6, referenceY, stack.Right + 3, referenceY);
+            }
+            // Axis 3 of the material axes starts on the reference surface and points to the top
+            int arrowTipY = referenceY - _layupArrowLength;
+            using (Pen arrowPen = new Pen(Color.Black, 1.5f))
+            {
+                arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(4, 5);
+                graphics.DrawLine(arrowPen, arrowX, referenceY, arrowX, arrowTipY);
+            }
+            TextRenderer.DrawText(graphics, "3", Font, new Point(arrowX + 4, arrowTipY - 2), Color.Black);
+            // The names of the layers, numbered as the solver numbers them, leaving out those that do not fit
+            int labelX = stack.Right + _layupMarkerWidth;
+            int labelHeight = TextRenderer.MeasureText("Layer", Font).Height;
+            int freeBottom = int.MaxValue;
+            for (int i = 0; i < bars.Length; i++)
+            {
+                if (bars[i].Height <= 0) continue;
+                //
+                int labelTop = bars[i].Top + bars[i].Height / 2 - labelHeight / 2;
+                if (labelTop + labelHeight > freeBottom) continue;
+                TextRenderer.DrawText(graphics, "Layer " + (i + 1), Font, new Point(labelX, labelTop), Color.Black);
+                freeBottom = labelTop;
+            }
+            // The selected layer is marked in the margin, its mirror in a symmetric layup hollow, so the layers stay clean
             for (int i = 0; i < bars.Length; i++)
             {
                 if (bars[i].Height <= 0 || selectedRow < 0 || GetLayupRow(i, bars.Length, numOfRows) != selectedRow)
                     continue;
-                using (Pen pen = new Pen(SystemColors.Highlight, 3)) graphics.DrawRectangle(pen, bars[i]);
+                DrawLayerMarker(graphics, bars[i], i >= numOfRows);
             }
         }
-        // The bar of every solver layer, from layer 1 at the bottom, empty for a layer too thin to be drawn
-        private Rectangle[] GetLayupBars(CompositeShellSection section, out Rectangle stack)
+        // A triangle right of the layer pointing at its middle
+        private void DrawLayerMarker(Graphics graphics, Rectangle bar, bool hollow)
+        {
+            float tipX = bar.Right + 4;
+            float centerY = bar.Top + bar.Height / 2f;
+            PointF[] triangle = new PointF[] { new PointF(tipX, centerY), new PointF(tipX + 8, centerY - 5),
+                                               new PointF(tipX + 8, centerY + 5) };
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            if (hollow)
+            {
+                using (Pen pen = new Pen(SystemColors.Highlight, 1.5f)) graphics.DrawPolygon(pen, triangle);
+            }
+            else
+            {
+                using (SolidBrush brush = new SolidBrush(SystemColors.Highlight)) graphics.FillPolygon(brush, triangle);
+            }
+        }
+        // The bar of every solver layer, from layer 1 at the bottom, empty for a layer too thin to be drawn. The layers
+        // and the reference surface they are offset from are drawn to scale, with room for axis 3 above the surface: an
+        // offset of 0.5 puts the surface on top of the layers, -0.5 below them, and a larger one away from them
+        private Rectangle[] GetLayupBars(CompositeShellSection section, out Rectangle stack, out int referenceY)
         {
             Rectangle area = pnlLayup.ClientRectangle;
             area.Inflate(-16, -12);
-            stack = new Rectangle(area.Left + _layupArrowWidth, area.Top, area.Width - _layupArrowWidth, area.Height);
+            double offset;
+            try { offset = section.Offset.Value; }
+            catch { offset = 0; }
+            if (double.IsNaN(offset) || double.IsInfinity(offset)) offset = 0;
+            double reference = 0.5 + offset;
+            double low = Math.Min(0, reference);
+            double high = Math.Max(1, reference);
+            double scale = area.Height / (high - low);
+            if (reference > low) scale = Math.Min(scale, (area.Height - _layupArrowLength) / (reference - low));
+            int stackTop = (int)Math.Round(area.Bottom - (1 - low) * scale);
+            int stackBottom = (int)Math.Round(area.Bottom - (0 - low) * scale);
+            referenceY = (int)Math.Round(area.Bottom - (reference - low) * scale);
             List<CompositeLayer> layers = section.GetSolverLayers();
+            int labelWidth = TextRenderer.MeasureText("Layer " + layers.Count, Font).Width;
+            stack = new Rectangle(area.Left + _layupArrowWidth, stackTop,
+                                  area.Width - _layupArrowWidth - _layupMarkerWidth - labelWidth, stackBottom - stackTop);
             if (layers.Count == 0 || stack.Width <= 0 || stack.Height <= 0) return null;
             //
             double[] thicknesses = new double[layers.Count];
@@ -834,7 +953,8 @@ namespace PrePoMax.Forms
             if (section == null) return -1;
             //
             Rectangle stack;
-            Rectangle[] bars = GetLayupBars(section, out stack);
+            int referenceY;
+            Rectangle[] bars = GetLayupBars(section, out stack, out referenceY);
             if (bars == null) return -1;
             //
             for (int i = 0; i < bars.Length; i++)
@@ -848,9 +968,9 @@ namespace PrePoMax.Forms
         // Lines at 45 degrees rising to the right that cross the bottom of the bar at the rising phase from its left side,
         // and lines at -45 degrees that cross it at the falling phase, either left out by NaN; returns the phase farthest
         // from where they cross its top, at which the layer above starts so that no line runs on into it
-        private double DrawLayerHatch(Graphics graphics, Rectangle bar, double risingPhase, double fallingPhase)
+        private double DrawLayerHatch(Graphics graphics, Rectangle bar, double risingPhase, double fallingPhase,
+                                      double spacing)
         {
-            double spacing = _layupHatchSpacing;
             double height = bar.Height;
             bool rising = !double.IsNaN(risingPhase);
             bool falling = !double.IsNaN(fallingPhase);

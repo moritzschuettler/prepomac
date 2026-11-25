@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,14 +19,14 @@ using System.Runtime.InteropServices;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3160)]
     internal class CalImportedPressureLoad : CalLoad
     {
         // Variables                                                                                                                
-        protected ImportedPressure _load;
-        protected DLoad[] _dLoads;
-        protected ComplexLoadTypeEnum _complexLoadType;
-        protected FeSurfaceFaceTypes _surfaceFaceType;
+        [PmxKey(0)] protected ImportedPressure _load;
+        [PmxKey(1)] protected DLoad[] _dLoads;
+        [PmxKey(2)] protected ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(3)] protected FeSurfaceFaceTypes _surfaceFaceType;
 
 
         // Properties                                                                                                               

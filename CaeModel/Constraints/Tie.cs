@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,8 +20,8 @@ using System.Text.RegularExpressions;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class Tie : Constraint, ISerializable
+    [PmxType(3020)]
+    public class Tie : Constraint
     {
         // Static variables                                                                                                         
         public static readonly double InitialPositionTolerance = 0.05;
@@ -29,8 +29,8 @@ namespace CaeModel
 
         // Variables                                                                                                                
         private static string _nonNegative = "The value must be larger or equal to 0.";
-        private EquationContainer _positionTolerance;       //ISerializable
-        private bool _adjust;                               //ISerializable
+        [PmxKey(0)] private EquationContainer _positionTolerance;       //ISerializable
+        [PmxKey(1)] private bool _adjust;                               //ISerializable
 
 
         // Properties                                                                                                               
@@ -94,6 +94,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetPositionTolerance(_positionTolerance, false);
+        }
         private void SetPositionTolerance(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _positionTolerance, value, CheckPositionTolerance, checkEquation);
@@ -132,15 +137,6 @@ namespace CaeModel
             Selection tmpCreationData = MasterCreationData;
             MasterCreationData = SlaveCreationData;
             SlaveCreationData = tmpCreationData;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_positionTolerance", _positionTolerance, typeof(EquationContainer));
-            info.AddValue("_adjust", _adjust, typeof(bool));
         }
 
 

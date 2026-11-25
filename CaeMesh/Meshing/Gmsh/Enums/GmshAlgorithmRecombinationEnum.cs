@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2105)]
     public enum GmshAlgorithmRecombineEnum
     {
         None = -1,
@@ -25,6 +26,8 @@ namespace CaeMesh
         [StandardValue("SimpleFullQuad", DisplayName = "Simple full-quad")]
         SimpleFullQuad = 2,
         [StandardValue("BlossomFullQuad", DisplayName = "Blossom full-quad")]
-        BlossomFullQuad = 3
+        BlossomFullQuad = 3,
+        [StandardValue("QuadDominant", DisplayName = "Quad-dominant")]
+        QuadDominant = 4
     }
 }

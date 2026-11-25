@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -113,8 +113,8 @@ namespace APIs.Python.Model
                 if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The name '" + name + "' is already used by another model item.");
             }
-            // The canonical spelling is what gmsh is asked for
-            string metricName = PythonValueConverter.ToEnum<GmshElementQualityMetricEnum>(metric, "metric").ToString();
+            // The canonical spelling is what the controller is given
+            string metricName = PythonValueConverter.ToEnum<ElementQualityMetricEnum>(metric, "metric").ToString();
             double limitValue = PythonValueConverter.ToFiniteDouble(limit, "limit");
             //
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");

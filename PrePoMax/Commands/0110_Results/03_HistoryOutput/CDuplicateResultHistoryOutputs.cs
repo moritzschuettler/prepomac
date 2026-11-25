@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -11,14 +11,15 @@ using System;
 
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10261)]
     class CDuplicateResultHistoryOutputs : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _resultHistoryOutputNames;
+        [PmxKey(0)] private string[] _resultHistoryOutputNames;
 
 
         // Constructor                                                                                                              

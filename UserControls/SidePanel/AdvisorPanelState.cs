@@ -2,21 +2,22 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6201)]
     public class AdvisorPanelState
     {
         // Variables                                                                                                                
-        private string _pageId;
-        private int _verticalScrollPosition;
+        [PmxKey(0)] private string _pageId;
+        [PmxKey(1)] private int _verticalScrollPosition;
 
 
         // Properties                                                                                                               

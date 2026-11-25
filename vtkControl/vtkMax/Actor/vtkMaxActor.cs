@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -10,82 +10,52 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Kitware.VTK;
 using CaeGlobals;
-using static System.Windows.Forms.LinkLabel;
-using System.Security.Policy;
-using System.Threading;
-using System.Runtime.InteropServices;
+using vtkControl.Native;
 
 namespace vtkControl
 {
+    // An actor of the view as this control keeps it: the data it was built from, how it is drawn, its transformation,
+    // its animation frames and its result extremes. The native view draws it
     public class vtkMaxActor
     {
-        // Variables                                                                                                                
+        // Variables
         protected string _name;
         protected string _parentName;
         protected vtkMaxExtreemeNode _minNode;
         protected vtkMaxExtreemeNode _maxNode;
         //
-        protected vtkMapper _geometryMapper;
-        protected vtkActor _geometry;
-        protected vtkActor _elementEdges;
-        protected vtkActor _modelEdges;
-        protected vtkPolyData _modelEdgesForHighlight;
+        protected vtkMaxActorData _data;
+        protected bool _nodal;
+        protected int _pointCount;
+        protected string _nativeName;
+        protected double[] _transform;
+        protected double[] _explodedOffset;
+        protected Dictionary<int, int> _nodeIdToPointId;
+        protected float[] _values;
+        protected PartExchangeData _modelEdgesToDraw;
         protected string _drawnModelEdgesKey;
-        protected vtkActor _nodes;
-        protected vtkActor _sectionViewHatch;
-        //
-        protected vtkProperty _geometryProperty;
-        protected vtkProperty _elementEdgesProperty;
-        protected vtkProperty _modelEdgesProperty;
-        protected vtkProperty _nodesProperty;
-        //
-        protected vtkPointData _geometryPointData;
-        // The animation resolves the mapper inputs once instead of on every frame. Each lookup goes through
-        // the ActiViz wrapper table, which is keyed by the native address, and a long animation makes enough
-        // of them for a recycled address to resolve to a dead entry
-        protected vtkPointSet _animationGeometryPointSet;
-        protected vtkPointData _animationGeometryPointData;
-        protected vtkPointSet _animationElementEdgesPointSet;
-        protected vtkPointSet _animationModelEdgesPointSet;
-        protected vtkCellLocator _cellLocator;          // for surface picking
-        // The whole part mesh is built on first need from the provider - section view, box selection, anchors
-        protected vtkUnstructuredGrid _volumeGrid;
-        protected bool _volumeGridStale;
-        protected int[] _volumeGridNodeIds;
-        // During an animation without a section view only the points that are read are deformed
-        protected bool _volumeGridPointsComplete;
-        protected HashSet<long> _volumeGridUpdatedPointIds;
-        protected int _animationFrameNumber;
-        protected vtkCellLocator _volumeLocator;
+        // The whole part mesh comes from the provider - section view, box selection, anchors
         protected Func<string, PartExchangeData> _volumeGridProvider;
         protected Func<string, int, int[], NodesExchangeData> _animationNodesProvider;
         protected string _volumeGridSourceName;
-        protected vtkTransform _volumeGridTransform;
         protected bool _volumeGridAvailable;
         protected bool _hasVolumeCells;
         protected int[] _partNodeIds;
+        protected HashSet<int> _partNodeIdSet;
         protected int[] _partElementIds;
-        protected vtkMaxActor _sectionViewActor;
-        protected vtkMaxActor _sectionViewSkinActor;
         protected bool _geometryHiddenBySectionView;
-        protected HashSet<FaceNodeKey> _sectionViewOuterFaces;
         protected List<vtkMaxActor> _copies;
         protected vtkMaxActorAnimationData[] _animationData;
-        protected Dictionary<int, int> _animationNodeIdToPointId;
-        protected Dictionary<int, int> _animationLocatorNodeIdToPointId;
-        protected int _animationLocatorFrameNumber;
+        protected int _animationFrameNumber;
         protected ResultFieldExchangeData _geometryResultField;
-        protected ResultFieldExchangeData _volumeResultField;
         protected double[] _resultFieldTransformation;
         //
         protected bool _isAPart;
         protected vtkMaxActorRepresentation _actorRepresentation;
         //
         protected bool _visible;
+        protected bool _pickable;
         protected bool _backfaceCulling;
         protected System.Drawing.Color _color;
         protected System.Drawing.Color _backfaceColor;
@@ -104,100 +74,30 @@ namespace vtkControl
         protected vtkRendererLayer _layer;
         //
         protected uint _memorySize;
-        //
-        private static object myLock = new object();
 
 
-        // Properties                                                                                                               
+        // Properties
         public string Name { get { return _name; } set { _name = value; } }
         public string ParentName { get { return _parentName; } set { _parentName = value; } }
         public vtkMaxExtreemeNode MinNode { get { return _minNode; } set { _minNode = value; } }
+        // Directional result values follow the transformation of the actor
+        public bool HasTransformedResultField { get { return _geometryResultField != null; } }
         public vtkMaxExtreemeNode MaxNode { get { return _maxNode; } set { _maxNode = value; } }
+        // What the actor was built from and whether it is the points of its geometry
+        public vtkMaxActorData Data { get { return _data; } }
+        public bool Nodal { get { return _nodal; } }
+        public int PointCount { get { return _pointCount; } set { _pointCount = value; } }
+        // A transformed copy is known in the native view by a name of its own
+        public string NativeName { get { return _nativeName ?? _name; } set { _nativeName = value; } }
+        public double[] ExplodedOffset
+        {
+            get { return _explodedOffset ?? new double[3]; }
+            set { _explodedOffset = value; }
+        }
+        public float[] Values { get { return _values; } }
+        // A sub part of a compound part draws only the model edges no other sub part draws
+        public PartExchangeData ModelEdgesToDraw { get { return _modelEdgesToDraw; } }
         //
-        public vtkMapper GeometryMapper
-        {
-            get { return _geometryMapper; }
-            set
-            {
-                _geometryMapper = value;
-                InvalidateAnimationInputs();
-                if (_geometry != null) _geometry.SetMapper(_geometryMapper);
-            }
-        }
-        // Actors
-        public vtkActor Geometry
-        {
-            get { return _geometry; }
-            set
-            {
-                _geometry = value;
-                InvalidateAnimationInputs();
-                if (_geometry != null)
-                {
-                    _geometryMapper = _geometry.GetMapper();
-                    _geometryProperty = _geometry.GetProperty();
-                }
-            }
-        }
-        public vtkActor ElementEdges
-        {
-            get { return _elementEdges; }
-            set
-            {
-                _elementEdges = value;
-                InvalidateAnimationInputs();
-                if (_elementEdges != null) _elementEdgesProperty = _elementEdges.GetProperty();
-            }
-        }
-        public vtkActor ModelEdges
-        {
-            get { return _modelEdges; }
-            set
-            {
-                _modelEdges = value;
-                InvalidateAnimationInputs();
-                if (_modelEdges != null) _modelEdgesProperty = _modelEdges.GetProperty();
-            }
-        }
-        public vtkPolyData ModelEdgesForHighlight
-        {
-            get { return _modelEdgesForHighlight; }
-            set { _modelEdgesForHighlight = value; }
-        }
-        public vtkActor SectionViewHatch
-        {
-            get { return _sectionViewHatch; }
-            set
-            {
-                _sectionViewHatch = value;
-                if (_sectionViewHatch != null) _sectionViewHatch.SetVisibility(_visible ? 1 : 0);
-                UpdateColor();
-            }
-        }
-        public vtkActor Nodes
-        {
-            get { return _nodes; }
-            set
-            {
-                _nodes = value;
-                if (_nodes != null) _nodesProperty = _nodes.GetProperty();
-            }
-        }
-        // Properties
-        public vtkProperty GeometryProperty
-        {
-            get { return _geometryProperty; }
-            set
-            {
-                _geometryProperty = value;
-                if (_geometry != null) _geometry.SetProperty(_geometryProperty);
-            }
-        }
-        public vtkProperty ElementEdgesProperty { get { return _elementEdgesProperty; } set { _elementEdgesProperty = value; } }
-        public vtkProperty ModelEdgesProperty { get { return _modelEdgesProperty; } set { _modelEdgesProperty = value; } }
-        //
-        public vtkPointData GeometryPointData { get { return _geometryPointData; } }
-        public vtkCellLocator CellLocator { get { return _cellLocator; } set { _cellLocator = value; } }
         public Func<string, PartExchangeData> VolumeGridProvider
         {
             get { return _volumeGridProvider; }
@@ -210,100 +110,40 @@ namespace vtkControl
         }
         public string VolumeGridSourceName { get { return _volumeGridSourceName; } }
         public bool VolumeGridAvailable { get { return _volumeGridAvailable; } }
-        public bool HasVolumeGrid { get { return _volumeGrid != null; } }
         public bool HasVolumeCells { get { return _hasVolumeCells; } }
         public int[] PartNodeIds { get { return _partNodeIds; } }
         public int[] PartElementIds { get { return _partElementIds; } }
-        public vtkMaxActor SectionViewActor { get { return _sectionViewActor; } set { _sectionViewActor = value; } }
-        public vtkMaxActor SectionViewSkinActor { get { return _sectionViewSkinActor; } set { _sectionViewSkinActor = value; } }
         public bool GeometryHiddenBySectionView
         {
             get { return _geometryHiddenBySectionView; }
             set { _geometryHiddenBySectionView = value; }
         }
-        public HashSet<FaceNodeKey> SectionViewOuterFaces
-        {
-            get { return _sectionViewOuterFaces; }
-            set { _sectionViewOuterFaces = value; }
-        }
         public List<vtkMaxActor> Copies { get { return _copies; } }
+        public int AnimationFrameNumber { get { return _animationFrameNumber; } }
         //
-        public int GetNumberOfElements()
-        {
-            return _geometryMapper != null ? (int)_geometryMapper.GetInput().GetNumberOfCells() : 0;
-        }
         public bool IsAPart { get { return _isAPart; } }
         public vtkMaxActorRepresentation ActorRepresentation
         {
             get { return _actorRepresentation; }
             set { _actorRepresentation = value; }
         }
-        public virtual bool VtkMaxActorVisible
-        {
-            get { return _visible; }
-            set
-            {
-                _visible = value;
-                if (_geometry != null) _geometry.SetVisibility(_visible ? 1 : 0);    // to base vtkActor
-                if (_sectionViewHatch != null) _sectionViewHatch.SetVisibility(_visible ? 1 : 0);
-            }
-        }
+        public virtual bool VtkMaxActorVisible { get { return _visible; } set { _visible = value; } }
         public bool BackfaceCulling { get { return _backfaceCulling; } set { _backfaceCulling = value; } }
-        public bool Pickable { get { return _geometry.GetPickable() == 1; } }
-        public System.Drawing.Color Color
-        {
-            get { return _color; }
-            set
-            {
-                _color = value;
-                UpdateColor();
-            }
-        }
-        public System.Drawing.Color BackfaceColor
-        {
-            get { return _backfaceColor; }
-            set
-            {
-                _backfaceColor = value;
-                UpdateColor();
-            }
-        }
-        public System.Drawing.Color[] ColorTable
-        {
-            get { return _colorTable; }
-            set
-            {
-                _colorTable = value;
-                UpdateColor();
-            }
-        }
-        public double Ambient
-        {
-            get { return _ambient; }
-            set
-            {
-                _ambient = value;
-                UpdateColor();
-            }
-        }
-        public double Diffuse
-        {
-            get { return _diffuse; }
-            set
-            {
-                _diffuse = value;
-                UpdateColor();
-            }
-        }
+        public bool Pickable { get { return _pickable; } set { _pickable = value; } }
+        public System.Drawing.Color Color { get { return _color; } set { _color = value; } }
+        public System.Drawing.Color BackfaceColor { get { return _backfaceColor; } set { _backfaceColor = value; } }
+        public System.Drawing.Color[] ColorTable { get { return _colorTable; } set { _colorTable = value; } }
+        public double Ambient { get { return _ambient; } set { _ambient = value; } }
+        public double Diffuse { get { return _diffuse; } set { _diffuse = value; } }
         public bool ColorContours { get { return _colorContours; } set { _colorContours = value; } }
         public bool UseGlobalLighting { get { return _useGlobalLighting; } set { _useGlobalLighting = value; } }
         public bool UseEdgeVisibility { get { return _useEdgeVisibility; } set { _useEdgeVisibility = value; } }
         public bool SectionViewPossible { get { return _sectionViewPossible; } set { _sectionViewPossible = value; } }
         public bool DrawOnGeometry { get { return _drawOnGeometry; } set { _drawOnGeometry = value; } }
-        public bool UseSecondaryHighlightColor 
-        { 
-            get { return _useSecondaryHighlightColor; } 
-            set { _useSecondaryHighlightColor = value; } 
+        public bool UseSecondaryHighlightColor
+        {
+            get { return _useSecondaryHighlightColor; }
+            set { _useSecondaryHighlightColor = value; }
         }
         public bool KeepOwnColor { get { return _keepOwnColor; } set { _keepOwnColor = value; } }
         public bool CanHaveElementEdges { get { return _canHaveElementEdges; } set { _canHaveElementEdges = value; } }
@@ -311,7 +151,7 @@ namespace vtkControl
         public uint MemorySize { get { return _memorySize; } set { _memorySize = value; } }
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public vtkMaxActor()
         {
             _name = null;
@@ -319,44 +159,32 @@ namespace vtkControl
             _minNode = null;
             _maxNode = null;
             //
-            _geometry = new vtkActor();
-            _elementEdges = null;
-            _modelEdges = null;
-            //
-            _geometryProperty = _geometry.GetProperty();
-            _elementEdgesProperty = null;
-            _modelEdgesProperty = null;
-            //
-            _geometryMapper = _geometry.GetMapper();
-            //
-            _cellLocator = null;
-            _volumeGrid = null;
-            _volumeGridStale = false;
-            _volumeGridNodeIds = null;
-            _volumeGridPointsComplete = true;
-            _volumeGridUpdatedPointIds = null;
-            _animationFrameNumber = -1;
-            _volumeLocator = null;
+            _data = null;
+            _nodal = false;
+            _pointCount = 0;
+            _nativeName = null;
+            _transform = null;
+            _explodedOffset = null;
+            _nodeIdToPointId = null;
+            _values = null;
             _volumeGridProvider = null;
             _animationNodesProvider = null;
             _volumeGridSourceName = null;
-            _volumeGridTransform = null;
             _volumeGridAvailable = false;
             _hasVolumeCells = false;
             _partNodeIds = null;
             _partElementIds = null;
-            _sectionViewActor = null;
-            _sectionViewSkinActor = null;
             _geometryHiddenBySectionView = false;
-            _sectionViewOuterFaces = null;
             _copies = new List<vtkMaxActor>();
+            _animationData = null;
+            _animationFrameNumber = -1;
             _geometryResultField = null;
-            _volumeResultField = null;
             _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
             //
             _isAPart = false;
             _actorRepresentation = vtkMaxActorRepresentation.Unknown;
             _visible = true;
+            _pickable = false;
             _backfaceCulling = true;
             _color = System.Drawing.Color.Empty;
             _backfaceColor = System.Drawing.Color.Empty;
@@ -374,147 +202,52 @@ namespace vtkControl
             _layer = vtkRendererLayer.Base;
             //
             _memorySize = 0;
-            UpdateColor();
-        }
-        public vtkMaxActor(vtkUnstructuredGrid source)
-            : this ()
-        {
-            // Unstructured grid
-            vtkUnstructuredGrid uGridActor = vtkUnstructuredGrid.New();
-            vtkUnstructuredGrid uGridEdges = vtkUnstructuredGrid.New();
-            // Add the points
-            uGridActor.SetPoints(source.GetPoints());
-            uGridEdges.SetPoints(source.GetPoints());
-            // Add the cells
-            AddCellDataToGrid(source, uGridActor, uGridEdges);
-            // Update grid
-            uGridActor.Update();
-            uGridEdges.Update();
-            // Actor
-            vtkDataSetMapper mapper = vtkDataSetMapper.New();
-            mapper.SetInput(uGridActor);
-            _geometryMapper = mapper;
-            _geometry.SetMapper(_geometryMapper);
-            _geometry.PickableOff();
-            _geometryProperty = _geometry.GetProperty();
-            // Edges
-            _elementEdges = GetActorEdgesFromGridByVisualizationSurfaceExtraction(uGridEdges);
-            if (_elementEdges != null) _elementEdgesProperty = _elementEdges.GetProperty();
-            //
-            _memorySize = 0;
         }
         public vtkMaxActor(vtkMaxActorData data)
             : this(data, false, false)
         {
         }
-        public vtkMaxActor(vtkMaxActorData data, vtkMapper mapper)
-            : this()
-        {
-            _name = data.Name;
-            _parentName = data.ParentName;
-            _geometryMapper = mapper;
-            _geometry.SetMapper(_geometryMapper);
-            _geometry.SetPickable(data.Pickable ? 1 : 0);
-            _geometry.GetProperty().SetLineWidth(data.LineWidth);
-            //
-            _geometry.GetProperty().SetPointSize(data.NodeSize);
-            _geometryProperty = _geometry.GetProperty();
-            //
-            _actorRepresentation = data.ActorRepresentation;
-            _backfaceCulling = data.BackfaceCulling;
-            _color = data.Color;
-            _backfaceColor = data.BackfaceColor;
-            _colorTable = data.ColorTable;
-            _ambient = data.Ambient;
-            _diffuse = data.Diffuse;
-            _colorContours = data.ColorContours;
-            _useGlobalLighting = data.UseGlobalLighting;
-            _useEdgeVisibility = data.UseEdgeVisibility;
-            _sectionViewPossible = data.SectionViewPossible;
-            _drawOnGeometry = data.DrawOnGeometry;
-            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
-            _keepOwnColor = data.KeepOwnColor;
-            //
-            _canHaveElementEdges = data.CanHaveElementEdges;
-            _layer = data.Layer;
-            //
-            InitializeResultFields(data);
-            _memorySize = 0;
-            //
-            UpdateColor();
-            _geometryProperty.SetLighting(data.Lighting);
-        }
-        
         public vtkMaxActor(vtkMaxActorData data, bool extractVisualizationSurface, bool createNodalActor)
             : this()
         {
+            _data = data;
             _name = data.Name;
             _parentName = data.ParentName;
+            _modelEdgesToDraw = data.ModelEdgesToDraw;
+            _drawnModelEdgesKey = GetModelEdgesKey(data.ModelEdgesToDraw ?? data.ModelEdges);
             //
-            if ((data.Geometry.Cells.CellNodeIds == null && data.Geometry.Nodes.Coor != null) || createNodalActor)
+            PartExchangeData geometry = data.Geometry;
+            _nodal = createNodalActor || (geometry.Cells.CellNodeIds == null && geometry.Nodes.Coor != null);
+            _pointCount = GetPointCount(geometry.Nodes);
+            _pickable = data.Pickable && !_nodal && geometry.Cells.Ids != null;
+            if (!_nodal && geometry.Nodes.Values != null)
             {
-                CreateNodalActor(data);
+                _values = geometry.Nodes.Values;
+                if (geometry.ExtremeNodes != null && geometry.ExtremeNodes.Ids != null) SetExtremes(geometry.ExtremeNodes);
             }
-            else
-            {
-                if (extractVisualizationSurface) CreateFromDataByVisualizationSurfaceExtraction(data);
-                else
-                {
-                    CreatePolyFromData(data);
-                }
-                //
-                if (data.Pickable && _geometryMapper.GetInputAsDataSet().GetCellData().GetGlobalIds() != null)
-                {
-                    _geometry.SetPickable(1);
-                    _cellLocator = vtkCellLocator.New();
-                    _cellLocator.SetDataSet(_geometryMapper.GetInputAsDataSet());
-                    _cellLocator.LazyEvaluationOn();
-                }
-                else
-                {
-                    _geometry.SetPickable(0);
-                }
-            }
-            // Property
-            _geometryProperty.SetLineWidth(data.LineWidth);
-            _geometryProperty.SetPointSize(data.NodeSize);
-            if (_modelEdgesProperty != null) _modelEdgesProperty.SetPointSize(data.NodeSize);
-            if (_elementEdgesProperty != null) _elementEdgesProperty.SetPointSize(data.NodeSize);
             //
             _isAPart = data.IsAPart;
             _volumeGridAvailable = data.Layer == vtkRendererLayer.Base && data.VolumeGridAvailable;
             _hasVolumeCells = data.HasVolumeCells;
             _partNodeIds = data.PartNodeIds;
             _partElementIds = data.PartElementIds;
-            _actorRepresentation = data.ActorRepresentation;
-            _backfaceCulling = data.BackfaceCulling;
-            _color = data.Color;
-            _backfaceColor = data.BackfaceColor;
-            _colorTable = data.ColorTable;
-            _ambient = data.Ambient;
-            _diffuse = data.Diffuse;
-            _colorContours = data.ColorContours;
-            _useGlobalLighting = data.UseGlobalLighting;
-            _useEdgeVisibility = data.UseEdgeVisibility;
-            _sectionViewPossible = data.SectionViewPossible;
-            _drawOnGeometry = data.DrawOnGeometry;
-            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
-            _keepOwnColor = data.KeepOwnColor;
+            CopyStyle(data);
             //
-            _canHaveElementEdges = data.CanHaveElementEdges;
-            _layer = data.Layer;
-            //
-            InitializeResultFields(data);
-            _memorySize = 0;
-            //
-            UpdateColor();
-            _geometryProperty.SetLighting(data.Lighting);
+            _geometryResultField = GetCompatibleResultField(geometry.Nodes.ResultField, _pointCount);
+        }
+        // An actor that draws other points than the nodes of its data: a symbol or a plot of a field. It takes the
+        // style of the data, and neither its values nor its volume grid
+        public vtkMaxActor(vtkMaxActorData data, int pointCount)
+            : this()
+        {
+            _data = data;
+            _name = data.Name;
+            _parentName = data.ParentName;
+            _pointCount = pointCount;
+            _pickable = data.Pickable;
+            CopyStyle(data);
         }
         public vtkMaxActor(vtkMaxActor sourceActor)
-          : this(sourceActor, true)
-        {
-        }
-        public vtkMaxActor(vtkMaxActor sourceActor, bool copyDataSets)
           : this()
         {
             _name = sourceActor.Name;
@@ -523,33 +256,19 @@ namespace vtkControl
             if (sourceActor.MinNode != null) _minNode = new vtkMaxExtreemeNode(sourceActor.MinNode);
             if (sourceActor.MaxNode != null) _maxNode = new vtkMaxExtreemeNode(sourceActor.MaxNode);
             //
-            // Geometry                                                         
-            if (copyDataSets)
-            {
-                // Poly data
-                vtkPolyData polyData = vtkPolyData.New();
-                polyData.DeepCopy(sourceActor.Geometry.GetMapper().GetInput());
-                // Mapper
-                vtkDataSetMapper mapper = vtkDataSetMapper.New();
-                mapper.SetInput(polyData);
-                _geometryMapper = mapper;
-                // Actor
-                _geometry.SetMapper(_geometryMapper);
-            }
-            _geometry.GetProperty().DeepCopy(sourceActor.GeometryProperty);
-            _geometryProperty = _geometry.GetProperty();
-            //_geometry.GetProperty().SetLineWidth(sourceActor.Geometry.GetProperty().GetLineWidth());
-            _geometry.SetVisibility(sourceActor.Geometry.GetVisibility());
-            _geometry.SetPickable(sourceActor.Geometry.GetPickable());
-            // Cell Locator
-            if (copyDataSets && sourceActor.CellLocator != null)
-            {
-                _cellLocator = vtkCellLocator.New();
-                _cellLocator.SetDataSet(_geometryMapper.GetInputAsDataSet());
-                _cellLocator.LazyEvaluationOn();
-            }
-            // Volume grid - a copy builds its own from the source part when it is first needed
-            if (copyDataSets && sourceActor.VolumeGridAvailable)
+            _data = sourceActor._data;
+            _modelEdgesToDraw = sourceActor._modelEdgesToDraw;
+            _drawnModelEdgesKey = sourceActor._drawnModelEdgesKey;
+            _nodal = sourceActor._nodal;
+            _pointCount = sourceActor._pointCount;
+            _transform = sourceActor._transform == null ? null : (double[])sourceActor._transform.Clone();
+            _nodeIdToPointId = sourceActor._nodeIdToPointId;
+            _values = sourceActor._values;
+            _animationData = sourceActor._animationData;
+            _animationFrameNumber = sourceActor._animationFrameNumber;
+            _pickable = false;
+            // Volume grid - a copy takes the one of the source part
+            if (sourceActor.VolumeGridAvailable)
             {
                 _volumeGridAvailable = true;
                 _hasVolumeCells = sourceActor.HasVolumeCells;
@@ -558,67 +277,16 @@ namespace vtkControl
                 _volumeGridProvider = sourceActor.VolumeGridProvider;
                 _animationNodesProvider = sourceActor.AnimationNodesProvider;
                 _volumeGridSourceName = sourceActor.VolumeGridSourceName ?? sourceActor.Name;
-                if (sourceActor._volumeGridTransform != null)
-                {
-                    _volumeGridTransform = vtkTransform.New();
-                    _volumeGridTransform.SetMatrix(sourceActor._volumeGridTransform.GetMatrix());
-                }
             }
-            // Element edges                                                    
-            if (copyDataSets && sourceActor.ElementEdges != null)
-            {
-                // Poly data
-                vtkPolyData polyData = vtkPolyData.New();
-                polyData.DeepCopy(sourceActor.ElementEdges.GetMapper().GetInput());
-                // Mapper
-                vtkDataSetMapper mapper = vtkDataSetMapper.New();
-                mapper.SetInput(polyData);
-                // Actor
-                _elementEdges = new vtkActor();
-                _elementEdges.SetMapper(mapper);
-                _elementEdges.GetProperty().DeepCopy(sourceActor.ElementEdges.GetProperty());
-                _elementEdges.SetVisibility(sourceActor.ElementEdges.GetVisibility());
-                _elementEdges.SetPickable(sourceActor.ElementEdges.GetPickable());
-                //
-                _elementEdgesProperty = _elementEdges.GetProperty();
-            }
-            // Model edges                                                      
-            if (copyDataSets && sourceActor.ModelEdges != null)
-            {
-                // Poly data
-                vtkPolyData polyData = vtkPolyData.New();
-                polyData.DeepCopy(sourceActor.ModelEdges.GetMapper().GetInput());
-                // Mapper
-                vtkDataSetMapper mapper = vtkDataSetMapper.New();
-                mapper.SetInput(polyData);
-                // Actor
-                _modelEdges = vtkActor.New();
-                _modelEdges.SetMapper(mapper);
-                _modelEdges.GetProperty().DeepCopy(sourceActor.ModelEdges.GetProperty());
-                _modelEdges.SetVisibility(sourceActor.ModelEdges.GetVisibility());
-                _modelEdges.SetPickable(sourceActor.ModelEdges.GetPickable());
-                //
-                _modelEdgesProperty = _modelEdges.GetProperty();
-                //
-                if (sourceActor.ModelEdgesForHighlight != null)
-                {
-                    _modelEdgesForHighlight = vtkPolyData.New();
-                    _modelEdgesForHighlight.DeepCopy(sourceActor.ModelEdgesForHighlight);
-                }
-                _drawnModelEdgesKey = sourceActor._drawnModelEdgesKey;
-            }
-            // Section view
-            _sectionViewActor = copyDataSets ? sourceActor.SectionViewActor : null;
-            // transformed copies
+            // Transformed copies
             _copies = new List<vtkMaxActor>(sourceActor.Copies);
-            // Result field transformation data is immutable and shared by actor copies.
+            // Result field transformation data is immutable and shared by actor copies
             _geometryResultField = sourceActor._geometryResultField;
-            _volumeResultField = sourceActor._volumeResultField;
             _resultFieldTransformation = (double[])sourceActor._resultFieldTransformation.Clone();
             //
             _isAPart = sourceActor.IsAPart;
             _actorRepresentation = sourceActor.ActorRepresentation;
-            VtkMaxActorVisible = sourceActor.VtkMaxActorVisible;
+            _visible = sourceActor.VtkMaxActorVisible;
             _backfaceCulling = sourceActor.BackfaceCulling;
             _color = sourceActor.Color;
             _backfaceColor = sourceActor.BackfaceColor;
@@ -637,16 +305,98 @@ namespace vtkControl
             _layer = sourceActor.Layer;
             //
             _memorySize = sourceActor.MemorySize;
-            if (copyDataSets) UpdateColor();
         }
 
-        // Methods                                                                                                                  
-        private void InitializeResultFields(vtkMaxActorData data)
+
+        // Static methods
+        public static int GetPointCount(NodesExchangeData nodes)
         {
-            _geometryResultField = GetCompatibleResultField(data?.Geometry?.Nodes?.ResultField,
-                                                             _geometryMapper?.GetInput()?.GetNumberOfPoints() ?? 0);
-            _volumeResultField = null;
-            _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
+            if (nodes == null) return 0;
+            if (nodes.Coor != null) return nodes.Coor.Length;
+            if (nodes.FlatCoor != null) return nodes.FlatCoor.Length / 3;
+            return 0;
+        }
+        // A 4 x 4 matrix of a translation, of a scale about a point and of a rotation about an axis through a point
+        public static double[] GetTranslation(double[] displacement)
+        {
+            double[] matrix = GetIdentity();
+            for (int i = 0; i < 3; i++) matrix[4 * i + 3] = displacement[i];
+            return matrix;
+        }
+        public static double[] GetScale(double[] point, double[] scale)
+        {
+            double[] matrix = GetIdentity();
+            for (int i = 0; i < 3; i++)
+            {
+                matrix[5 * i] = scale[i];
+                matrix[4 * i + 3] = point[i] - scale[i] * point[i];
+            }
+            return matrix;
+        }
+        // vtkTransform.RotateWXYZ: a rotation by an angle in degrees about an axis
+        public static double[] GetRotation(double[] point, double[] axis, double angle)
+        {
+            double length = Math.Sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+            double x = axis[0] / length;
+            double y = axis[1] / length;
+            double z = axis[2] / length;
+            double radians = angle * Math.PI / 180;
+            double c = Math.Cos(radians);
+            double s = Math.Sin(radians);
+            double t = 1 - c;
+            double[] rotation = new double[]
+            {
+                t * x * x + c,     t * x * y - s * z, t * x * z + s * y, 0,
+                t * x * y + s * z, t * y * y + c,     t * y * z - s * x, 0,
+                t * x * z - s * y, t * y * z + s * x, t * z * z + c,     0,
+                0,                 0,                 0,                 1
+            };
+            for (int i = 0; i < 3; i++)
+            {
+                double moved = 0;
+                for (int j = 0; j < 3; j++) moved += rotation[4 * i + j] * point[j];
+                rotation[4 * i + 3] = point[i] - moved;
+            }
+            return rotation;
+        }
+        public static double[] GetIdentity()
+        {
+            return new double[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+        }
+        public static double[] Multiply(double[] a, double[] b)
+        {
+            double[] product = new double[16];
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    double value = 0;
+                    for (int k = 0; k < 4; k++) value += a[4 * i + k] * b[4 * k + j];
+                    product[4 * i + j] = value;
+                }
+            }
+            return product;
+        }
+        public static double[] TransformPoint(double[] matrix, double[] point)
+        {
+            if (matrix == null) return new double[] { point[0], point[1], point[2] };
+            double[] transformed = new double[3];
+            for (int i = 0; i < 3; i++)
+            {
+                transformed[i] = matrix[4 * i] * point[0] + matrix[4 * i + 1] * point[1] + matrix[4 * i + 2] * point[2] +
+                                 matrix[4 * i + 3];
+            }
+            return transformed;
+        }
+        // The rotation part of a transformation, which a directional result component is transformed with
+        public static double[] GetResultFieldTransformation(double[] matrix)
+        {
+            double[] transformation = new double[9];
+            for (int row = 0; row < 3; row++)
+            {
+                for (int column = 0; column < 3; column++) transformation[3 * row + column] = matrix[4 * row + column];
+            }
+            return transformation;
         }
         private static ResultFieldExchangeData GetCompatibleResultField(ResultFieldExchangeData resultField,
                                                                           long numberOfPoints)
@@ -655,78 +405,191 @@ namespace vtkControl
                 resultField.GetNumberOfValues() != numberOfPoints) return null;
             return resultField;
         }
+
+
+        // Methods
+        private void CopyStyle(vtkMaxActorData data)
+        {
+            _actorRepresentation = data.ActorRepresentation;
+            _backfaceCulling = data.BackfaceCulling;
+            _color = data.Color;
+            _backfaceColor = data.BackfaceColor;
+            _colorTable = data.ColorTable;
+            _ambient = data.Ambient;
+            _diffuse = data.Diffuse;
+            _colorContours = data.ColorContours;
+            _useGlobalLighting = data.UseGlobalLighting;
+            _useEdgeVisibility = data.UseEdgeVisibility;
+            _sectionViewPossible = data.SectionViewPossible;
+            _drawOnGeometry = data.DrawOnGeometry;
+            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
+            _keepOwnColor = data.KeepOwnColor;
+            //
+            _canHaveElementEdges = data.CanHaveElementEdges;
+            _layer = data.Layer;
+        }
+        private void SetExtremes(NodesExchangeData extremeNodes)
+        {
+            _minNode = new vtkMaxExtreemeNode(extremeNodes.Ids[0], extremeNodes.Coor[0], extremeNodes.Values[0]);
+            _maxNode = new vtkMaxExtreemeNode(extremeNodes.Ids[1], extremeNodes.Coor[1], extremeNodes.Values[1]);
+        }
+        // The values drawn at the points and their extremes, as a new scalar field gives them
+        public void SetValues(float[] values, NodesExchangeData extremeNodes)
+        {
+            _values = values;
+            if (values == null || extremeNodes == null)
+            {
+                _minNode = null;
+                _maxNode = null;
+            }
+            else SetExtremes(extremeNodes);
+        }
+        // The style the native view draws the actor with: its data's, with what changed on the actor since
+        public VtkNativePartStyle GetNativeStyle()
+        {
+            VtkNativePartStyle style = _data != null ? VtkNativePartStyle.FromActorData(_data) : new VtkNativePartStyle();
+            style.SetColor(_color);
+            style.HasBackfaceColor = _backfaceColor.IsEmpty ? 0 : 1;
+            if (!_backfaceColor.IsEmpty)
+            {
+                style.BackfaceColorR = _backfaceColor.R / 255d;
+                style.BackfaceColorG = _backfaceColor.G / 255d;
+                style.BackfaceColorB = _backfaceColor.B / 255d;
+                style.BackfaceColorA = _backfaceColor.A / 255d;
+            }
+            style.Ambient = _ambient;
+            style.Diffuse = _diffuse;
+            style.ColorContours = _colorContours ? 1 : 0;
+            style.Visible = _visible ? 1 : 0;
+            style.Nodal = _nodal ? 1 : 0;
+            style.Layer = (int)VtkNativePartStyle.ToNativeLayer(_layer);
+            return style;
+        }
+        // The number of cells the actor is drawn with: its vertices, or the lines and triangles of its cells
+        public int GetNumberOfElements()
+        {
+            if (_data == null) return 0;
+            if (_nodal) return _pointCount;
+            int[] types = _data.Geometry.Cells.Types;
+            if (types == null) return 0;
+            int count = 0;
+            foreach (int type in types)
+            {
+                if (type == 21 || type == 9) count += 2;            // VTK_QUADRATIC_EDGE, VTK_QUAD
+                else if (type == 22) count += 4;                    // VTK_QUADRATIC_TRIANGLE
+                else if (type == 23) count += 6;                    // VTK_QUADRATIC_QUAD
+                else count++;
+            }
+            return count;
+        }
+        // The point of the given index as it is drawn: of the animation frame shown, transformed with the actor
+        public double[] GetPoint(int pointId)
+        {
+            double[] point = null;
+            vtkMaxActorAnimationData frame = GetCurrentFrame();
+            if (frame != null && frame.Coordinates != null && 3 * pointId + 2 < frame.Coordinates.Length)
+            {
+                float[] coordinates = frame.Coordinates;
+                point = new double[] { coordinates[3 * pointId], coordinates[3 * pointId + 1], coordinates[3 * pointId + 2] };
+            }
+            else if (_data != null)
+            {
+                NodesExchangeData nodes = _data.Geometry.Nodes;
+                if (nodes.Coor != null && pointId < nodes.Coor.Length) point = nodes.Coor[pointId];
+                else if (nodes.FlatCoor != null && 3 * pointId + 2 < nodes.FlatCoor.Length)
+                    point = new double[] { nodes.FlatCoor[3 * pointId], nodes.FlatCoor[3 * pointId + 1],
+                                           nodes.FlatCoor[3 * pointId + 2] };
+            }
+            if (point == null) return null;
+            return TransformPoint(_transform, point);
+        }
+        public bool TryGetPointId(int nodeId, out int pointId)
+        {
+            pointId = -1;
+            if (_data == null || _data.Geometry.Nodes.Ids == null) return false;
+            if (_nodeIdToPointId == null)
+            {
+                int[] ids = _data.Geometry.Nodes.Ids;
+                _nodeIdToPointId = new Dictionary<int, int>(ids.Length);
+                for (int i = 0; i < ids.Length; i++) _nodeIdToPointId[ids[i]] = i;
+            }
+            return _nodeIdToPointId.TryGetValue(nodeId, out pointId);
+        }
+        // The current coordinates of every point, as flat x, y, z values
+        public float[] GetCoordinates()
+        {
+            float[] coordinates = new float[3 * _pointCount];
+            for (int i = 0; i < _pointCount; i++)
+            {
+                double[] point = GetPoint(i);
+                if (point == null) continue;
+                coordinates[3 * i] = (float)point[0];
+                coordinates[3 * i + 1] = (float)point[1];
+                coordinates[3 * i + 2] = (float)point[2];
+            }
+            return coordinates;
+        }
+        // The model edges a sub part of a compound part draws now; whether they are other edges than it drew
+        public bool UpdateModelEdgesToDraw(PartExchangeData modelEdgesToDraw)
+        {
+            if (_data == null || _data.ModelEdges == null || modelEdgesToDraw == null) return false;
+            string modelEdgesKey = GetModelEdgesKey(modelEdgesToDraw);
+            if (modelEdgesKey == _drawnModelEdgesKey) return false;
+            _modelEdgesToDraw = modelEdgesToDraw;
+            _drawnModelEdgesKey = modelEdgesKey;
+            return true;
+        }
+        /// <summary>
+        /// The edges given by the nodes of their cells. Two sets of edges with the same number of cells are
+        /// still different edges when a sub part of a compound hands a shared edge to another sub part and
+        /// takes over a different one in its place
+        /// </summary>
+        private static string GetModelEdgesKey(PartExchangeData modelEdges)
+        {
+            if (modelEdges == null || modelEdges.Nodes.Ids == null || modelEdges.Cells.CellNodeIds == null) return null;
+            //
+            System.Text.StringBuilder key = new System.Text.StringBuilder();
+            int[] nodeIds = modelEdges.Nodes.Ids;
+            foreach (int[] cellNodeIds in modelEdges.Cells.CellNodeIds)
+            {
+                foreach (int cellNodeId in cellNodeIds)
+                {
+                    key.Append(cellNodeId >= 0 && cellNodeId < nodeIds.Length ? nodeIds[cellNodeId] : -1);
+                    key.Append(',');
+                }
+                key.Append(';');
+            }
+            return key.ToString();
+        }
+        // Transformation
+        public void AppendTransform(double[] matrix)
+        {
+            _transform = _transform == null ? (double[])matrix.Clone() : Multiply(matrix, _transform);
+        }
+        // Result fields
         public void UpdateResultFields(ResultFieldExchangeData geometryResultField)
         {
-            _geometryResultField = GetCompatibleResultField(geometryResultField,
-                                                             _geometryMapper?.GetInput()?.GetNumberOfPoints() ?? 0);
-            // Keep the actor's cumulative transformation and reconstruct the newly selected component.
-            if (_geometryResultField != null)
-            {
-                vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
-                float[] values = SetTransformedValues(pointSet, _geometryResultField);
-                UpdateResultExtremes(pointSet, values);
-            }
+            _geometryResultField = GetCompatibleResultField(geometryResultField, _pointCount);
+            // Keep the actor's cumulative transformation and reconstruct the newly selected component
+            if (_geometryResultField != null) SetTransformedValues();
         }
         public void ApplyResultFieldTransformation(double[] transformation)
         {
             // Store the geometry transformation even if the currently displayed field is invariant.
-            // A later component selection can then reconstruct its directional values correctly.
+            // A later component selection can then reconstruct its directional values correctly
             _resultFieldTransformation = ResultFieldExchangeData.MultiplyTransformations(transformation,
                                                                                          _resultFieldTransformation);
-            if (_geometryResultField == null && _volumeResultField == null) return;
-            //
-            float[] geometryValues = null;
-            if (_geometryResultField != null)
-            {
-                vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
-                geometryValues = SetTransformedValues(pointSet, _geometryResultField);
-                UpdateResultExtremes(pointSet, geometryValues);
-            }
-            if (_volumeResultField != null && _volumeGrid != null)
-                SetTransformedValues(_volumeGrid, _volumeResultField);
+            if (_geometryResultField != null) SetTransformedValues();
         }
-        internal bool TryGetAnimationResultRange(IEnumerable<double[]> transformations, out double minimum,
-                                                  out double maximum)
+        private void SetTransformedValues()
         {
-            minimum = double.MaxValue;
-            maximum = -double.MaxValue;
-            if (_animationData == null || transformations == null) return false;
-            //
-            bool found = false;
-            foreach (vtkMaxActorAnimationData animationData in _animationData)
-            {
-                ResultFieldExchangeData resultField = animationData.ResultField;
-                if (resultField == null) continue;
-                foreach (double[] transformation in transformations)
-                {
-                    if (resultField.TryGetTransformedRange(transformation, out float min, out float max))
-                    {
-                        if (min < minimum) minimum = min;
-                        if (max > maximum) maximum = max;
-                        found = true;
-                    }
-                }
-            }
-            return found;
+            float[] values = _geometryResultField.GetTransformedValues(_resultFieldTransformation);
+            if (values == null || values.Length != _pointCount) return;
+            _values = values;
+            UpdateResultExtremes(values);
         }
-        private float[] SetTransformedValues(vtkPointSet pointSet, ResultFieldExchangeData resultField)
+        private void UpdateResultExtremes(float[] values)
         {
-            if (pointSet == null) return null;
-            float[] values = resultField.GetTransformedValues(_resultFieldTransformation);
-            if (values == null || values.Length != pointSet.GetNumberOfPoints()) return null;
-            //
-            vtkFloatArray scalars = vtkFloatArray.New();
-            scalars.SetName(Globals.ScalarArrayName);
-            scalars.SetNumberOfValues(values.Length);
-            for (int i = 0; i < values.Length; i++) scalars.SetValue(i, values[i]);
-            pointSet.GetPointData().SetScalars(scalars);
-            return values;
-        }
-        private void UpdateResultExtremes(vtkPointSet pointSet, float[] values)
-        {
-            if (pointSet == null || values == null || values.Length == 0 ||
-                values.Length != pointSet.GetNumberOfPoints()) return;
-            //
             int minIndex = -1;
             int maxIndex = -1;
             float minValue = float.MaxValue;
@@ -753,1464 +616,91 @@ namespace vtkControl
                 return;
             }
             //
-            vtkDataArray globalIds = pointSet.GetPointData().GetGlobalIds();
-            int minId = globalIds == null ? -1 : (int)globalIds.GetTuple1(minIndex);
-            int maxId = globalIds == null ? -1 : (int)globalIds.GetTuple1(maxIndex);
-            _minNode = new vtkMaxExtreemeNode(minId, pointSet.GetPoint(minIndex), minValue);
-            _maxNode = new vtkMaxExtreemeNode(maxId, pointSet.GetPoint(maxIndex), maxValue);
+            int[] ids = _data?.Geometry.Nodes.Ids;
+            int minId = ids == null ? -1 : ids[minIndex];
+            int maxId = ids == null ? -1 : ids[maxIndex];
+            _minNode = new vtkMaxExtreemeNode(minId, GetPoint(minIndex), minValue);
+            _maxNode = new vtkMaxExtreemeNode(maxId, GetPoint(maxIndex), maxValue);
         }
-        public void CropWithCylinder(double r, string fileName)
+        internal bool TryGetAnimationResultRange(IEnumerable<double[]> transformations, out double minimum,
+                                                  out double maximum)
         {
-            vtkTransform transformCylinder = vtkTransform.New();
-            transformCylinder.Identity();
-            //transformCylinder.Translate(-.4, .4, 0);
-            //transformCylinder.RotateZ(30);
-            //transformCylinder.RotateY(60);
-            transformCylinder.RotateX(90);
-            //transformCylinder.Inverse();
-            vtkCylinder cylinder = vtkCylinder.New();
-            cylinder.SetTransform(transformCylinder);
-            cylinder.SetRadius(r);
+            minimum = double.MaxValue;
+            maximum = -double.MaxValue;
+            if (_animationData == null || transformations == null) return false;
             //
-            vtkClipPolyData clipper = vtkClipPolyData.New();
-            clipper.SetInput(_geometryMapper.GetInput());
-            clipper.SetClipFunction(cylinder);
-            clipper.GenerateClippedOutputOn();
-            clipper.GenerateClipScalarsOn();
-            clipper.SetValue(0);
-            //
-            vtkDecimatePro decimate = vtkDecimatePro.New();
-            decimate.SetInput(clipper.GetClippedOutput());
-            decimate.SetTargetReduction(0.05);
-            decimate.PreserveTopologyOn();
-            decimate.Update();
-            //
-            vtkSTLWriter stlWriter = vtkSTLWriter.New();
-            stlWriter.SetFileName(fileName);
-            stlWriter.SetInput(decimate.GetOutput());
-            stlWriter.Write();
-        }
-        public void CropWithCube(double x, double y, double z, double a, string fileName)
-        {
-            vtkBox box = vtkBox.New();
-            box.SetBounds(x - a / 2, x + a / 2, y - a / 2, y + a / 2, z - a / 2, z + a / 2);
-            //
-            vtkClipPolyData clipper = vtkClipPolyData.New();
-            clipper.SetInput(_geometryMapper.GetInput());
-            clipper.SetClipFunction(box);
-            clipper.GenerateClippedOutputOn();
-            clipper.GenerateClipScalarsOn();
-            clipper.SetValue(0);
-            //
-            vtkDecimatePro decimate = vtkDecimatePro.New();
-            decimate.SetInput(clipper.GetClippedOutput());
-            decimate.SetTargetReduction(0.05);
-            decimate.PreserveTopologyOn();
-            decimate.Update();
-            //
-            vtkSTLWriter stlWriter = vtkSTLWriter.New();
-            stlWriter.SetFileName(fileName);
-            stlWriter.SetInput(decimate.GetOutput());
-            stlWriter.Write();
-        }
-        public void Smooth(double a, string fileName)
-        {
-            vtkWindowedSincPolyDataFilter smoother = vtkWindowedSincPolyDataFilter.New();
-            //
-            if (true)
+            bool found = false;
+            foreach (vtkMaxActorAnimationData animationData in _animationData)
             {
-                int smoothingIterations = 20;
-                double passBand = 0.1;
-                double featureAngle = 360.0;
-                //
-                smoother.SetInput(_geometryMapper.GetInput());
-                smoother.NormalizeCoordinatesOn();
-                smoother.SetNumberOfIterations(smoothingIterations);
-                //smoother.BoundarySmoothingOff();
-                smoother.BoundarySmoothingOn();
-                smoother.FeatureEdgeSmoothingOn();
-                //smoother.FeatureEdgeSmoothingOn();
-                smoother.SetFeatureAngle(featureAngle);
-                smoother.SetPassBand(passBand);
-                smoother.NonManifoldSmoothingOn();
-                //smoother.NormalizeCoordinatesOn();
-                smoother.Update();
-            }
-            if (false)
-            {
-                vtkSmoothPolyDataFilter smoothFilter = vtkSmoothPolyDataFilter.New();
-                smoothFilter.SetInput(_geometryMapper.GetInput());
-                smoothFilter.SetNumberOfIterations(15);
-                smoothFilter.SetRelaxationFactor(0.1);
-                smoothFilter.FeatureEdgeSmoothingOff();
-                smoothFilter.BoundarySmoothingOn();
-                smoothFilter.Update();
-            }
-            //
-            vtkDecimatePro decimate = vtkDecimatePro.New();
-            decimate.SetInput(smoother.GetOutput());
-            decimate.PreserveTopologyOff();
-            decimate.SetTargetReduction(0.95);
-            decimate.SplittingOn();
-            decimate.BoundaryVertexDeletionOn();
-            decimate.PreserveTopologyOff();
-            decimate.Update();
-            //
-            //
-            vtkSTLWriter stlWriter = vtkSTLWriter.New();
-            stlWriter.SetFileName(fileName);
-            stlWriter.SetInput(smoother.GetOutput());
-            stlWriter.Write();
-        }
-        private void AddCellDataToGrid(vtkUnstructuredGrid source, vtkUnstructuredGrid uGridActor, vtkUnstructuredGrid uGridEdges)
-        {
-            int cellType;
-            bool isEdge;
-            vtkIdList list = vtkIdList.New();
-            //
-            uGridActor.ShallowCopy(source);
-            //
-            vtkUnsignedCharArray types = source.GetCellTypesArray();
-            //
-            for (int i = 0; i < types.GetNumberOfTuples(); i++)
-            {
-                cellType = (int)types.GetTuple1(i);
-                isEdge = cellType == (int)vtkCellType.VTK_LINE || cellType == (int)vtkCellType.VTK_QUADRATIC_EDGE;
-                //
-                if (!isEdge)
+                ResultFieldExchangeData resultField = animationData.ResultField;
+                if (resultField == null) continue;
+                foreach (double[] transformation in transformations)
                 {
-                    source.GetCellPoints(i, list);
-                    uGridEdges.InsertNextCell(cellType, list);
-                }
-            }
-        }
-        private vtkActor GetActorEdgesFromGridByVisualizationSurfaceExtraction(vtkUnstructuredGrid uGridEdges)
-        {
-            if (uGridEdges.GetNumberOfCells() <= 0) return null;
-            // Extract visualization surface of the unstructured grid
-            vtkUnstructuredGridGeometryFilter filter = vtkUnstructuredGridGeometryFilter.New();
-            filter.SetInput(uGridEdges);
-            filter.Update();
-            // Extract edges of the visualization surface
-            vtkExtractEdges extractEdges = vtkExtractEdges.New();
-            extractEdges.SetInput(uGridEdges);
-            extractEdges.Update();
-            //
-            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
-            mapper.SetInput(extractEdges.GetOutput());
-            //
-            vtkActor edges = vtkActor.New();
-            edges.SetMapper(mapper);
-            edges.PickableOff();
-            //
-            return edges;
-        }
-        //                          
-        public void CreateNodalActor(vtkMaxActorData data)
-        {
-            // Create the geometry of a point (the coordinate)
-            vtkPoints points = vtkPoints.New();
-            // Create the topology of the point (a vertex)
-            vtkCellArray vertices = vtkCellArray.New();
-            for (int i = 0; i < data.Geometry.Nodes.Coor.GetLength(0); i++)
-            {
-                points.InsertNextPoint(data.Geometry.Nodes.Coor[i][0], data.Geometry.Nodes.Coor[i][1], data.Geometry.Nodes.Coor[i][2]);
-                vertices.InsertNextCell(1);
-                vertices.InsertCellPoint(i);
-            }
-            // Create a polyData object
-            vtkPolyData pointsPolyData = vtkPolyData.New();
-            // Set the points and vertices created as the geometry and topology of the poly data
-            pointsPolyData.SetPoints(points);
-            pointsPolyData.SetVerts(vertices);
-            // Mapper
-            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
-            mapper.SetInput(pointsPolyData);
-            _geometryMapper = mapper;
-            // Actor
-            _geometry.SetMapper(_geometryMapper);
-            //
-            _geometryProperty = _geometry.GetProperty();
-            _geometryProperty.SetColor(data.Color.R / 255d, data.Color.G / 255d, data.Color.B / 255d);
-        }
-        private void CreateFromDataByVisualizationSurfaceExtraction(vtkMaxActorData data)
-        {
-            // Unstructured grid
-            vtkUnstructuredGrid uGridActor;
-            vtkUnstructuredGrid uGridEdges;
-            //
-            bool addBackFace = false;
-            AddNodeAndCellDataToGrid(data.Geometry, out uGridActor, out uGridEdges, false, addBackFace);
-            // Extract visualization surface of the unstructured grid - filter only keeps PedigreeIds and not GlobalIds
-            vtkUnstructuredGridGeometryFilter filter = vtkUnstructuredGridGeometryFilter.New();
-            filter.SetInput(uGridActor);
-            filter.PassThroughPointIdsOn();
-            filter.PassThroughCellIdsOn();
-            filter.Update();
-            // Mapper
-            vtkDataSetMapper mapper = vtkDataSetMapper.New();
-            mapper.SetInput(filter.GetOutput());
-            _geometryMapper = mapper;
-            // Actor
-            _geometry.SetMapper(_geometryMapper);
-            //
-            _geometryProperty = _geometry.GetProperty();
-            _geometryProperty.SetColor(_color.R / 255d, _color.G / 255d, _color.B / 255d);
-            _geometryProperty.SetOpacity(_color.A / 255d);
-            //
-            if (data.Pickable) _geometry.PickableOn();
-            else _geometry.PickableOff();
-            // Edges
-            if (data.CanHaveElementEdges)
-            {
-                _elementEdges = GetActorEdgesFromGridByVisualizationSurfaceExtraction(uGridEdges);
-                _elementEdgesProperty = _elementEdges.GetProperty();
-            }
-        }
-        private void CreatePolyFromData(vtkMaxActorData data)
-        {
-            // Poly data actor
-            vtkPolyData polyActor;
-            vtkPolyData polyEdges;
-            //
-            int[] numOfCellPolys;
-            AddNodeAndCellDataToPoly(data.Geometry, out polyActor, out polyEdges, out numOfCellPolys, true);
-            // Add node scalars
-            if (data.Geometry.Nodes.Values != null)
-            {
-                vtkFloatArray scalars = vtkFloatArray.New();
-                scalars.SetName(Globals.ScalarArrayName);
-                scalars.SetNumberOfValues(data.Geometry.Nodes.Values.Length);
-                for (int i = 0; i < data.Geometry.Nodes.Values.Length; i++)
-                {
-                    scalars.SetValue(i, data.Geometry.Nodes.Values[i]);
-                }
-                // Set scalars
-                polyActor.GetPointData().SetScalars(scalars);
-                // Set extreme nodes data
-                if (data.Geometry.ExtremeNodes.Ids != null)
-                {
-                    _minNode = new vtkMaxExtreemeNode(data.Geometry.ExtremeNodes.Ids[0], data.Geometry.ExtremeNodes.Coor[0],
-                                                      data.Geometry.ExtremeNodes.Values[0]);
-                    _maxNode = new vtkMaxExtreemeNode(data.Geometry.ExtremeNodes.Ids[1], data.Geometry.ExtremeNodes.Coor[1],
-                                                      data.Geometry.ExtremeNodes.Values[1]);
-                }
-            }
-            // Add cell scalars            
-            if (data.Geometry.Cells.Values != null)
-            {
-                // Set scalars
-                float value;
-                vtkFloatArray cellData = vtkFloatArray.New();                
-                for (int i = 0; i < data.Geometry.Cells.Values.Length; i++)
-                {
-                    value = data.Geometry.Cells.Values[i];
-                    for (int j = 0; j < numOfCellPolys[i]; j++) cellData.InsertNextValue(value);
-                }
-                polyActor.GetCellData().SetScalars(cellData);                
-            }
-
-            // Actor                                                                                                                
-            // Poly data
-            vtkPolyData polyData = polyActor;
-            
-            // Smoothing
-            //vtkLoopSubdivisionFilter subdivisionFilter = vtkLoopSubdivisionFilter.New();
-            //subdivisionFilter.SetInput(polyData);
-            //subdivisionFilter.SetNumberOfSubdivisions(2);
-            //subdivisionFilter.Update();
-            //polyData = subdivisionFilter.GetOutput();
-
-            polyData.GetPointData().CopyScalarsOn();
-            // Normals
-
-            data.SmoothShaded = true;
-
-            if (data.SmoothShaded) polyData.GetPointData().SetNormals(ComputeNormals(polyData));
-            // Mapper
-            vtkDataSetMapper mapper = vtkDataSetMapper.New();
-            mapper.SetInput(polyData);
-            _geometryMapper = mapper;
-            // Actor
-            _geometry.SetMapper(_geometryMapper);
-            _geometryPointData = polyData.GetPointData();
-            //
-            if (data.Pickable) _geometry.PickableOn();
-            else _geometry.PickableOff();
-            //
-            _geometryProperty = _geometry.GetProperty();
-            // Element edges
-            if (data.CanHaveElementEdges)
-            {
-                // Mapper
-                mapper = vtkDataSetMapper.New();
-                mapper.SetInput(polyEdges);
-                // Actor
-                _elementEdges = new vtkActor();
-                _elementEdges.SetMapper(mapper);
-                _elementEdges.PickableOff();
-                //
-                _elementEdgesProperty = _elementEdges.GetProperty();
-                _elementEdgesProperty.SetLighting(true);
-            }
-            // Model edges                                                                                                          
-            if (data.ModelEdges != null)
-            {
-                AddNodeAndCellDataToPoly(data.ModelEdges, out polyActor, out _, out _, false);
-                // Poly data
-                polyData = polyActor;
-                // The model edges another part draws are left out of the drawn ones
-                if (data.ModelEdgesToDraw != null)
-                {
-                    _modelEdgesForHighlight = polyData;
-                    AddNodeAndCellDataToPoly(data.ModelEdgesToDraw, out polyActor, out _, out _, false);
-                    polyData = polyActor;
-                    _drawnModelEdgesKey = GetModelEdgesKey(data.ModelEdgesToDraw);
-                }
-                else _drawnModelEdgesKey = GetModelEdgesKey(data.ModelEdges);
-                // Mapper
-                mapper = vtkDataSetMapper.New();
-                mapper.SetInput(polyData);
-                // Actor
-                _modelEdges = vtkActor.New();
-                _modelEdges.SetMapper(mapper);
-                _modelEdges.PickableOff();
-                //
-                _modelEdgesProperty = _modelEdges.GetProperty();
-                _modelEdgesProperty.SetLighting(true);
-                //
-                if (!data.CanHaveElementEdges)
-                {
-                    // Recreate data
-                    polyData.DeepCopy(polyData);
-                    // Mapper
-                    mapper = vtkDataSetMapper.New();
-                    mapper.SetInput(polyData);
-                    // Actor
-                    _elementEdges = new vtkActor();
-                    _elementEdges.SetMapper(mapper);
-                    _elementEdges.PickableOff();
-                    //
-                    _elementEdgesProperty = _elementEdges.GetProperty();
-                    _elementEdgesProperty.SetLighting(true);
-                }
-            }
-            // Nodes
-            if (false)
-            {
-                // Create the geometry of a point (the coordinate)
-                vtkPoints points = vtkPoints.New();
-                // Create the topology of the point (a vertex)
-                vtkCellArray vertices = vtkCellArray.New();
-                for (int i = 0; i < data.Geometry.Nodes.Coor.Length; i++)
-                {
-                    points.InsertNextPoint(data.Geometry.Nodes.Coor[i][0], data.Geometry.Nodes.Coor[i][1],
-                                           data.Geometry.Nodes.Coor[i][2]);
-                    vertices.InsertNextCell(1);
-                    vertices.InsertCellPoint(i);
-                }
-                // Create a polyData object
-                vtkPolyData pointsPolyData = vtkPolyData.New();
-                // Set the points and vertices created as the geometry and topology of the poly data
-                pointsPolyData.SetPoints(points);
-                pointsPolyData.SetVerts(vertices);
-                // Mapper
-                mapper = vtkDataSetMapper.New();
-                mapper.SetInput(pointsPolyData);
-                // Actor
-                _nodes = new vtkActor();
-                _nodes.SetMapper(mapper);
-                //
-                _nodesProperty = _nodes.GetProperty();
-                _nodesProperty.SetColor(data.Color.R / 255d, data.Color.G / 255d, data.Color.B / 255d);
-            }
-        }
-        //
-        private void AddNodeAndCellDataToGrid(PartExchangeData data, out vtkUnstructuredGrid uGridActor)
-        {           
-            AddNodeAndCellDataToGrid(data, out uGridActor, out _, false, false);
-        }
-        private void AddNodeAndCellDataToGrid(PartExchangeData data, out vtkUnstructuredGrid uGridActor,
-                                                     out vtkUnstructuredGrid uGridEdges, 
-                                                     bool extractEdges, bool addBackFace)
-        {
-            // Unstructured grid
-            uGridActor = vtkUnstructuredGrid.New();
-            uGridEdges = vtkUnstructuredGrid.New();
-
-            // Add the points
-            vtkPoints points = vtkPoints.New();
-            if (data.Nodes.Coor != null)
-            {
-                points.SetNumberOfPoints(data.Nodes.Coor.Length);
-                for (int i = 0; i < data.Nodes.Coor.Length; i++)
-                {
-                    points.SetPoint(i, data.Nodes.Coor[i][0], data.Nodes.Coor[i][1], data.Nodes.Coor[i][2]);
-                }
-            }
-            else
-            {
-                float[] flatCoor = data.Nodes.FlatCoor;
-                int numOfPoints = flatCoor.Length / 3;
-                points.SetNumberOfPoints(numOfPoints);
-                for (int i = 0; i < numOfPoints; i++)
-                {
-                    points.SetPoint(i, flatCoor[3 * i], flatCoor[3 * i + 1], flatCoor[3 * i + 2]);
-                }
-            }
-            uGridActor.SetPoints(points);
-            uGridEdges.SetPoints(points);
-
-            // Add the cells
-            AddCellDataToGrid(data, ref uGridActor, ref uGridEdges, extractEdges, addBackFace);
-
-            // Add node ids to points in the grid
-            if (data.Nodes.Ids != null)
-            {
-                vtkUnsignedLongArray pointIds = vtkUnsignedLongArray.New();
-                pointIds.SetNumberOfValues(data.Nodes.Ids.Length);
-                for (int i = 0; i < data.Nodes.Ids.Length; i++)
-                {
-                    pointIds.SetValue(i, (uint)data.Nodes.Ids[i]);
-                }
-                uGridActor.GetPointData().SetGlobalIds(pointIds);
-            }
-
-            // Add cell ids to cells in the grid
-            if (data.Cells.Ids != null)
-            {
-                vtkUnsignedLongArray cellIds = vtkUnsignedLongArray.New();
-                cellIds.SetNumberOfValues(data.Cells.Ids.Length);
-                for (int i = 0; i < data.Cells.Ids.Length; i++)
-                {
-                    cellIds.SetValue(i, (uint)data.Cells.Ids[i]);
-                }
-                uGridActor.GetCellData().SetGlobalIds(cellIds);
-            }
-
-            // Update grid
-            uGridActor.Update();
-            uGridEdges.Update();                        
-        }
-
-        private static void AddNodeAndCellDataToPoly(PartExchangeData data, out vtkPolyData polyActor, out vtkPolyData polyEdges,
-                                                     out int[] numOfCellPolys, bool extractEdges)
-        {
-            polyActor = vtkPolyData.New();
-            polyEdges = vtkPolyData.New();
-            // Add the points
-            vtkPoints points = vtkPoints.New();
-            points.SetNumberOfPoints(data.Nodes.Coor.Length);
-            for (int i = 0; i < data.Nodes.Coor.Length; i++)
-            {
-                points.SetPoint(i, data.Nodes.Coor[i][0], data.Nodes.Coor[i][1], data.Nodes.Coor[i][2]);
-            }
-            polyActor.SetPoints(points);
-            polyEdges.SetPoints(points);
-            // Add the cells
-            AddCellDataToPoly(data, ref polyActor, ref polyEdges, out numOfCellPolys, extractEdges);
-            // Add node ids to points in the grid
-            if (data.Nodes.Ids != null)
-            {
-                vtkUnsignedLongArray pointIds = vtkUnsignedLongArray.New();
-                pointIds.SetNumberOfValues(data.Nodes.Ids.Length);
-                for (int i = 0; i < data.Nodes.Ids.Length; i++)
-                {
-                    pointIds.SetValue(i, (uint)data.Nodes.Ids[i]);
-                }
-                polyActor.GetPointData().SetGlobalIds(pointIds);
-            }
-            // Add cell ids to cells in the grid
-            if (data.Cells.Ids != null)
-            {
-                uint id;
-                vtkUnsignedLongArray cellIds = vtkUnsignedLongArray.New();
-                //cellIds.SetNumberOfValues(data.Cells.Ids.Length);
-                for (int i = 0; i < data.Cells.Ids.Length; i++)
-                {
-                    id = (uint)data.Cells.Ids[i];
-                    for (int j = 0; j < numOfCellPolys[i]; j++) cellIds.InsertNextValue(id);
-                }
-                polyActor.GetCellData().SetGlobalIds(cellIds);
-            }
-            // Update grid
-            polyActor.Update();
-            polyEdges.Update();
-        }
-        private void AddCellDataToGrid(PartExchangeData data, ref vtkUnstructuredGrid uGridActor, ref vtkUnstructuredGrid uGridEdges, 
-                                       bool extractEdges, bool addBackFace)
-        {
-            int[] nodeIds;
-            int cellType;
-            bool isEdge;
-            bool isSurface;
-            vtkIdList nodeList = vtkIdList.New();
-            vtkIdList edgeNodeList = vtkIdList.New();
-            List<int> actorCellIds = new List<int>();
-
-            for (int i = 0; i < data.Cells.CellNodeIds.GetLength(0); i++)
-            {
-                nodeIds = data.Cells.CellNodeIds[i];
-                cellType = data.Cells.Types[i];
-                isEdge = cellType == (int)vtkCellType.VTK_LINE || cellType == (int)vtkCellType.VTK_QUADRATIC_EDGE;
-                isSurface = cellType == (int)vtkCellType.VTK_TRIANGLE || cellType == (int)vtkCellType.VTK_QUAD
-                                        || cellType == (int)vtkCellType.VTK_QUADRATIC_TRIANGLE || cellType == (int)vtkCellType.VTK_QUADRATIC_QUAD;
-
-                // Node list
-                nodeList.SetNumberOfIds(nodeIds.Length);
-                for (int j = 0; j < nodeIds.Length; j++) nodeList.SetId(j, nodeIds[j]);
-
-                // Cell edges                                                                                                       
-                if (!isEdge && uGridEdges != null)
-                {
-                    if (!extractEdges) uGridEdges.InsertNextCell(cellType, nodeList);
-                    else
+                    if (resultField.TryGetTransformedRange(transformation, out float min, out float max))
                     {
-                        if (cellType == (int)vtkCellType.VTK_TRIANGLE)
-                        {
-                            edgeNodeList.SetNumberOfIds(2);
-                            for (int j = 0; j < 3; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 3]);
-                                uGridEdges.InsertNextCell((int)vtkCellType.VTK_LINE, edgeNodeList);
-                            }
-                        }
-                        else if (cellType == (int)vtkCellType.VTK_QUAD)
-                        {
-                            edgeNodeList.SetNumberOfIds(2);
-                            for (int j = 0; j < 4; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 4]);
-                                uGridEdges.InsertNextCell((int)vtkCellType.VTK_LINE, edgeNodeList);
-                            }
-                        }
-                        else if (cellType == (int)vtkCellType.VTK_QUADRATIC_TRIANGLE)
-                        {
-                            edgeNodeList.SetNumberOfIds(3);
-                            for (int j = 0; j < 3; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 3]);
-                                edgeNodeList.SetId(2, nodeIds[j + 3]);
-                                uGridEdges.InsertNextCell((int)vtkCellType.VTK_QUADRATIC_EDGE, edgeNodeList);
-                            }
-                        }
-                        else if (cellType == (int)vtkCellType.VTK_QUADRATIC_QUAD)
-                        {
-                            edgeNodeList.SetNumberOfIds(3);
-                            for (int j = 0; j < 4; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 4]);
-                                edgeNodeList.SetId(2, nodeIds[j + 4]);
-                                uGridEdges.InsertNextCell((int)vtkCellType.VTK_QUADRATIC_EDGE, edgeNodeList);
-                            }
-                        }
+                        if (min < minimum) minimum = min;
+                        if (max > maximum) maximum = max;
+                        found = true;
                     }
                 }
-
-                // Cells                                                                                                            
-                uGridActor.InsertNextCell(cellType, nodeList);
-                if (data.Cells.Ids != null) actorCellIds.Add(data.Cells.Ids[i]);
-
-                // Cells backface
-                if (isSurface && addBackFace) 
-                {
-                    nodeList.SetNumberOfIds(nodeIds.Length);
-                    if (cellType == (int)vtkCellType.VTK_TRIANGLE)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[2]);
-                        nodeList.SetId(2, nodeIds[1]);
-                    }
-                    else if (cellType == (int)vtkCellType.VTK_QUAD)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[3]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        nodeList.SetId(3, nodeIds[1]);
-                    }
-                    else if (cellType == (int)vtkCellType.VTK_QUADRATIC_TRIANGLE)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[2]);
-                        nodeList.SetId(2, nodeIds[1]);
-                        nodeList.SetId(3, nodeIds[5]);
-                        nodeList.SetId(4, nodeIds[4]);
-                        nodeList.SetId(5, nodeIds[3]);
-                    }
-                    else if (cellType == (int)vtkCellType.VTK_QUADRATIC_QUAD)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[3]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        nodeList.SetId(3, nodeIds[1]);
-                        nodeList.SetId(4, nodeIds[7]);
-                        nodeList.SetId(5, nodeIds[6]);
-                        nodeList.SetId(6, nodeIds[5]);
-                        nodeList.SetId(7, nodeIds[4]);
-                    }
-                    else throw new NotSupportedException();
-
-                    uGridActor.InsertNextCell(cellType, nodeList);
-                    if (data.Cells.Ids != null) actorCellIds.Add(data.Cells.Ids[i]);
-                }
             }
-
-            if (data.Cells.Ids != null) data.Cells.Ids = actorCellIds.ToArray();
-        }
-        private static void AddCellDataToPoly_(PartExchangeData data, ref vtkPolyData polyActor, ref vtkPolyData polyEdges,
-                                              out int[] numOfCellPolys, bool extractEdges)
-        {
-            double d1;
-            double d2;
-            //
-            int[] nodeIds;
-            double[][] nodeCoor;
-            int cellType;
-            bool isVertex;
-            bool isEdge;
-            bool isSurface;
-            vtkIdList nodeList = vtkIdList.New();
-            vtkIdList edgeNodeList = vtkIdList.New();
-            //
-            numOfCellPolys = null;
-            if (data.Cells.Ids != null)
-            {
-                numOfCellPolys = new int[data.Cells.Ids.Length];
-            }
-            //
-            int vertexType = (int)vtkCellType.VTK_VERTEX;
-            int lineType = (int)vtkCellType.VTK_LINE;
-            int quadraticEdgeType = (int)vtkCellType.VTK_QUADRATIC_EDGE;
-            int triangleType = (int)vtkCellType.VTK_TRIANGLE;
-            int quadType = (int)vtkCellType.VTK_QUAD;
-            int quadraticTriangleType = (int)vtkCellType.VTK_QUADRATIC_TRIANGLE;
-            int quadraticQuadType = (int)vtkCellType.VTK_QUADRATIC_QUAD;
-            //
-            polyActor.Allocate(10000, 10000);
-            if (extractEdges) polyEdges.Allocate(1000, 1000);
-            //
-            for (int i = 0; i < data.Cells.CellNodeIds.Length; i++)
-            {
-                nodeIds = data.Cells.CellNodeIds[i];                
-                cellType = data.Cells.Types[i];
-                isVertex = cellType == vertexType;
-                isEdge = cellType == lineType || cellType == quadraticEdgeType;
-                isSurface = cellType == triangleType || cellType == quadType || cellType == quadraticTriangleType ||
-                            cellType == quadraticQuadType;
-                // Cell edges                                                                                                       
-                if (extractEdges)
-                {
-                    if (isEdge)
-                    {
-                        edgeNodeList.SetNumberOfIds(1);
-                        //if (cellType == lineType || cellType == quadraticEdgeType)
-                        {
-                            edgeNodeList.SetId(0, nodeIds[0]);
-                            polyEdges.InsertNextCell(vertexType, edgeNodeList);
-                            edgeNodeList.SetId(0, nodeIds[1]);
-                            polyEdges.InsertNextCell(vertexType, edgeNodeList);
-                        }
-                    }
-                    else if (isSurface)
-                    {
-                        edgeNodeList.SetNumberOfIds(2);
-                        if (cellType == triangleType)
-                        {
-                            for (int j = 0; j < 3; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 3]);
-                                polyEdges.InsertNextCell(lineType, edgeNodeList);
-                            }
-                        }
-                        else if (cellType == quadType)
-                        {
-                            for (int j = 0; j < 4; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 4]);
-                                polyEdges.InsertNextCell(lineType, edgeNodeList);
-                            }
-                        }
-                        else if (cellType == quadraticTriangleType)
-                        {
-                            for (int j = 0; j < 3; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[j + 3]);
-                                polyEdges.InsertNextCell(lineType, edgeNodeList);
-                                edgeNodeList.SetId(0, nodeIds[j + 3]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 3]);
-                                polyEdges.InsertNextCell(lineType, edgeNodeList);
-                            }
-                        }
-                        else if (cellType == quadraticQuadType)
-                        {
-                            for (int j = 0; j < 4; j++)
-                            {
-                                edgeNodeList.SetId(0, nodeIds[j]);
-                                edgeNodeList.SetId(1, nodeIds[j + 4]);
-                                polyEdges.InsertNextCell(lineType, edgeNodeList);
-                                edgeNodeList.SetId(0, nodeIds[j + 4]);
-                                edgeNodeList.SetId(1, nodeIds[(j + 1) % 4]);
-                                polyEdges.InsertNextCell(lineType, edgeNodeList);
-                            }
-                        }
-                    }
-                }
-                // Cells                                                                                                            
-                if (isVertex)
-                {
-                    nodeList.SetNumberOfIds(1);
-                    //if (cellType == vertexType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        polyActor.InsertNextCell(vertexType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 1;
-                    }
-                }
-                else if (isEdge)
-                {
-                    nodeList.SetNumberOfIds(2);
-                    if (cellType == lineType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        polyActor.InsertNextCell(lineType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 1;
-                    }
-                    else if (cellType == quadraticEdgeType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[2]);
-                        polyActor.InsertNextCell(lineType, nodeList);
-                        nodeList.SetId(0, nodeIds[2]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        polyActor.InsertNextCell(lineType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 2;
-                    }
-                }
-                else if (isSurface)
-                {
-                    nodeList.SetNumberOfIds(3);
-                    if (cellType == triangleType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 1;
-                    }
-                    else if (cellType == quadType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[2]);
-                        nodeList.SetId(2, nodeIds[3]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 2;
-                    }
-                    else if (cellType == quadraticTriangleType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[3]);
-                        nodeList.SetId(2, nodeIds[5]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[3]);
-                        nodeList.SetId(1, nodeIds[4]);
-                        nodeList.SetId(2, nodeIds[5]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[3]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        nodeList.SetId(2, nodeIds[4]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[5]);
-                        nodeList.SetId(1, nodeIds[4]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 4;
-                    }
-                    else if (cellType == quadraticQuadType)
-                    {
-                        nodeCoor = data.Nodes.Coor;
-                        d1 = Vec3D.GetDirVec(nodeCoor[nodeIds[4]], nodeCoor[nodeIds[6]]).Len2;
-                        d2 = Vec3D.GetDirVec(nodeCoor[nodeIds[5]], nodeCoor[nodeIds[7]]).Len2;
-                        if (d1 < d2)
-                        {
-                            nodeList.SetId(0, nodeIds[7]);
-                            nodeList.SetId(1, nodeIds[0]);
-                            nodeList.SetId(2, nodeIds[4]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[7]);
-                            nodeList.SetId(1, nodeIds[4]);
-                            nodeList.SetId(2, nodeIds[6]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[7]);
-                            nodeList.SetId(1, nodeIds[6]);
-                            nodeList.SetId(2, nodeIds[3]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[5]);
-                            nodeList.SetId(1, nodeIds[4]);
-                            nodeList.SetId(2, nodeIds[1]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[5]);
-                            nodeList.SetId(1, nodeIds[6]);
-                            nodeList.SetId(2, nodeIds[4]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[5]);
-                            nodeList.SetId(1, nodeIds[2]);
-                            nodeList.SetId(2, nodeIds[6]);
-                            polyActor.InsertNextCell(triangleType, nodeList);                            
-                        }
-                        else
-                        {
-                            nodeList.SetId(0, nodeIds[4]);
-                            nodeList.SetId(1, nodeIds[7]);
-                            nodeList.SetId(2, nodeIds[0]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[4]);
-                            nodeList.SetId(1, nodeIds[5]);
-                            nodeList.SetId(2, nodeIds[7]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[4]);
-                            nodeList.SetId(1, nodeIds[1]);
-                            nodeList.SetId(2, nodeIds[5]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[6]);
-                            nodeList.SetId(1, nodeIds[5]);
-                            nodeList.SetId(2, nodeIds[2]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[6]);
-                            nodeList.SetId(1, nodeIds[7]);
-                            nodeList.SetId(2, nodeIds[5]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[6]);
-                            nodeList.SetId(1, nodeIds[3]);
-                            nodeList.SetId(2, nodeIds[7]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                        }
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 6;
-                    }
-                    else throw new NotSupportedException();
-                }
-                else throw new NotSupportedException();
-            }
-            //
-            polyActor.Squeeze();
-            if (extractEdges) polyEdges.Squeeze();
-        }
-        private static void AddCellDataToPoly(PartExchangeData data, ref vtkPolyData polyActor, ref vtkPolyData polyEdges,
-                                              out int[] numOfCellPolys, bool extractEdges)
-        {
-            double d1;
-            double d2;
-            //
-            int[] nodeIds;
-            double[][] nodeCoor;
-            int cellType;
-            bool isVertex;
-            bool isEdge;
-            bool isSurface;
-            vtkIdList nodeList = vtkIdList.New();
-            vtkIdList edgeNodeList = vtkIdList.New();
-            //
-            numOfCellPolys = null;
-            if (data.Cells.Ids != null)
-            {
-                numOfCellPolys = new int[data.Cells.Ids.Length];
-            }
-            //
-            int vertexType = (int)vtkCellType.VTK_VERTEX;
-            int lineType = (int)vtkCellType.VTK_LINE;
-            int polyLineType = (int)vtkCellType.VTK_POLY_LINE;
-            int quadraticEdgeType = (int)vtkCellType.VTK_QUADRATIC_EDGE;
-            int triangleType = (int)vtkCellType.VTK_TRIANGLE;
-            int quadType = (int)vtkCellType.VTK_QUAD;
-            int quadraticTriangleType = (int)vtkCellType.VTK_QUADRATIC_TRIANGLE;
-            int quadraticQuadType = (int)vtkCellType.VTK_QUADRATIC_QUAD;
-            //
-            polyActor.Allocate(10000, 10000);
-            if (extractEdges) polyEdges.Allocate(1000, 1000);
-            //
-            int id1;
-            int id2;
-            int id3;
-            HashSet<int> uniqueVertexIds = new HashSet<int>();
-            CompareIntArray comparer = new CompareIntArray();
-            HashSet<int[]> uniqueEdgeCells = new HashSet<int[]>(comparer);
-            HashSet<int[]> uniquePolyEdgeCells = new HashSet<int[]>(comparer);
-            //
-            for (int i = 0; i < data.Cells.CellNodeIds.Length; i++)
-            {
-                nodeIds = data.Cells.CellNodeIds[i];
-                cellType = data.Cells.Types[i];
-                isVertex = cellType == vertexType;
-                isEdge = cellType == lineType || cellType == quadraticEdgeType;
-                isSurface = cellType == triangleType || cellType == quadType || cellType == quadraticTriangleType ||
-                            cellType == quadraticQuadType;
-                // Cell edges                                                                                                       
-                if (extractEdges)
-                {
-                    if (isEdge)
-                    {
-                        uniqueVertexIds.UnionWith(nodeIds);
-                    }
-                    else if (isSurface)
-                    {
-                        if (cellType == triangleType)
-                        {
-                            for (int j = 0; j < 3; j++)
-                            {
-                                id1 = nodeIds[j];
-                                id2 = nodeIds[(j + 1) % 3];
-                                uniqueEdgeCells.Add(new int[] { Math.Min(id1, id2), Math.Max(id1, id2) });
-                            }
-                        }
-                        else if (cellType == quadType)
-                        {
-                            for (int j = 0; j < 4; j++)
-                            {
-                                id1 = nodeIds[j];
-                                id2 = nodeIds[(j + 1) % 4];
-                                uniqueEdgeCells.Add(new int[] { Math.Min(id1, id2), Math.Max(id1, id2) });
-                            }
-                        }
-                        else if (cellType == quadraticTriangleType)
-                        {
-                            for (int j = 0; j < 3; j++)
-                            {
-                                id1 = nodeIds[j];
-                                id2 = nodeIds[j + 3];
-                                id3 = nodeIds[(j + 1) % 3];
-                                if (id1 < id3) uniquePolyEdgeCells.Add(new int[] { id1, id2, id3 });
-                                else uniquePolyEdgeCells.Add(new int[] { id3, id2, id1 });
-                            }
-                        }
-                        else if (cellType == quadraticQuadType)
-                        {
-                            for (int j = 0; j < 4; j++)
-                            {
-                                id1 = nodeIds[j];
-                                id2 = nodeIds[j + 4];
-                                id3 = nodeIds[(j + 1) % 4];
-                                if (id1 < id3) uniquePolyEdgeCells.Add(new int[] { id1, id2, id3 });
-                                else uniquePolyEdgeCells.Add(new int[] { id3, id2, id1 });
-                            }
-                        }
-                    }
-                }
-                // Cells                                                                                                            
-                if (isVertex)
-                {
-                    nodeList.SetNumberOfIds(1);
-                    //if (cellType == vertexType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        polyActor.InsertNextCell(vertexType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 1;
-                    }
-                }
-                else if (isEdge)
-                {
-                    nodeList.SetNumberOfIds(2);
-                    if (cellType == lineType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        polyActor.InsertNextCell(lineType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 1;
-                    }
-                    else if (cellType == quadraticEdgeType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[2]);
-                        polyActor.InsertNextCell(lineType, nodeList);
-                        nodeList.SetId(0, nodeIds[2]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        polyActor.InsertNextCell(lineType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 2;
-                    }
-                }
-                else if (isSurface)
-                {
-                    nodeList.SetNumberOfIds(3);
-                    if (cellType == triangleType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 1;
-                    }
-                    else if (cellType == quadType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[2]);
-                        nodeList.SetId(2, nodeIds[3]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 2;
-                    }
-                    else if (cellType == quadraticTriangleType)
-                    {
-                        nodeList.SetId(0, nodeIds[0]);
-                        nodeList.SetId(1, nodeIds[3]);
-                        nodeList.SetId(2, nodeIds[5]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[3]);
-                        nodeList.SetId(1, nodeIds[4]);
-                        nodeList.SetId(2, nodeIds[5]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[3]);
-                        nodeList.SetId(1, nodeIds[1]);
-                        nodeList.SetId(2, nodeIds[4]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        nodeList.SetId(0, nodeIds[5]);
-                        nodeList.SetId(1, nodeIds[4]);
-                        nodeList.SetId(2, nodeIds[2]);
-                        polyActor.InsertNextCell(triangleType, nodeList);
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 4;
-                    }
-                    else if (cellType == quadraticQuadType)
-                    {
-                        nodeCoor = data.Nodes.Coor;
-                        d1 = Vec3D.GetDirVec(nodeCoor[nodeIds[4]], nodeCoor[nodeIds[6]]).Len2;
-                        d2 = Vec3D.GetDirVec(nodeCoor[nodeIds[5]], nodeCoor[nodeIds[7]]).Len2;
-                        if (d1 < d2)
-                        {
-                            nodeList.SetId(0, nodeIds[7]);
-                            nodeList.SetId(1, nodeIds[0]);
-                            nodeList.SetId(2, nodeIds[4]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[7]);
-                            nodeList.SetId(1, nodeIds[4]);
-                            nodeList.SetId(2, nodeIds[6]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[7]);
-                            nodeList.SetId(1, nodeIds[6]);
-                            nodeList.SetId(2, nodeIds[3]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[5]);
-                            nodeList.SetId(1, nodeIds[4]);
-                            nodeList.SetId(2, nodeIds[1]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[5]);
-                            nodeList.SetId(1, nodeIds[6]);
-                            nodeList.SetId(2, nodeIds[4]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[5]);
-                            nodeList.SetId(1, nodeIds[2]);
-                            nodeList.SetId(2, nodeIds[6]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                        }
-                        else
-                        {
-                            nodeList.SetId(0, nodeIds[4]);
-                            nodeList.SetId(1, nodeIds[7]);
-                            nodeList.SetId(2, nodeIds[0]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[4]);
-                            nodeList.SetId(1, nodeIds[5]);
-                            nodeList.SetId(2, nodeIds[7]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[4]);
-                            nodeList.SetId(1, nodeIds[1]);
-                            nodeList.SetId(2, nodeIds[5]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[6]);
-                            nodeList.SetId(1, nodeIds[5]);
-                            nodeList.SetId(2, nodeIds[2]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[6]);
-                            nodeList.SetId(1, nodeIds[7]);
-                            nodeList.SetId(2, nodeIds[5]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                            nodeList.SetId(0, nodeIds[6]);
-                            nodeList.SetId(1, nodeIds[3]);
-                            nodeList.SetId(2, nodeIds[7]);
-                            polyActor.InsertNextCell(triangleType, nodeList);
-                        }
-                        if (numOfCellPolys != null) numOfCellPolys[i] = 6;
-                    }
-                    else throw new NotSupportedException();
-                }
-                else throw new NotSupportedException();
-            }
-            //
-            if (extractEdges)
-            {
-                edgeNodeList.SetNumberOfIds(1);
-                foreach (var vertexId in uniqueVertexIds)
-                {
-                    edgeNodeList.SetId(0, vertexId);
-                    polyEdges.InsertNextCell(vertexType, edgeNodeList);
-                }
-                //
-                edgeNodeList.SetNumberOfIds(2);
-                foreach (var edgeCell in uniqueEdgeCells)
-                {
-                    edgeNodeList.SetId(0, edgeCell[0]);
-                    edgeNodeList.SetId(1, edgeCell[1]);
-                    polyEdges.InsertNextCell(lineType, edgeNodeList);
-                }
-                //
-                edgeNodeList.SetNumberOfIds(3);
-                foreach (var polyEdgeCell in uniquePolyEdgeCells)
-                {
-                    edgeNodeList.SetId(0, polyEdgeCell[0]);
-                    edgeNodeList.SetId(1, polyEdgeCell[1]);
-                    edgeNodeList.SetId(2, polyEdgeCell[2]);
-                    polyEdges.InsertNextCell(polyLineType, edgeNodeList);
-                }
-            }
-            //
-            polyActor.Squeeze();
-            if (extractEdges) polyEdges.Squeeze();
-        }
-        // Color and visuals
-        public virtual void UpdateColor()
-        {
-            double opacity = _color.A / 255d;
-            // Custom coloring of elements: sections, materials...
-            if (_colorTable != null)
-            {
-                // The color table replaces the ambient material color and not the ambient component, so the
-                // ambient component is baked into the color table
-                double diffuse = Math.Min(_diffuse, 0.999);
-                // Create color table
-                vtkLookupTable cellLut = vtkLookupTable.New();
-                cellLut.SetNumberOfTableValues(_colorTable.Length + 1); // +1 for the missing color
-                cellLut.Build();
-                cellLut.SetTableValue(0, _ambient, _ambient, _ambient, 1);  // White for missing color
-                for (int i = 0; i < _colorTable.Length; i++)
-                    cellLut.SetTableValue(i + 1, _ambient * _colorTable[i].R / 255d, _ambient * _colorTable[i].G / 255d,
-                                          _ambient * _colorTable[i].B / 255d, 1);
-                //cellLut.SetValueRange(0, _colorTable.Length - 1);
-                //
-                _geometryMapper.SetLookupTable(cellLut);
-                _geometryMapper.SetScalarRange(-1, _colorTable.Length - 1);
-                //_geometryMapper.SetUseLookupTableScalarRange(1);
-
-                //mapper.SetScalarRange(-1, data.ColorTable.Length - 1);
-                //mapper.SetScalarModeToUseCellData();
-                //mapper.SetInterpolateScalarsBeforeMapping(1);
-                //mapper.SetColorModeToMapScalars();
-                //
-                _geometryProperty.SetAmbient(1);      // must be larger to color the ambient and not the diffuse
-                _geometryProperty.SetDiffuse(diffuse);
-                _geometryProperty.SetDiffuseColor(_color.R / 255d, _color.G / 255d, _color.B / 255d);
-                //
-                _geometryProperty.SetOpacity(opacity);
-                // This changes the base color and forces graphics update !?
-                _geometryProperty.SetSpecularColor(_color.R / 255d, _color.G / 255d, _color.B / 255d);
-                _geometryProperty.SetSpecular(0.6);
-                _geometryProperty.SetSpecularPower(100);
-            }
-            else
-            {
-                _geometryProperty.SetAmbient(_ambient);
-                _geometryProperty.SetDiffuse(_diffuse);
-                //
-                _geometryProperty.SetOpacity(opacity);
-                //
-                if (!ColorContours)
-                {
-                    _geometryProperty.SetColor(_color.R / 255d, _color.G / 255d, _color.B / 255d);
-                    // This changes the base color and forces graphics update !?
-                    //_geometryProperty.SetSpecularColor(1, 1, 1);
-                    _geometryProperty.SetSpecular(0.6);
-                    _geometryProperty.SetSpecularPower(100);
-                }
-                else
-                {
-                    // This changes the base color and forces graphics update !?
-                    _geometryProperty.SetAmbientColor(1, 1, 1);  // also reset part color highlight
-                }
-            }
-            //
-            if (_modelEdges != null)
-            {
-                _modelEdgesProperty.SetColor(0, 0, 0);
-                _modelEdgesProperty.SetLighting(false);
-                _modelEdgesProperty.SetLineWidth(0.8f);
-                _modelEdgesProperty.SetOpacity(opacity * 0.7);
-            }
-            if (_sectionViewHatch != null)
-            {
-                vtkProperty sectionViewHatchProperty = _sectionViewHatch.GetProperty();
-                sectionViewHatchProperty.SetColor(0, 0, 0);
-                sectionViewHatchProperty.SetLighting(false);
-                sectionViewHatchProperty.SetLineWidth(0.8f);
-                sectionViewHatchProperty.SetOpacity(opacity * 0.7);
-            }
-            //if (opacity < 1) opacity = Math.Min(0.2, opacity);
-            if (_elementEdges != null)
-            {
-                _elementEdgesProperty.SetColor(0, 0, 0);
-                _elementEdgesProperty.SetLighting(false);
-                _elementEdgesProperty.SetLineWidth(0.5f);
-                _elementEdgesProperty.SetOpacity(opacity * 0.4);
-            }
-            // Backface property
-            if (!_backfaceColor.IsEmpty && !_backfaceCulling)
-            {
-                vtkProperty property = vtkProperty.New();
-                //
-                property.SetAmbient(_ambient);
-                property.SetDiffuse(_diffuse);
-                //
-                opacity = _backfaceColor.A / 255d;
-                property.SetOpacity(opacity);
-                //
-                if (!ColorContours)
-                {
-                    property.SetColor(_backfaceColor.R / 255d, _backfaceColor.G / 255d, _backfaceColor.B / 255d);
-                    // This changes the base color and forces graphics update !?
-                    //property.SetSpecularColor(1, 1, 1);
-                    property.SetSpecular(0.6);
-                    property.SetSpecularPower(100);
-                }
-                else
-                {
-                    // This changes the base color and forces graphics update !?
-                    property.SetAmbientColor(1, 1, 1);  // also reset part color highlight
-                }
-                _geometry.SetBackfaceProperty(property);
-            }
-        }
-        public void UpdateVisibility()
-        {
-            // Update even if VtkMaxActorVisible == _visible to set the visibility for the geometry actor
-            VtkMaxActorVisible = _visible;
-        }
-        public void UpdateModelEdgesToDraw(PartExchangeData modelEdgesToDraw)
-        {
-            if (_modelEdges == null || modelEdgesToDraw == null) return;
-            //
-            vtkDataSetMapper mapper = vtkDataSetMapper.SafeDownCast(_modelEdges.GetMapper());
-            if (mapper == null) return;
-            //
-            vtkDataSet drawnData = mapper.GetInput();
-            string modelEdgesKey = GetModelEdgesKey(modelEdgesToDraw);
-            if (drawnData != null && modelEdgesKey == _drawnModelEdgesKey) return;
-            // The edges the part holds on its own are the ones it is highlighted by
-            if (_modelEdgesForHighlight == null && drawnData != null)
-            {
-                _modelEdgesForHighlight = vtkPolyData.New();
-                _modelEdgesForHighlight.DeepCopy(drawnData);
-            }
-            //
-            vtkPolyData polyActor;
-            AddNodeAndCellDataToPoly(modelEdgesToDraw, out polyActor, out _, out _, false);
-            // The mapper is kept and only its input is replaced. A mapper that is dropped releases its
-            // graphics resources when the garbage collector finalizes it, on a thread that holds no
-            // rendering context, and the rendering window answers that with a failed wglMakeCurrent
-            mapper.SetInput(polyActor);
-            _drawnModelEdgesKey = modelEdgesKey;
-            //
-            InvalidateAnimationInputs();
-        }
-        /// <summary>
-        /// The edges given by the nodes of their cells. Two sets of edges with the same number of cells are
-        /// still different edges when a sub part of a compound hands a shared edge to another sub part and
-        /// takes over a different one in its place
-        /// </summary>
-        private static string GetModelEdgesKey(PartExchangeData modelEdges)
-        {
-            if (modelEdges == null || modelEdges.Nodes.Ids == null || modelEdges.Cells.CellNodeIds == null) return null;
-            //
-            StringBuilder key = new StringBuilder();
-            int[] nodeIds = modelEdges.Nodes.Ids;
-            foreach (int[] cellNodeIds in modelEdges.Cells.CellNodeIds)
-            {
-                foreach (int cellNodeId in cellNodeIds)
-                {
-                    key.Append(cellNodeId >= 0 && cellNodeId < nodeIds.Length ? nodeIds[cellNodeId] : -1);
-                    key.Append(',');
-                }
-                key.Append(';');
-            }
-            return key.ToString();
-        }
-        public void Highlight()
-        {
-            _geometryProperty.SetAmbientColor(1, 0, 0);
-        }
-        private vtkDataArray ComputeNormals(vtkPointSet pointSet)
-        {
-            vtkPolyDataNormals normalGenerator = null;
-            //
-            lock (myLock)
-            {
-                // Recompute poly data normals
-                normalGenerator = vtkPolyDataNormals.New();
-                normalGenerator.SetInput(pointSet);
-                normalGenerator.SplittingOff(); // prevents changes in topology
-                //normalGenerator.SetFeatureAngle(0.001 * Math.PI / 180);
-                normalGenerator.ComputePointNormalsOn();
-                normalGenerator.ComputeCellNormalsOff();
-                normalGenerator.Update();
-                return normalGenerator.GetOutput().GetPointData().GetNormals();
-            }
+            return found;
         }
 
 
-        // Animation                                                                                                                
-        private void InvalidateAnimationInputs()
-        {
-            _animationGeometryPointSet = null;
-            _animationGeometryPointData = null;
-            _animationElementEdgesPointSet = null;
-            _animationModelEdgesPointSet = null;
-        }
-        private void EnsureAnimationInputs()
-        {
-            if (_animationGeometryPointSet != null) return;
-            //
-            _animationGeometryPointSet = _geometryMapper?.GetInput() as vtkPointSet;
-            _animationGeometryPointData = _animationGeometryPointSet?.GetPointData();
-            _animationElementEdgesPointSet = _elementEdges?.GetMapper()?.GetInput() as vtkPointSet;
-            _animationModelEdgesPointSet = _modelEdges?.GetMapper()?.GetInput() as vtkPointSet;
-        }
+        // Animation
         public double InitializeAnimation(vtkMaxActorData data)
         {
+            _animationFrameNumber = -1;
             if (data.Geometry.NodesAnimation == null)
             {
                 _animationData = null;
                 return 0;
             }
-
+            //
             int numOfFrames = data.Geometry.NodesAnimation.Length;
             _animationData = new vtkMaxActorAnimationData[numOfFrames];
-            _animationLocatorFrameNumber = -1;
-            _animationNodeIdToPointId = new Dictionary<int, int>();
-            if (data.Geometry.Nodes.Ids != null)
-            {
-                for (int i = 0; i < data.Geometry.Nodes.Ids.Length; i++)
-                    _animationNodeIdToPointId[data.Geometry.Nodes.Ids[i]] = i;
-            }
-            // The volume grid node map is built together with the grid
-            InvalidateAnimationInputs();
-            EnsureAnimationInputs();
-            vtkPointSet geometryPointSet = _animationGeometryPointSet;
-            bool computeNormals = _animationGeometryPointData.GetNormals() != null;
             double memorySizeKb = 0;
-
             for (int frameNumber = 0; frameNumber < numOfFrames; frameNumber++)
             {
-                NodesExchangeData modelEdgesNodes = null;
-                if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
-                    modelEdgesNodes = data.ModelEdges.NodesAnimation[frameNumber];
-                NodesExchangeData locatorNodes = null;
                 NodesExchangeData extremeNodes = null;
                 if (data.Geometry.ExtremeNodesAnimation != null)
                     extremeNodes = data.Geometry.ExtremeNodesAnimation[frameNumber];
                 //
                 vtkMaxActorAnimationData animationData =
-                    new vtkMaxActorAnimationData(data.Geometry.NodesAnimation[frameNumber],
-                                                 modelEdgesNodes,
-                                                 extremeNodes,
-                                                 locatorNodes);
-                if (computeNormals && animationData.Points != null)
-                {
-                    geometryPointSet.SetPoints(animationData.Points);
-                    animationData.PointNormals = ComputeNormals(geometryPointSet);
-                }
+                    new vtkMaxActorAnimationData(data.Geometry.NodesAnimation[frameNumber], extremeNodes);
                 _animationData[frameNumber] = animationData;
-                memorySizeKb += animationData.GetActualMemorySizeKb();
+                memorySizeKb += animationData.GetMemorySizeKb();
                 ReleaseConvertedAnimationFrame(data, frameNumber);
             }
-
-            SetAnimationImmediateModeRendering();
             SetAnimationFrame(0);
             return memorySizeKb;
         }
-        private void SetAnimationImmediateModeRendering()
-        {
-            // Animated points change for every frame, so a display list is rebuilt for every frame and never reused
-            if (_geometryMapper != null) _geometryMapper.ImmediateModeRenderingOn();
-            if (_elementEdges != null && _elementEdges.GetMapper() != null)
-                _elementEdges.GetMapper().ImmediateModeRenderingOn();
-            if (_modelEdges != null && _modelEdges.GetMapper() != null)
-                _modelEdges.GetMapper().ImmediateModeRenderingOn();
-        }
-        internal void SetAnimationLocatorNodes(int frameNumber, NodesExchangeData locatorNodes)
-        {
-            if (locatorNodes == null || _animationData == null ||
-                frameNumber < 0 || frameNumber >= _animationData.Length) return;
-            // Only the displayed frame keeps the locator nodes of the whole part
-            if (_animationLocatorFrameNumber >= 0 && _animationLocatorFrameNumber != frameNumber &&
-                _animationLocatorFrameNumber < _animationData.Length)
-                _animationData[_animationLocatorFrameNumber].ClearLocatorData();
-            //
-            _animationData[frameNumber].SetLocatorData(locatorNodes);
-            _animationLocatorFrameNumber = frameNumber;
-        }
         private static void ReleaseConvertedAnimationFrame(vtkMaxActorData data, int frameNumber)
         {
-            // Without this every frame is held twice - as a managed array and as a VTK array
+            // Without this every frame is held twice - as the exchange data and as the frame
             data.Geometry.NodesAnimation[frameNumber] = null;
             if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
                 data.ModelEdges.NodesAnimation[frameNumber] = null;
         }
-
         public void SetAnimationFrame(int frameNumber)
         {
             if (_animationData == null || frameNumber < 0 || frameNumber >= _animationData.Length)
                 throw new Exception("The animation frame cannot be set.");
-
+            //
             vtkMaxActorAnimationData animationData = _animationData[frameNumber];
+            _animationFrameNumber = frameNumber;
             _geometryResultField = animationData.ResultField;
-            _volumeResultField = animationData.LocatorResultField;
             _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
-            // Actor points
-            EnsureAnimationInputs();
-            if (animationData.Points != null)
-            {
-                _animationGeometryPointSet.SetPoints(animationData.Points);
-                if (_animationElementEdgesPointSet != null)
-                    _animationElementEdgesPointSet.SetPoints(animationData.Points);
-                _animationGeometryPointData.SetNormals(animationData.PointNormals);
-            }
-            // Actor edges points
-            if (animationData.ModelEdgesPoints != null && _animationModelEdgesPointSet != null)
-                _animationModelEdgesPointSet.SetPoints(animationData.ModelEdgesPoints);
-            // Values
-            if (animationData.Values != null)
-                _animationGeometryPointData.SetScalars(animationData.Values);
-            // Min/max
+            if (animationData.Values != null) _values = animationData.Values;
             if (animationData.MinNode != null) _minNode = animationData.MinNode;
             if (animationData.MaxNode != null) _maxNode = animationData.MaxNode;
-            // Volume grid points and values
-            _animationFrameNumber = frameNumber;
-            if (_volumeGrid != null)
-            {
-                if (animationData.LocatorPoints != null)
-                {
-                    _volumeGrid.SetPoints(animationData.LocatorPoints);
-                    _volumeGridPointsComplete = true;
-                }
-                else
-                {
-                    // Without a section view only the points that are read get the frame coordinates
-                    _volumeGridPointsComplete = false;
-                    if (_volumeGridUpdatedPointIds == null) _volumeGridUpdatedPointIds = new HashSet<long>();
-                    else _volumeGridUpdatedPointIds.Clear();
-                }
-                _volumeLocator = null;
-                if (animationData.LocatorValues != null)
-                    _volumeGrid.GetPointData().SetScalars(animationData.LocatorValues);
-            }
+        }
+        private vtkMaxActorAnimationData GetCurrentFrame()
+        {
+            if (_animationData == null || _animationFrameNumber < 0 || _animationFrameNumber >= _animationData.Length)
+                return null;
+            return _animationData[_animationFrameNumber];
         }
         internal int GetAnimationFrameCount()
         {
@@ -2232,392 +722,121 @@ namespace vtkControl
             coordinates = null;
             if (_animationData == null || frameNumber < 0 || frameNumber >= _animationData.Length) return false;
             //
-            vtkMaxActorAnimationData animationData = _animationData[frameNumber];
-            if (_animationNodeIdToPointId != null &&
-                _animationNodeIdToPointId.TryGetValue(nodeId, out int pointId) &&
-                animationData.Points != null)
+            float[] frameCoordinates = _animationData[frameNumber].Coordinates;
+            if (frameCoordinates != null && TryGetPointId(nodeId, out int pointId))
             {
-                coordinates = animationData.Points.GetPoint(pointId);
+                coordinates = new double[] { frameCoordinates[3 * pointId], frameCoordinates[3 * pointId + 1],
+                                             frameCoordinates[3 * pointId + 2] };
                 return true;
             }
-            if (_animationLocatorNodeIdToPointId != null &&
-                _animationLocatorNodeIdToPointId.TryGetValue(nodeId, out pointId) &&
-                animationData.LocatorPoints != null)
-            {
-                coordinates = animationData.LocatorPoints.GetPoint(pointId);
-                return true;
-            }
-            return false;
+            NodesExchangeData nodes = GetAnimationNodes(frameNumber, new int[] { nodeId });
+            if (nodes == null) return false;
+            coordinates = new double[] { nodes.FlatCoor[0], nodes.FlatCoor[1], nodes.FlatCoor[2] };
+            return true;
         }
-
         internal bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
         {
             coordinates = null;
             value = float.NaN;
-            vtkPointSet pointSet;
-            int pointId;
-            if (_animationNodeIdToPointId != null &&
-                _animationNodeIdToPointId.TryGetValue(nodeId, out pointId))
-                pointSet = _geometryMapper.GetInput() as vtkPointSet;
-            else if ((_volumeGrid != null || TryGetVolumeGrid(out _)) && _animationLocatorNodeIdToPointId != null &&
-                     _animationLocatorNodeIdToPointId.TryGetValue(nodeId, out pointId))
+            if (TryGetPointId(nodeId, out int pointId))
             {
-                // An interior node - only its point is brought to the displayed frame
-                EnsureVolumeGridPoints(new long[] { pointId });
-                pointSet = _volumeGrid;
+                coordinates = GetPoint(pointId);
+                if (_values != null && pointId < _values.Length) value = _values[pointId];
+                return coordinates != null;
             }
-            else return false;
-
-            if (pointSet == null) return false;
-            coordinates = pointSet.GetPoint(pointId);
-            vtkDataArray scalars = pointSet.GetPointData().GetScalars();
-            if (scalars != null && pointId < scalars.GetNumberOfTuples())
-                value = (float)scalars.GetTuple1(pointId);
+            // An interior node - only its point is read at the displayed frame
+            if (!_volumeGridAvailable || _partNodeIds == null) return false;
+            if (_partNodeIdSet == null) _partNodeIdSet = new HashSet<int>(_partNodeIds);
+            if (!_partNodeIdSet.Contains(nodeId)) return false;
+            NodesExchangeData nodes = GetAnimationNodes(_animationFrameNumber, new int[] { nodeId });
+            if (nodes == null) return false;
+            coordinates = new double[] { nodes.FlatCoor[0], nodes.FlatCoor[1], nodes.FlatCoor[2] };
+            if (nodes.Values != null && nodes.Values.Length > 0) value = nodes.Values[0];
             return true;
         }
-
+        // The nodes of the part at a frame, read from the results
+        internal NodesExchangeData GetAnimationNodes(int frameNumber, int[] nodeIds)
+        {
+            if (_animationNodesProvider == null || frameNumber < 0) return null;
+            NodesExchangeData nodes = _animationNodesProvider(_name, frameNumber, nodeIds);
+            if (nodes == null || nodes.FlatCoor == null || nodes.FlatCoor.Length != 3 * nodeIds.Length) return null;
+            return nodes;
+        }
+        // The anchor of an annotation that follows the animation: the cell of the part's volume grid that holds the
+        // point, or of its surface when it has no volume grid, with the weights of its points
         internal bool TryCreateAnimationArrowAnchor(double[] anchorPoint, out vtkMaxAnimationArrowAnchor anchor)
         {
             anchor = null;
-            vtkCellLocator locator;
-            vtkUnstructuredGrid volumeGrid;
-            if (TryGetVolumeGrid(out volumeGrid))
-            {
-                if (_volumeLocator == null)
-                {
-                    _volumeLocator = vtkCellLocator.New();
-                    _volumeLocator.SetDataSet(volumeGrid);
-                    _volumeLocator.LazyEvaluationOn();
-                }
-                locator = _volumeLocator;
-            }
-            else locator = _cellLocator;
-            vtkPointSet pointSet = locator?.GetDataSet() as vtkPointSet;
-            if (pointSet == null) return false;
-            locator.BuildLocator();
-
-            vtkGenericCell cell = vtkGenericCell.New();
-            IntPtr pointPointer = IntPtr.Zero;
-            IntPtr closestPointPointer = IntPtr.Zero;
-            IntPtr parametricCoordinatesPointer = IntPtr.Zero;
-            IntPtr weightsPointer = IntPtr.Zero;
-            try
-            {
-                pointPointer = CopyToUnmanaged(anchorPoint);
-                long cellId = locator.FindCell(pointPointer);
-                double[] evaluationPoint = anchorPoint;
-                int subId = 0;
-                double distanceSquared = 0;
-
-                if (cellId >= 0) pointSet.GetCell(cellId, cell);
-                else
-                {
-                    closestPointPointer = Marshal.AllocHGlobal(3 * sizeof(double));
-                    locator.FindClosestPoint(pointPointer, closestPointPointer, cell, ref cellId, ref subId,
-                                             ref distanceSquared);
-                    if (cellId < 0) return false;
-                    evaluationPoint = new double[3];
-                    Marshal.Copy(closestPointPointer, evaluationPoint, 0, 3);
-                }
-
-                int numOfPoints = (int)cell.GetNumberOfPoints();
-                if (numOfPoints == 0) return false;
-
-                IntPtr evaluationPointPointer = CopyToUnmanaged(evaluationPoint);
-                if (closestPointPointer == IntPtr.Zero)
-                    closestPointPointer = Marshal.AllocHGlobal(3 * sizeof(double));
-                parametricCoordinatesPointer = Marshal.AllocHGlobal(3 * sizeof(double));
-                weightsPointer = Marshal.AllocHGlobal(numOfPoints * sizeof(double));
-                try
-                {
-                    int result = cell.EvaluatePosition(evaluationPointPointer, closestPointPointer, ref subId,
-                                                       parametricCoordinatesPointer, ref distanceSquared, weightsPointer);
-                    if (result < 0) return false;
-                }
-                finally
-                {
-                    Marshal.FreeHGlobal(evaluationPointPointer);
-                }
-
-                double[] weights = new double[numOfPoints];
-                Marshal.Copy(weightsPointer, weights, 0, numOfPoints);
-                long[] pointIds = new long[numOfPoints];
-                vtkIdList ids = cell.GetPointIds();
-                double[] interpolatedPoint = new double[3];
-                for (int i = 0; i < numOfPoints; i++)
-                {
-                    pointIds[i] = ids.GetId(i);
-                    double[] point = pointSet.GetPoint(pointIds[i]);
-                    interpolatedPoint[0] += weights[i] * point[0];
-                    interpolatedPoint[1] += weights[i] * point[1];
-                    interpolatedPoint[2] += weights[i] * point[2];
-                }
-                double[] offset = new double[] { anchorPoint[0] - interpolatedPoint[0],
-                                                 anchorPoint[1] - interpolatedPoint[1],
-                                                 anchorPoint[2] - interpolatedPoint[2] };
-                anchor = new vtkMaxAnimationArrowAnchor(pointSet, pointIds, weights, offset,
-                                                        locator == _volumeLocator ? this : null);
-                return true;
-            }
-            finally
-            {
-                if (pointPointer != IntPtr.Zero) Marshal.FreeHGlobal(pointPointer);
-                if (closestPointPointer != IntPtr.Zero) Marshal.FreeHGlobal(closestPointPointer);
-                if (parametricCoordinatesPointer != IntPtr.Zero)
-                    Marshal.FreeHGlobal(parametricCoordinatesPointer);
-                if (weightsPointer != IntPtr.Zero) Marshal.FreeHGlobal(weightsPointer);
-            }
-        }
-
-        private static IntPtr CopyToUnmanaged(double[] values)
-        {
-            IntPtr pointer = Marshal.AllocHGlobal(values.Length * sizeof(double));
-            Marshal.Copy(values, 0, pointer, values.Length);
-            return pointer;
-        }
-
-        // Section cut                                                                                                              
-        public void AddClippingPlane(vtkPlane sectionViewPlane)
-        {
-            _geometryMapper.AddClippingPlane(sectionViewPlane);
-            if (ElementEdges != null) ElementEdges.GetMapper().AddClippingPlane(sectionViewPlane);
-            if (ModelEdges != null) ModelEdges.GetMapper().AddClippingPlane(sectionViewPlane);
-            //
-            if (ActorRepresentation == vtkMaxActorRepresentation.SolidAsShell) _geometryProperty.BackfaceCullingOff();
-        }
-        public void RemoveAllClippingPlanes()
-        {
-            _geometryMapper.RemoveAllClippingPlanes();
-            if (ElementEdges != null) ElementEdges.GetMapper().RemoveAllClippingPlanes();
-            if (ModelEdges != null) ModelEdges.GetMapper().RemoveAllClippingPlanes();
-        }
-        // Volume grid
-        public bool TryGetVolumeGrid(out vtkUnstructuredGrid volumeGrid)
-        {
-            volumeGrid = _volumeGrid;
-            if (volumeGrid != null && !_volumeGridStale)
-            {
-                EnsureAllVolumeGridPoints();
-                return true;
-            }
-            if (!_volumeGridAvailable || _volumeGridProvider == null) return volumeGrid != null;
-            //
-            PartExchangeData data = _volumeGridProvider(_volumeGridSourceName ?? _name);
-            if (data == null || data.Nodes == null || data.Cells == null || data.Cells.CellNodeIds == null ||
-                (data.Nodes.Coor == null && data.Nodes.FlatCoor == null)) return volumeGrid != null;
-            //
-            if (_volumeGrid == null) BuildVolumeGrid(data);
-            else RefreshVolumeGrid(data);
-            volumeGrid = _volumeGrid;
-            return true;
-        }
-        private void BuildVolumeGrid(PartExchangeData data)
-        {
-            vtkUnstructuredGrid grid;
-            AddNodeAndCellDataToGrid(data, out grid);
-            // A transformed copy is built from the source part
-            if (_volumeGridTransform != null) grid = TransformVolumeGrid(grid, _volumeGridTransform);
-            //
-            _volumeGrid = grid;
-            _volumeLocator = null;
-            _volumeGridStale = false;
-            _volumeGridPointsComplete = true;
-            _volumeGridNodeIds = data.Nodes.Ids;
-            SetVolumeGridScalars(data.Nodes);
-            // Node map for the animation
-            _animationLocatorNodeIdToPointId = null;
-            if (data.Nodes.Ids != null)
-            {
-                _animationLocatorNodeIdToPointId = new Dictionary<int, int>(data.Nodes.Ids.Length);
-                for (int i = 0; i < data.Nodes.Ids.Length; i++) _animationLocatorNodeIdToPointId[data.Nodes.Ids[i]] = i;
-            }
-        }
-        private void RefreshVolumeGrid(PartExchangeData data)
-        {
-            // The part is the same, so the grid object stays and the anchors that reference it stay valid
-            SetVolumeGridPoints(data.Nodes);
-            _volumeGridStale = false;
-        }
-        private void SetVolumeGridPoints(NodesExchangeData nodes)
-        {
-            vtkPoints points = vtkPoints.New();
-            if (nodes.Coor != null)
-            {
-                points.SetNumberOfPoints(nodes.Coor.Length);
-                for (int i = 0; i < nodes.Coor.Length; i++)
-                    points.SetPoint(i, nodes.Coor[i][0], nodes.Coor[i][1], nodes.Coor[i][2]);
-            }
+            PartExchangeData volumeGrid = null;
+            if (_volumeGridAvailable && _volumeGridProvider != null)
+                volumeGrid = _volumeGridProvider(_volumeGridSourceName ?? _name);
+            bool useVolumeGrid = volumeGrid != null && volumeGrid.Cells != null && volumeGrid.Cells.CellNodeIds != null &&
+                                 volumeGrid.Nodes.Ids != null && (volumeGrid.Nodes.Coor != null ||
+                                                                  volumeGrid.Nodes.FlatCoor != null);
+            PartExchangeData mesh;
+            if (useVolumeGrid) mesh = volumeGrid;
             else
             {
-                float[] flatCoor = nodes.FlatCoor;
-                int numOfPoints = flatCoor.Length / 3;
-                points.SetNumberOfPoints(numOfPoints);
-                for (int i = 0; i < numOfPoints; i++)
-                    points.SetPoint(i, flatCoor[3 * i], flatCoor[3 * i + 1], flatCoor[3 * i + 2]);
+                if (_data == null || _data.Geometry.Cells.CellNodeIds == null || !_pickable) return false;
+                mesh = new PartExchangeData();
+                mesh.Nodes.FlatCoor = GetCoordinates();
+                mesh.Cells = _data.Geometry.Cells;
             }
-            if (_volumeGridTransform != null)
+            //
+            int[] pointIndices;
+            double[] weights;
+            double[] interpolatedPoint;
+            if (!VtkNativeView.LocatePointInMesh(VtkNativeMeshData.FromPartExchangeData(mesh), anchorPoint,
+                                                 out pointIndices, out weights, out interpolatedPoint)) return false;
+            //
+            double[] offset = new double[] { anchorPoint[0] - interpolatedPoint[0],
+                                             anchorPoint[1] - interpolatedPoint[1],
+                                             anchorPoint[2] - interpolatedPoint[2] };
+            int[] nodeIds = null;
+            if (useVolumeGrid)
             {
-                vtkPoints transformedPoints = vtkPoints.New();
-                _volumeGridTransform.TransformPoints(points, transformedPoints);
-                points = transformedPoints;
+                nodeIds = new int[pointIndices.Length];
+                for (int i = 0; i < nodeIds.Length; i++) nodeIds[i] = volumeGrid.Nodes.Ids[pointIndices[i]];
             }
-            _volumeGrid.SetPoints(points);
-            _volumeLocator = null;
-            _volumeGridPointsComplete = true;
-            SetVolumeGridScalars(nodes);
-        }
-        private void SetVolumeGridScalars(NodesExchangeData nodes)
-        {
-            if (nodes.Values != null)
-            {
-                vtkFloatArray scalars = vtkFloatArray.New();
-                scalars.SetName(Globals.ScalarArrayName);
-                scalars.SetNumberOfValues(nodes.Values.Length);
-                for (int i = 0; i < nodes.Values.Length; i++) scalars.SetValue(i, nodes.Values[i]);
-                _volumeGrid.GetPointData().SetScalars(scalars);
-            }
-            else _volumeGrid.GetPointData().RemoveArray(Globals.ScalarArrayName);
-            // A transformed copy shows the transformed result component
-            _volumeResultField = GetCompatibleResultField(nodes.ResultField, _volumeGrid.GetNumberOfPoints());
-            if (_volumeResultField != null && _volumeGridSourceName != null)
-                SetTransformedValues(_volumeGrid, _volumeResultField);
-        }
-        private void EnsureAllVolumeGridPoints()
-        {
-            if (_volumeGridPointsComplete || _volumeGrid == null) return;
-            if (_animationNodesProvider == null || _volumeGridNodeIds == null || _animationFrameNumber < 0) return;
-            //
-            NodesExchangeData nodes = _animationNodesProvider(_name, _animationFrameNumber, _volumeGridNodeIds);
-            if (nodes == null || (nodes.Coor == null && nodes.FlatCoor == null)) return;
-            //
-            SetVolumeGridPoints(nodes);
-        }
-        internal void EnsureVolumeGridPoints(long[] pointIds)
-        {
-            if (_volumeGridPointsComplete || _volumeGrid == null) return;
-            if (_animationNodesProvider == null || _volumeGridNodeIds == null || _animationFrameNumber < 0) return;
-            //
-            List<long> missingPointIds = new List<long>();
-            foreach (long pointId in pointIds)
-            {
-                if (pointId >= 0 && pointId < _volumeGridNodeIds.Length && !_volumeGridUpdatedPointIds.Contains(pointId))
-                    missingPointIds.Add(pointId);
-            }
-            if (missingPointIds.Count == 0) return;
-            //
-            int[] nodeIds = new int[missingPointIds.Count];
-            for (int i = 0; i < nodeIds.Length; i++) nodeIds[i] = _volumeGridNodeIds[missingPointIds[i]];
-            NodesExchangeData nodes = _animationNodesProvider(_name, _animationFrameNumber, nodeIds);
-            if (nodes == null || nodes.FlatCoor == null || nodes.FlatCoor.Length != 3 * nodeIds.Length) return;
-            //
-            vtkPoints points = _volumeGrid.GetPoints();
-            vtkDataArray scalars = _volumeGrid.GetPointData().GetScalars();
-            double[] coor = new double[3];
-            for (int i = 0; i < nodeIds.Length; i++)
-            {
-                coor[0] = nodes.FlatCoor[3 * i];
-                coor[1] = nodes.FlatCoor[3 * i + 1];
-                coor[2] = nodes.FlatCoor[3 * i + 2];
-                if (_volumeGridTransform != null)
-                    coor = _volumeGridTransform.TransformDoublePoint(coor[0], coor[1], coor[2]);
-                points.SetPoint(missingPointIds[i], coor[0], coor[1], coor[2]);
-                if (scalars != null && nodes.Values != null && i < nodes.Values.Length)
-                    scalars.SetTuple1(missingPointIds[i], nodes.Values[i]);
-                _volumeGridUpdatedPointIds.Add(missingPointIds[i]);
-            }
-            points.Modified();
-            if (scalars != null) scalars.Modified();
-            _volumeLocator = null;
-        }
-        private static vtkUnstructuredGrid TransformVolumeGrid(vtkUnstructuredGrid grid, vtkTransform transform)
-        {
-            vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(grid);
-            transformFilter.SetTransform(transform);
-            transformFilter.Update();
-            return vtkUnstructuredGrid.SafeDownCast(transformFilter.GetOutput());
-        }
-        public void InvalidateVolumeGrid()
-        {
-            // An existing grid is refreshed in place when it is next needed
-            _volumeGridStale = true;
-            _volumeLocator = null;
-        }
-        public void ReleaseVolumeGrid()
-        {
-            // The grid is built again when it is next needed
-            _volumeGrid = null;
-            _volumeGridStale = false;
-            _volumeGridNodeIds = null;
-            _volumeGridPointsComplete = true;
-            _volumeGridUpdatedPointIds = null;
-            _volumeLocator = null;
-            _volumeResultField = null;
-            _animationLocatorNodeIdToPointId = null;
-        }
-        public void AppendVolumeGridTransform(vtkTransform transform)
-        {
-            if (!_volumeGridAvailable) return;
-            //
-            if (_volumeGridTransform == null)
-            {
-                _volumeGridTransform = vtkTransform.New();
-                _volumeGridTransform.Identity();
-            }
-            _volumeGridTransform.PostMultiply();
-            _volumeGridTransform.Concatenate(transform.GetMatrix());
-            //
-            if (_volumeGrid != null)
-            {
-                _volumeGrid = TransformVolumeGrid(_volumeGrid, transform);
-                _volumeLocator = null;
-            }
+            anchor = new vtkMaxAnimationArrowAnchor(this, pointIndices, nodeIds, weights, offset);
+            return true;
         }
         // Memory
         public void RecomputeMemorySize()
         {
-            if (_geometryMapper != null && _geometryMapper.GetInput() != null)
-                _memorySize += _geometryMapper.GetInput().GetActualMemorySize();
-            //
-            if (_volumeGrid != null) _memorySize += _volumeGrid.GetActualMemorySize();
-            //
-            if (_elementEdges != null && _elementEdges.GetMapper() != null && _elementEdges.GetMapper().GetInput() != null)
-                _memorySize += _elementEdges.GetMapper().GetInput().GetActualMemorySize();
-            //
-            if (_modelEdges != null && _modelEdges.GetMapper() != null && _modelEdges.GetMapper().GetInput() != null)
-                _memorySize += _modelEdges.GetMapper().GetInput().GetActualMemorySize();
-            //
-            if (_nodes != null && _nodes.GetMapper() != null && _nodes.GetMapper().GetInput() != null)
-                _memorySize += _nodes.GetMapper().GetInput().GetActualMemorySize();
-        }
-        // Exports
-        public double[][][] GetStlTriangles()
-        {
-            vtkCell cell;
-            vtkPoints points;
-            long numOfPoints;
-            long numCells = _geometryMapper.GetInput().GetNumberOfCells();
-            double[][] triangle;
-            List<double[][]> triangles = new List<double[][]>();
-            //
-            for (int i = 0; i < numCells; i++)
+            double sizeKb = 0;
+            if (_data != null)
             {
-                cell = _geometryMapper.GetInput().GetCell(i);
-                points = cell.GetPoints();
-                numOfPoints = points.GetNumberOfPoints();
-                if (numOfPoints == 3)
-                {
-                    triangle = new double[3][];
-                    for (int j = 0; j < 3; j++)
-                    {
-                        triangle[j] = points.GetPoint(j);
-                    }
-                    triangles.Add(triangle);
-                }
-                else throw new NotSupportedException();
+                sizeKb += GetMemorySizeKb(_data.Geometry);
+                sizeKb += GetMemorySizeKb(_data.ModelEdges);
+                sizeKb += GetMemorySizeKb(_data.ElementEdges);
             }
-            //
-            return triangles.ToArray(); ;
+            if (_animationData != null)
+            {
+                foreach (vtkMaxActorAnimationData animationData in _animationData)
+                    sizeKb += animationData.GetMemorySizeKb();
+            }
+            _memorySize = (uint)Math.Ceiling(sizeKb);
+        }
+        private static double GetMemorySizeKb(PartExchangeData data)
+        {
+            if (data == null) return 0;
+            double bytes = 0;
+            NodesExchangeData nodes = data.Nodes;
+            if (nodes != null)
+            {
+                if (nodes.Coor != null) bytes += nodes.Coor.Length * (3 * sizeof(double) + 24);
+                if (nodes.FlatCoor != null) bytes += nodes.FlatCoor.Length * sizeof(float);
+                if (nodes.Ids != null) bytes += nodes.Ids.Length * sizeof(int);
+                if (nodes.Normals != null) bytes += nodes.Normals.Length * (3 * sizeof(double) + 24);
+                if (nodes.Values != null) bytes += nodes.Values.Length * sizeof(float);
+            }
+            if (data.Cells != null && data.Cells.CellNodeIds != null)
+            {
+                foreach (int[] cell in data.Cells.CellNodeIds) bytes += cell.Length * sizeof(int) + 24;
+                bytes += data.Cells.CellNodeIds.Length * (sizeof(int) + sizeof(float));
+            }
+            return bytes / 1024;
         }
     }
 }

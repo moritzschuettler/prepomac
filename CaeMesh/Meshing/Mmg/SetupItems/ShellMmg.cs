@@ -2,26 +2,27 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class ShellMmg : MeshSetupItem, ISerializable
+    [PmxType(2123)]
+    public class ShellMmg : MeshSetupItem
     {
         // Variables
         public static readonly double DefaultRelativeHausdorff = 0.01;
         //
-        private bool _relativeSize;                 //ISerializable
-        private double _relativeHausdorff;          //ISerializable
-        private double _hausdorff;                  //ISerializable
-        private bool _keepModelEdges;               //ISerializable
+        [PmxKey(0)] private bool _relativeSize;                 //ISerializable
+        [PmxKey(1)] private double _relativeHausdorff;          //ISerializable
+        [PmxKey(2)] private double _hausdorff;                  //ISerializable
+        [PmxKey(3)] private bool _keepModelEdges;               //ISerializable
 
 
         // Properties
@@ -110,15 +111,6 @@ namespace CaeMesh
             if (shellMmg1._hausdorff != shellMmg2._hausdorff) return false;
             if (shellMmg1._keepModelEdges != shellMmg2._keepModelEdges) return false;
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_relativeSize", _relativeSize, typeof(bool));
-            info.AddValue("_relativeHausdorff", _relativeHausdorff, typeof(double));
-            info.AddValue("_hausdorff", _hausdorff, typeof(double));
-            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
     }
 }

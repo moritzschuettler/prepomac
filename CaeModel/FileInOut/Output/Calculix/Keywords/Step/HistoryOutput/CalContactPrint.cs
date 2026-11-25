@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,23 +14,24 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3141)]
     internal class CalContactPrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected readonly ContactHistoryOutput _contactHistoryOutput;
-        protected string _masterSurfaceName;
-        protected string _slaveSurfaceName;
-        protected string _masterNodeSetName;
-        protected string _slaveNodeSetName;
-        protected int _outputFrequency;
+        [PmxKey(0)] protected readonly ContactHistoryOutput _contactHistoryOutput;
+        [PmxKey(1)] protected string _masterSurfaceName;
+        [PmxKey(2)] protected string _slaveSurfaceName;
+        [PmxKey(3)] protected string _masterNodeSetName;
+        [PmxKey(4)] protected string _slaveNodeSetName;
+        [PmxKey(5)] protected int _outputFrequency;
 
 
         // Properties                                                                                                               
-        public bool OutputFrequency { get; set; }
+        [field: PmxKey(6)] public bool OutputFrequency { get; set; }
 
 
         // Constructor                                                                                                              
@@ -61,7 +62,7 @@ namespace FileInOut.Output.Calculix
             string masterSlave = "";
             if (_contactHistoryOutput.Variables.HasFlag(ContactHistoryVariable.CF))
                 masterSlave = ", Master=" + _masterSurfaceName + ", Slave=" + _slaveSurfaceName;
-            string frequency = OutputFrequency ? ", Frequency=" + _outputFrequency : "";
+            string frequency = OutputFrequency && _outputFrequency > 0 ? ", Frequency=" + _outputFrequency : "";
             //
             return string.Format("*Contact print{0}{1}{2}{3}", totals, masterSlave, frequency, Environment.NewLine);
         }

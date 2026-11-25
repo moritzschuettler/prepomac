@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,11 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     // Compatibility v1.1.1 - the command was renamed to CSetNewModelProperties
-    [Serializable]
+    [PmxType(10125)]
     class CSetModelUnitSystem : PreprocessCommand
     {
         // Variables                                                                                                                
-        private UnitSystemType _unitSystemType;
+        [PmxKey(0)] private UnitSystemType _unitSystemType;
 
 
         // Constructor                                                                                                              

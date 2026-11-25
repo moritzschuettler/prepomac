@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,15 +20,15 @@ using System.IO;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10306)]
     public class ExportHistoryResultSetFileProperties : ExportFileProperties
     {
         // Variables                                                                                                                
         public static readonly string DefaultFileName = "HistoryOutput.csv";
         public static readonly string DefaultFilter = "Comma separated values (*.csv)|*.csv";
         public static readonly string[] DefaultDelimiters = new string[] {",", ";", ":"};
-        private string[] _historyOutputNames;
-        private string _delimiter;
+        [PmxKey(0)] private string[] _historyOutputNames;
+        [PmxKey(1)] private string _delimiter;
 
 
         // Properties                                                                                                               

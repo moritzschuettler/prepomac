@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,13 +22,13 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10028)]
     public class CSaveToPmx : SaveCommand, IFileCommand
     {
         // Variables                                                                                                                
-        private string _fileName;
-        private byte[] _hash;
-        [OptionalField] private bool _resultsSaved;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private byte[] _hash;
+        [PmxKey(2)] [OptionalField] private bool _resultsSaved;
 
 
         // Properties

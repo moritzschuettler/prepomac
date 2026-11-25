@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,21 +14,22 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3143)]
     internal class CalNodePrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected readonly NodalHistoryOutput _nodalHistoryOutput;
-        protected string _regionName;
-        protected int _outputFrequency;
+        [PmxKey(0)] protected readonly NodalHistoryOutput _nodalHistoryOutput;
+        [PmxKey(1)] protected string _regionName;
+        [PmxKey(2)] protected int _outputFrequency;
 
 
         // Properties                                                                                                               
         public string RegionName { get { return _regionName; } }
-        public bool OutputFrequency { get; set; }
+        [field: PmxKey(3)] public bool OutputFrequency { get; set; }
 
 
         // Constructors                                                                                                             
@@ -69,7 +70,7 @@ namespace FileInOut.Output.Calculix
             if (_nodalHistoryOutput.TotalsType == TotalsTypeEnum.Yes) totals = ", Totals=Yes";
             else if (_nodalHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
             string global = _nodalHistoryOutput.Global ? ", Global=Yes" : "";
-            string frequency = OutputFrequency ? ", Frequency=" + _outputFrequency : "";
+            string frequency = OutputFrequency && _outputFrequency > 0 ? ", Frequency=" + _outputFrequency : "";
             //
             return string.Format("*Node print{0}{1}{2}{3}{4}", regionName, totals, global, frequency, Environment.NewLine);
         }

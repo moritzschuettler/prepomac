@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,8 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class GapSectionData : SectionData, ISerializable
+    [PmxType(3197)]
+    public class GapSectionData : SectionData
     {
         // Static Variables                                                                                                         
         public static readonly double InitialSpringStiffness = 1E12;
@@ -26,10 +26,10 @@ namespace CaeModel
 
 
         // Variables                                                                                                                
-        private double _clearance;                          //ISerializable
-        private double[] _direction;                        //ISerializable
-        private double _springStiffness;                    //ISerializable
-        private double _tensileForceAtNegativeInfinity;     //ISerializable
+        [PmxKey(0)] private double _clearance;                          //ISerializable
+        [PmxKey(1)] private double[] _direction;                        //ISerializable
+        [PmxKey(2)] private double _springStiffness;                    //ISerializable
+        [PmxKey(3)] private double _tensileForceAtNegativeInfinity;     //ISerializable
 
 
         // Properties                                                                                                               
@@ -79,19 +79,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-       
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_clearance", _clearance, typeof(double));
-            info.AddValue("_direction", _direction, typeof(double[]));
-            info.AddValue("_springStiffness", _springStiffness, typeof(double));
-            info.AddValue("_tensileForceAtNegativeInfinity", _tensileForceAtNegativeInfinity, typeof(double));
-        }
     }
 }

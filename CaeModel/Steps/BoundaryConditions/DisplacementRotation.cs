@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,7 +20,7 @@ using CaeResults;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3208)]
     public enum DOFType
     {
         Free,
@@ -29,17 +29,17 @@ namespace CaeModel
         Prescribed
     }
 
-    [Serializable]
-    public class DisplacementRotation : BoundaryCondition, IDistribution, IPreviewable, ISerializable
+    [PmxType(3209)]
+    public class DisplacementRotation : BoundaryCondition, IDistribution, IPreviewable
     {
         // Variables                                                                                                                
-        private EquationContainer _u1;         //ISerializable
-        private EquationContainer _u2;         //ISerializable
-        private EquationContainer _u3;         //ISerializable
-        private EquationContainer _ur1;        //ISerializable
-        private EquationContainer _ur2;        //ISerializable
-        private EquationContainer _ur3;        //ISerializable
-        private string _distributionName;      //ISerializable
+        [PmxKey(0)] private EquationContainer _u1;         //ISerializable
+        [PmxKey(1)] private EquationContainer _u2;         //ISerializable
+        [PmxKey(2)] private EquationContainer _u3;         //ISerializable
+        [PmxKey(3)] private EquationContainer _ur1;        //ISerializable
+        [PmxKey(4)] private EquationContainer _ur2;        //ISerializable
+        [PmxKey(5)] private EquationContainer _ur3;        //ISerializable
+        [PmxKey(6)] private string _distributionName;      //ISerializable
 
 
         // Properties                                                                                                               
@@ -132,6 +132,16 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetU1(_u1, false);
+            SetU2(_u2, false);
+            SetU3(_u3, false);
+            SetUR1(_ur1, false);
+            SetUR2(_ur2, false);
+            SetUR3(_ur3, false);
+        }
         private EquationContainer GetUR(EquationContainer ur)
         {
             if (_coordinateSystemName != null) return new EquationContainer(typeof(StringAngleDOFConverter), double.NaN);
@@ -479,20 +489,6 @@ namespace CaeModel
             _ur1.CheckEquation();
             _ur2.CheckEquation();
             _ur3.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_u1", _u1, typeof(EquationContainer));
-            info.AddValue("_u2", _u2, typeof(EquationContainer));
-            info.AddValue("_u3", _u3, typeof(EquationContainer));
-            info.AddValue("_ur1", _ur1, typeof(EquationContainer));
-            info.AddValue("_ur2", _ur2, typeof(EquationContainer));
-            info.AddValue("_ur3", _ur3, typeof(EquationContainer));
-            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

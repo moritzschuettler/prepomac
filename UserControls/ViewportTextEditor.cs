@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -24,7 +24,8 @@ namespace UserControls
         None,
         Annotation,
         LegendMinimum,
-        LegendMaximum
+        LegendMaximum,
+        ColorBarTitle
     }
 
     public partial class ViewportTextEditor : UserControl
@@ -115,6 +116,34 @@ namespace UserControls
             else if (vertbData == control) return true;
             else return false;
         }
+        public void SetTextFont(string familyName, float sizeInPixels, double linePitchInPixels)
+        {
+            vertbData.SetTextFont(familyName, sizeInPixels, linePitchInPixels);
+        }
+        // Lays the editor over a box of text: its border on the border of the box and its text on the text of the box.
+        // The text origin is the left edge of the text and the row the bottom of its first line of capitals is drawn
+        // on, in pixels from the top left corner of the box
+        // The leftmost column of the editor its text can start at, inside the frame
+        public int GetMinimumTextLeft()
+        {
+            return GetTextBoxCorner().X + vertbData.GetMinimumTextLeft();
+        }
+        public void SetTextBox(Size boxSize, Point textOrigin)
+        {
+            vertbData.MinSize = new Size(boxSize.Width - _pad, boxSize.Height - _pad);
+            Point textBoxCorner = GetTextBoxCorner();
+            vertbData.SetTextOrigin(new Point(textOrigin.X - textBoxCorner.X, textOrigin.Y - textBoxCorner.Y));
+        }
+        // From the layout and not the screen, since the windows of an editor not shown yet have no place on it
+        private Point GetTextBoxCorner()
+        {
+            int borderWidth = (pBorder.Width - pBorder.ClientSize.Width) / 2;
+            return new Point(pBorder.Left + borderWidth + vertbData.Left, pBorder.Top + borderWidth + vertbData.Top);
+        }
+        public void ResetTextBox()
+        {
+            vertbData.ResetTextOrigin();
+        }
         public void SetCaretAtEnd()
         {
             vertbData.Focus();
@@ -138,6 +167,11 @@ namespace UserControls
                                _viewportEditMode == ViewportEditModeEnum.LegendMaximum;
             if (_viewportEditMode == ViewportEditModeEnum.Annotation &&
                 keyData == (Keys.Control | Keys.Enter))
+            {
+                CommitRequested?.Invoke();
+                return true;
+            }
+            else if (_viewportEditMode == ViewportEditModeEnum.ColorBarTitle && keyData == Keys.Enter)
             {
                 CommitRequested?.Invoke();
                 return true;

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,7 +20,7 @@ using System.Windows.Forms.VisualStyles;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2146)]
     public class VisualizationData
     {
         // vertex
@@ -29,21 +29,21 @@ namespace CaeMesh
         // surface  - can be arbitrary combination of cells
 
         // Variables                                                                                                                
-        protected int[][] _cells;
-        protected int[] _cellIds;
-        protected int[][] _cellIdsByFace;        // could be hashSet<> but serialization could be bad
-        protected double[] _faceAreas;
-        protected GeomFaceType[] _faceTypes;
-        protected int[][] _faceEdgeIds;
-        protected int[][][] _cellIdCellIdEdgeNodeIds;
-        protected int[][] _cellNeighboursOverCellEdge;
-        protected int[][] _edgeCells;
-        protected int[][] _edgeCellIdsByEdge;
-        protected double[] _edgeLengths;
-        protected GeomCurveType[] _edgeTypes;
-        protected int[] _faceKernelIds;
-        protected int[] _edgeKernelIds;
-        protected int[] _vertexNodeIds;
+        [PmxKey(0)] protected int[][] _cells;
+        [PmxKey(1)] protected int[] _cellIds;
+        [PmxKey(2)] protected int[][] _cellIdsByFace;        // could be hashSet<> but serialization could be bad
+        [PmxKey(3)] protected double[] _faceAreas;
+        [PmxKey(4)] protected GeomFaceType[] _faceTypes;
+        [PmxKey(5)] protected int[][] _faceEdgeIds;
+        [PmxKey(6)] protected int[][][] _cellIdCellIdEdgeNodeIds;
+        [PmxKey(7)] protected int[][] _cellNeighboursOverCellEdge;
+        [PmxKey(8)] protected int[][] _edgeCells;
+        [PmxKey(9)] protected int[][] _edgeCellIdsByEdge;
+        [PmxKey(10)] protected double[] _edgeLengths;
+        [PmxKey(11)] protected GeomCurveType[] _edgeTypes;
+        [PmxKey(12)] protected int[] _faceKernelIds;
+        [PmxKey(13)] protected int[] _edgeKernelIds;
+        [PmxKey(14)] protected int[] _vertexNodeIds;
 
 
         // Properties                                                                                                               
@@ -438,36 +438,47 @@ namespace CaeMesh
         //
         public void RenumberNodes(Dictionary<int, int> newIds)
         {
+            // The edge cells and the cell edge node ids share arrays when the edges are extracted, so every array is
+            // renumbered once
+            HashSet<int[]> renumberedArrays = new HashSet<int[]>();
             // Cells
-            int id;
             if (_cells != null)
             {
-                for (int i = 0; i < _cells.Length; i++)
-                {
-                    for (int j = 0; j < _cells[i].Length; j++)
-                    {
-                        if (newIds.TryGetValue(_cells[i][j], out id)) _cells[i][j] = id;
-                    }
-                }
+                for (int i = 0; i < _cells.Length; i++) RenumberNodeIdsOnce(_cells[i], newIds, renumberedArrays);
             }
             // Edge cells
             if (_edgeCells != null)
             {
-                for (int i = 0; i < _edgeCells.Length; i++)
+                for (int i = 0; i < _edgeCells.Length; i++) RenumberNodeIdsOnce(_edgeCells[i], newIds, renumberedArrays);
+            }
+            // Cell edge node ids
+            if (_cellIdCellIdEdgeNodeIds != null)
+            {
+                for (int i = 0; i < _cellIdCellIdEdgeNodeIds.Length; i++)
                 {
-                    for (int j = 0; j < _edgeCells[i].Length; j++)
-                    {
-                        if (newIds.TryGetValue(_edgeCells[i][j], out id)) _edgeCells[i][j] = id;
-                    }
+                    if (_cellIdCellIdEdgeNodeIds[i] == null) continue;
+                    for (int j = 0; j < _cellIdCellIdEdgeNodeIds[i].Length; j++)
+                        RenumberNodeIdsOnce(_cellIdCellIdEdgeNodeIds[i][j], newIds, renumberedArrays);
                 }
             }
             // Vertex ids
+            int id;
             if (_vertexNodeIds != null)
             {
                 for (int i = 0; i < _vertexNodeIds.Length; i++)
                 {
                     if (newIds.TryGetValue(_vertexNodeIds[i], out id)) _vertexNodeIds[i] = id;
                 }
+            }
+        }
+        private static void RenumberNodeIdsOnce(int[] nodeIds, Dictionary<int, int> newIds, HashSet<int[]> renumberedArrays)
+        {
+            if (nodeIds == null || !renumberedArrays.Add(nodeIds)) return;
+            //
+            int id;
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                if (newIds.TryGetValue(nodeIds[i], out id)) nodeIds[i] = id;
             }
         }
         public void RenumberElements(Dictionary<int, int> newIds)

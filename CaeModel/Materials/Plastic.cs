@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3182)]
     public enum PlasticHardening
     {
         Isotropic,
@@ -25,12 +25,12 @@ namespace CaeModel
         Combined
     }
 
-    [Serializable]
-    public class Plastic : MaterialProperty, ISerializable
+    [PmxType(3183)]
+    public class Plastic : MaterialProperty
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _stressStrainTemp;        //ISerializable
-        private PlasticHardening _hardening;                    //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _stressStrainTemp;        //ISerializable
+        [PmxKey(1)] private PlasticHardening _hardening;                    //ISerializable
 
 
         // Properties                                                                                                               
@@ -75,6 +75,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetStressStrainTemp(_stressStrainTemp, false);
+        }
         private void SetStressStrainTemp(double[][] value, bool checkEquation = true)
         {
             _stressStrainTemp = new EquationContainer[value.Length][];
@@ -100,15 +105,6 @@ namespace CaeModel
                 _stressStrainTemp[i][0].CheckEquation();
                 _stressStrainTemp[i][1].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_stressStrainTemp", _stressStrainTemp, typeof(EquationContainer[][]));
-            info.AddValue("_hardening", _hardening, typeof(PlasticHardening));
         }
     }
 }

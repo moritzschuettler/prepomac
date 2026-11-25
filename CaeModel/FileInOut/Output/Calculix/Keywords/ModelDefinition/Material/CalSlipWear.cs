@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3094)]
     internal class CalSlipWear : CalculixKeyword
     {
         // Variables                                                                                                                
-        private SlipWear _slipWear;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private SlipWear _slipWear;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,11 +16,11 @@ using System.ComponentModel;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10339)]
     public class ViewShellQuadWild : ViewMeshSetupItem
     {
         // Variables
-        private ShellQuadWild _shellQuadWild;
+        [PmxKey(0)] private ShellQuadWild _shellQuadWild;
 
 
         // Properties

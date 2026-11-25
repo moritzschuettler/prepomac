@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,14 +19,14 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
-    public class ViewFaceOffset
+    [PmxType(10322)]
+    public class ViewFaceOffset : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         public const string RegionSelectionName = "RegionSelection";
         //
-        private FaceOffset _faceOffset;
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private FaceOffset _faceOffset;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               
@@ -73,6 +73,11 @@ namespace PrePoMax.Forms
         public FaceOffset GetBase()
         {
             return _faceOffset;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(RegionSelection) &&
+                   (_faceOffset.CreationIds == null || _faceOffset.CreationIds.Length == 0);
         }
     }
 }

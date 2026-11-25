@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,7 +21,7 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10526)]
     public enum ColorPaletteEnum
     {
         [StandardValue("Default", Description = "The default PrePoMax part colors.")]
@@ -64,7 +64,7 @@ namespace PrePoMax
         Custom,
     }
 
-    [Serializable]
+    [PmxType(10527)]
     public class ColorSettings : ISettings, Settings.IReset
     {
         // Variables                                                                                                                
@@ -74,17 +74,17 @@ namespace PrePoMax
         public const double DefaultSaturation = 100;
         private const double BrightnessCompensation = 0.6;
         //
-        private ColorPaletteEnum _colorPalette;
-        private double _saturation;
-        private Color[] _colorTable;
-        private Color _frontFaceColor;
-        private Color _backFaceColor;
-        private Color _transfiniteMeshColor;
-        private Color _sweepMeshColor;
-        private Color _revolveMeshColor;
-        private Color _tetrahedralMeshColor;
-        private Color _freeMeshColor;
-        private Color _otherMeshColor;
+        [PmxKey(0)] private ColorPaletteEnum _colorPalette;
+        [PmxKey(1)] private double _saturation;
+        [PmxKey(2)] private Color[] _colorTable;
+        [PmxKey(3)] private Color _frontFaceColor;
+        [PmxKey(4)] private Color _backFaceColor;
+        [PmxKey(5)] private Color _transfiniteMeshColor;
+        [PmxKey(6)] private Color _sweepMeshColor;
+        [PmxKey(7)] private Color _revolveMeshColor;
+        [PmxKey(8)] private Color _tetrahedralMeshColor;
+        [PmxKey(9)] private Color _freeMeshColor;
+        [PmxKey(10)] private Color _otherMeshColor;
 
         // Properties                                                                                                               
         public ColorPaletteEnum ColorPalette

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,15 +22,15 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CRotateModelParts : PreprocessCommand, ISerializable
+    [PmxType(10094)]
+    class CRotateModelParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private double[] _rotateCenter;
-        private double[] _rotateAxis;
-        private double _rotateAngle;
-        private int _numberOfCopies;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _rotateCenter;
+        [PmxKey(2)] private double[] _rotateAxis;
+        [PmxKey(3)] private double _rotateAngle;
+        [PmxKey(4)] private int _numberOfCopies;
 
 
         // Constructor                                                                                                              
@@ -92,17 +92,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + GetArrayAsString(_partNames);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_partNames", _partNames, typeof(string[]));
-            info.AddValue("_rotateCenter", _rotateCenter, typeof(double[]));
-            info.AddValue("_rotateAxis", _rotateAxis, typeof(double[]));
-            info.AddValue("_rotateAngle", _rotateAngle, typeof(double));
-            info.AddValue("_numberOfCopies", _numberOfCopies, typeof(int));
         }
     }
 }

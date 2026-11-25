@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinsek
 // Contributors:
@@ -13,23 +13,23 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class CyclicSymmetry : Tie, IMultiRegion, ISerializable // ISerializable must be here
+    [PmxType(3006)]
+    public class CyclicSymmetry : Tie, IMultiRegion // ISerializable must be here
     {
         // Variables                                                                                                                
-        private string _regionName;                         //ISerializable
-        private RegionTypeEnum _regionType;                 //ISerializable
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private int _numberOfSectors;                      //ISerializable
-        private int _numberOfGraphSectors;                 //ISerializable
-        private bool _checkSectorAngle;                    //ISerializable
-        private EquationContainer _x;                      //ISerializable
-        private EquationContainer _y;                      //ISerializable
-        private EquationContainer _z;                      //ISerializable
-        private EquationContainer _n1;                     //ISerializable
-        private EquationContainer _n2;                     //ISerializable
-        private EquationContainer _n3;                     //ISerializable
+        [PmxKey(0)] private string _regionName;                         //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                 //ISerializable
+        [PmxKey(2)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(3)] private Selection _creationData;                    //ISerializable
+        [PmxKey(4)] private int _numberOfSectors;                      //ISerializable
+        [PmxKey(5)] private int _numberOfGraphSectors;                 //ISerializable
+        [PmxKey(6)] private bool _checkSectorAngle;                    //ISerializable
+        [PmxKey(7)] private EquationContainer _x;                      //ISerializable
+        [PmxKey(8)] private EquationContainer _y;                      //ISerializable
+        [PmxKey(9)] private EquationContainer _z;                      //ISerializable
+        [PmxKey(10)] private EquationContainer _n1;                     //ISerializable
+        [PmxKey(11)] private EquationContainer _n2;                     //ISerializable
+        [PmxKey(12)] private EquationContainer _n3;                     //ISerializable
 
 
         // Properties                                                                                                               
@@ -149,6 +149,16 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX(_x, false);
+            SetY(_y, false);
+            SetZ(_z, false);
+            SetN1(_n1, false);
+            SetN2(_n2, false);
+            SetN3(_n3, false);
+        }
         private static EquationContainer GetEquationContainer(object value, Type converterType)
         {
             if (value is double valueDouble) return new EquationContainer(converterType, valueDouble);
@@ -222,26 +232,6 @@ namespace CaeModel
             _n3.CheckEquation();
             //
             CheckAxisDirection();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_numberOfSectors", _numberOfSectors, typeof(int));
-            info.AddValue("_numberOfGraphSectors", _numberOfGraphSectors, typeof(int));
-            info.AddValue("_checkSectorAngle", _checkSectorAngle, typeof(bool));
-            info.AddValue("_x", _x, typeof(EquationContainer));
-            info.AddValue("_y", _y, typeof(EquationContainer));
-            info.AddValue("_z", _z, typeof(EquationContainer));
-            info.AddValue("_n1", _n1, typeof(EquationContainer));
-            info.AddValue("_n2", _n2, typeof(EquationContainer));
-            info.AddValue("_n3", _n3, typeof(EquationContainer));
         }
     }
 }

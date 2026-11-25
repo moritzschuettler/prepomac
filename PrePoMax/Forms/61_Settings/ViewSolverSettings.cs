@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10490)]
     public class ViewSolverSettings : IViewSettings, IReset
     {
         // Variables
-        private SolverSettings _solverSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private SolverSettings _solverSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties

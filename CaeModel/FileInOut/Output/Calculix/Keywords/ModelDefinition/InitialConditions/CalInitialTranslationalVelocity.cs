@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using System.Drawing;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3087)]
     internal class CalInitialTranslationalVelocity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _regionName;
-        private InitialTranslationalVelocity _initialVelocity;
+        [PmxKey(0)] private string _regionName;
+        [PmxKey(1)] private InitialTranslationalVelocity _initialVelocity;
 
 
         // Properties                                                                                                               

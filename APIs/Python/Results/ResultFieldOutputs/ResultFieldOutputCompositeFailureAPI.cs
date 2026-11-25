@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,6 +18,9 @@ namespace APIs.Python
         public string field_name { get { return ResolveCompositeFailure().FieldName; } }
         [PythonAPI("The failure criterion: MaxStress, TsaiHill, TsaiWu or Hashin.", Returns = "str")]
         public string criterion { get { return ResolveCompositeFailure().Criterion.ToString(); } }
+        [PythonAPI("The stresses the criterion evaluates: Stress as CalculiX solves them, or " +
+                   "PlaneStressFromStrain from the in-plane strains.", Returns = "str")]
+        public string quantity { get { return ResolveCompositeFailure().Quantity.ToString(); } }
 
 
         // Constructor

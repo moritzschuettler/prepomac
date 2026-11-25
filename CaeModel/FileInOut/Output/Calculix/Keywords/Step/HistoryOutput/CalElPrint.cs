@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,20 +14,21 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3142)]
     internal class CalElPrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected readonly ElementHistoryOutput _elementHistoryOutput;
-        protected int _outputFrequency;
+        [PmxKey(0)] protected readonly ElementHistoryOutput _elementHistoryOutput;
+        [PmxKey(1)] protected int _outputFrequency;
 
 
         // Properties                                                                                                               
-        public bool OutputFrequency { get; set; }
-        public bool OutputGlobal { get; set; }
+        [field: PmxKey(2)] public bool OutputFrequency { get; set; }
+        [field: PmxKey(3)] public bool OutputGlobal { get; set; }
 
 
         // Constructor                                                                                                              
@@ -53,7 +54,7 @@ namespace FileInOut.Output.Calculix
             if (_elementHistoryOutput.TotalsType == TotalsTypeEnum.Yes) totals = ", Totals=Yes";
             else if (_elementHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
             string global = OutputGlobal && _elementHistoryOutput.Global ? ", Global=Yes" : "";
-            string frequency = OutputFrequency ? ", Frequency=" + _outputFrequency : "";
+            string frequency = OutputFrequency && _outputFrequency > 0 ? ", Frequency=" + _outputFrequency : "";
             //
             return string.Format("*El print{0}{1}{2}{3}{4}", regionName, totals, global, frequency, Environment.NewLine);
         }

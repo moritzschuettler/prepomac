@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,12 +20,12 @@ using CaeResults;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10259)]
     class CReplaceResultFieldOutput : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldResultFieldOutputName;
-        private ResultFieldOutput _newResultFieldOutput;
+        [PmxKey(0)] private string _oldResultFieldOutputName;
+        [PmxKey(1)] private ResultFieldOutput _newResultFieldOutput;
 
 
         // Constructor                                                                                                              

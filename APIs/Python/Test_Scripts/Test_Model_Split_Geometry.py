@@ -189,6 +189,49 @@ def test_split_solid_by_point_and_normal(part):
     check(len([item for item in parts.get_names() if item not in before]) > 0, "the pieces must be added")
 
 
+def blind_hole_cylinder_ids(part):
+    # The blind holes are drilled from the top face, so their cylinders lie above the middle of the box; the
+    # through hole is centered on it. The first blind hole is the one nearest the low end of the box in x.
+    rows, low, high = corners(part)
+    data = part.get_face_data()
+    first = None
+    candidates = []
+    for i in range(data.count):
+        centroid = [float(v) for v in list(data.centroids[i])]
+        if list(data.types)[i] != "Cylinder" or centroid[2] < 0.5 * (low[2] + high[2]) + 1.0:
+            continue
+        candidates.append((centroid[0], int(list(data.ids)[i])))
+        if first is None or centroid[0] < first - TOLERANCE:
+            first = centroid[0]
+    return [face_id for x, face_id in candidates if abs(x - first) < TOLERANCE]
+
+
+def test_split_solid_by_extended_cylinder(halves, picked):
+    # The surface of a blind hole continued past the bottom of the hole cuts the material under it away from the
+    # rest of the box. A periodic face divided in halves holds its surface trimmed to the half, and a tool made
+    # from the trimmed surface lies on the face it was picked on, so it divided nothing.
+    parts = pmx.model.geometry.parts
+    part = import_box()
+    name = part.name
+    if halves:
+        parts.split_periodic_faces([name], number_of_faces=2)
+    part = parts[name]
+    ids = blind_hole_cylinder_ids(part)
+    check(len(ids) == (2 if halves else 1), "the blind hole must be " + ("two halves" if halves else "one face") +
+          ": " + str(ids))
+    faces = ids if picked == "all" else ids[:1]
+    tool = pmx.create.split_tool_extend_face(
+        pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {part.id: faces}))
+    before = list(parts.get_names())
+    added = parts.split_solid(part_region(part), tool)
+    label = ("halves" if halves else "whole face") + ", picked " + picked
+    check(added[name] > 0, "the extended cylinder must cut the box (" + label + "): " + str(dict(added)))
+    check(name not in list(parts.get_names()), "a part cut in two must be replaced (" + label + ")")
+    created = [item for item in parts.get_names() if item not in before]
+    cells = [item for item in created if parts[item].part_type != "Compound"]
+    check(len(cells) == 2, "the core and the rest must be two cells (" + label + "): " + str(created))
+
+
 def import_box():
     before = list(pmx.model.geometry.parts.get_names())
     pmx.import_file(os.path.join(MODELS, "blind_holes.brep"))
@@ -201,6 +244,9 @@ def main():
     test_split_face(part)
     test_split_solid_by_point_and_normal(pmx.model.geometry.parts[part.name])
     test_split_solid_by_vertices(import_box())
+    test_split_solid_by_extended_cylinder(False, "all")
+    test_split_solid_by_extended_cylinder(True, "one")
+    test_split_solid_by_extended_cylinder(True, "all")
     print("TEST PASSED")
 
 

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,7 +19,7 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10416)]
     public abstract class ViewInitialCondition : ViewMultiRegion
     {
         // Variables                                                                                                                
@@ -38,7 +38,7 @@ namespace PrePoMax
         [Id(1, 2)]
         public override string RegionType { get { return base.RegionType; } set { base.RegionType = value; } }
         //
-        [CategoryAttribute("Region")]
+        [field: PmxKey(0)] [CategoryAttribute("Region")]
         [OrderedDisplayName(1, 10, "Hidden")]
         [DescriptionAttribute("Hidden.")]
         [Id(2, 2)]

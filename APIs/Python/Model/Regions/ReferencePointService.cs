@@ -2,11 +2,12 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
+using System;
 using CaeGlobals;
 using CaeMesh;
 using System.Linq;
@@ -49,43 +50,49 @@ namespace APIs.Python.Model
             //
             return referencePoint;
         }
-        public void Add(string name, object coordinates, object nameVisible, object color)
+        public void Add(string name, object coordinates, object nameVisible, object color, object nodeId,
+                        object rotationNodeId)
         {
             ValidateNewName(name, null);
             FeReferencePoint referencePoint = Build(name, coordinates);
             ApplyDisplayValues(referencePoint, nameVisible, color);
+            ApplyNodeIds(referencePoint, nodeId, rotationNodeId, null);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
         public void AddFromSelection(string name, string createdFrom, SelectionAPI selection,
-                                     object nameVisible, object color)
+                                     object nameVisible, object color, object nodeId, object rotationNodeId)
         {
             ValidateNewName(name, null);
             FeReferencePoint referencePoint = CreateReferencePoint(name);
             ApplySelection(referencePoint, createdFrom, selection);
             ApplyDisplayValues(referencePoint, nameVisible, color);
+            ApplyNodeIds(referencePoint, nodeId, rotationNodeId, null);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
         public void AddFromRegion(string name, string createdFrom, string regionType, string regionName,
-                                  object nameVisible, object color)
+                                  object nameVisible, object color, object nodeId, object rotationNodeId)
         {
             ValidateNewName(name, null);
             FeReferencePoint referencePoint = CreateReferencePoint(name);
             ApplyRegion(referencePoint, createdFrom, regionType, regionName);
             ApplyDisplayValues(referencePoint, nameVisible, color);
+            ApplyNodeIds(referencePoint, nodeId, rotationNodeId, null);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
-        public void Replace(string oldName, string name, object coordinates, object nameVisible, object color)
+        public void Replace(string oldName, string name, object coordinates, object nameVisible, object color,
+                            object nodeId, object rotationNodeId)
         {
             oldName = ResolveReferencePoint(oldName).Name;
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             if (coordinates != null) ApplyCoordinates(referencePoint, coordinates);
             ApplyDisplayValues(referencePoint, nameVisible, color);
+            ApplyNodeIds(referencePoint, nodeId, rotationNodeId, oldName);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
@@ -93,7 +100,8 @@ namespace APIs.Python.Model
         // A model side replacement keeps what it is not told, so a value that is not given is taken from
         // the stored definition rather than being required again
         public void ReplaceFromSelection(string oldName, string name, string createdFrom,
-                                         SelectionAPI selection, object nameVisible, object color)
+                                         SelectionAPI selection, object nameVisible, object color, object nodeId,
+                                         object rotationNodeId)
         {
             oldName = ResolveReferencePoint(oldName).Name;
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
@@ -101,12 +109,14 @@ namespace APIs.Python.Model
             if (selection == null) ApplyKeptSelection(referencePoint, mode);
             else ApplySelection(referencePoint, mode, selection);
             ApplyDisplayValues(referencePoint, nameVisible, color);
+            ApplyNodeIds(referencePoint, nodeId, rotationNodeId, oldName);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
         }
         public void ReplaceFromRegion(string oldName, string name, string createdFrom, string regionType,
-                                      string regionName, object nameVisible, object color)
+                                      string regionName, object nameVisible, object color, object nodeId,
+                                      object rotationNodeId)
         {
             oldName = ResolveReferencePoint(oldName).Name;
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
@@ -115,6 +125,7 @@ namespace APIs.Python.Model
             string keptRegionName = regionName != null ? regionName : GetKeptRegionName(referencePoint);
             ApplyRegion(referencePoint, mode, region, keptRegionName);
             ApplyDisplayValues(referencePoint, nameVisible, color);
+            ApplyNodeIds(referencePoint, nodeId, rotationNodeId, oldName);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
@@ -178,6 +189,39 @@ namespace APIs.Python.Model
                 referencePoint.NameVisible = PythonValueConverter.ToBool(nameVisible, "name_visible");
             if (color != null)
                 referencePoint.Color = PythonColorConverter.ToColor(color, "color");
+        }
+        // User keywords refer to the node ids, so they are fixed: a creation takes the next free ids for the ones
+        // that are not given and a replacement keeps the stored ones
+        private void ApplyNodeIds(FeReferencePoint referencePoint, object nodeId, object rotationNodeId,
+                                  string referencePointToReplaceName)
+        {
+            FeMesh mesh = GetMeshOrNull();
+            if (mesh == null) return;
+            //
+            int refNodeId = nodeId != null ? PythonValueConverter.ToInt(nodeId, "node_id") : referencePoint.RefNodeId;
+            int rotNodeId = rotationNodeId != null ? PythonValueConverter.ToInt(rotationNodeId, "rotation_node_id") :
+                                                     referencePoint.RotNodeId;
+            if (!referencePoint.HasNodeIds)
+            {
+                int nextFreeNodeId = Math.Max(mesh.GetMaxNodeIdWithReferencePoints(), Math.Max(refNodeId, rotNodeId)) + 1;
+                if (nodeId == null) refNodeId = nextFreeNodeId++;
+                if (rotationNodeId == null) rotNodeId = nextFreeNodeId;
+            }
+            if (refNodeId <= 0) throw new PythonAPIException("The argument 'node_id' must be positive.");
+            if (rotNodeId <= 0) throw new PythonAPIException("The argument 'rotation_node_id' must be positive.");
+            if (refNodeId == rotNodeId)
+                throw new PythonAPIException("The arguments 'node_id' and 'rotation_node_id' must differ.");
+            //
+            referencePoint.RefNodeId = refNodeId;
+            referencePoint.RotNodeId = rotNodeId;
+            try
+            {
+                mesh.CheckReferencePointNodeIds(referencePoint, referencePointToReplaceName);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
         }
         private static void ApplyCoordinates(FeReferencePoint referencePoint, object coordinates)
         {

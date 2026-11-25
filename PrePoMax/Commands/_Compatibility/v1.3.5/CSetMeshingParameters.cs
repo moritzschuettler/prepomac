@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,8 +22,8 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CSetMeshingParameters : PreprocessCommand, ICommandWithDialog, ISerializable
+    [PmxType(10268)]
+    class CSetMeshingParameters : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
 
@@ -64,11 +64,6 @@ namespace PrePoMax.Commands
         {
             // Compatibility for version v1.3.5
             return base.GetCommandString();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Compatibility for version v1.3.5
         }
     }
 }

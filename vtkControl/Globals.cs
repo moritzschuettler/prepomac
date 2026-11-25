@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Kitware.VTK;
 using System.Drawing;
 
 namespace vtkControl
@@ -32,34 +31,5 @@ namespace vtkControl
         public static string MaxAnnotationName = "Max_Annotation";      // this is a copy from AnnotationContainer
         //
         public static Color CurrentMouseHighlightColor = Color.FromArgb(255, 175, 0);
-        private static vtkProperty _currentMouseSelectionProperty;
-        
-
-        // Properties                                                                                                               
-        public static vtkProperty CurrentMouseSelectionProperty 
-        { 
-            get 
-            { 
-                vtkProperty prop = vtkProperty.New();
-                prop.DeepCopy(_currentMouseSelectionProperty);
-                return prop;
-            } 
-        }
-
-
-        // Methods                                                                                                                  
-        public static void Initialize()
-        {
-            _currentMouseSelectionProperty = vtkProperty.New();
-            _currentMouseSelectionProperty.SetColor(CurrentMouseHighlightColor.R / 255.0, CurrentMouseHighlightColor.G / 255.0, CurrentMouseHighlightColor.B / 255.0);
-            _currentMouseSelectionProperty.SetAmbient(0.5);
-            _currentMouseSelectionProperty.SetSpecular(0.2);
-            _currentMouseSelectionProperty.SetPointSize(7);
-            _currentMouseSelectionProperty.SetLineWidth(2);
-            _currentMouseSelectionProperty.SetOpacity(1);
-            //_currentMouseSelectionProperty.BackfaceCullingOn();
-            _currentMouseSelectionProperty.BackfaceCullingOff();
-        }
-       
     }
 }

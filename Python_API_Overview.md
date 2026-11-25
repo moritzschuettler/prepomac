@@ -63,7 +63,8 @@ The root object available in the Python console is `pmx`.
   name space of their own; the parts, sets, surfaces and reference points share one.
 - A name given to `add_*`, `replace_*` or `rename` is checked **before anything is recorded**, and is refused when
   it is empty, starts or ends with a space, contains a space or a character other than letters, digits and
-  `- _ ( )`, or contains no letter. Materials and element sets also take `@`; parameter names do not take `-`.
+  `- _ ( )`, or contains no letter. Materials and element sets also take `@`, analyses take `+`; parameter names do
+  not take `-`.
   The name an item already carries is not checked again, so an item named by an import can still be replaced.
 - A value the dialog takes as an expression takes a number or an equation string. A number is passed on as the
   shortest text that reads back as the same double, so nothing is lost on the way in; the model itself then keeps a
@@ -297,17 +298,18 @@ To have the server on whenever PrePoMax runs, set *Start with the application* i
 The address and the token are both in **Tools - Settings - Automation**, under *Connection*. **The
 server will not start without a token**, and there is no command line switch for one: run PrePoMax
 once, right click the *Access token* entry, and choose *Generate the access token*. It is kept in
-that folder's `settings.bin`, so deleting the portable folder deletes it, and it can only be
+that folder's `settings.json`, so deleting the portable folder deletes it, and it can only be
 generated - never typed or pasted, which is what keeps it long and random.
 
-**A newly unpacked PrePoMax starts without one, deliberately.** `settings.bin` is part of the
+**A newly unpacked PrePoMax starts without one, deliberately.** `settings.json` is part of the
 redistributable, so a token left in it would be shipped to every user, identical for all of them and
 readable by anyone. Two things prevent that: the settings page has a *Clear the access token* action
 to use before preparing a release, and the first run in any folder clears the token found in its
 settings before anything can serve with it - PrePoMax detects that from the absence of its own
 `trace.info` marker. So after an update you generate a new token in the new folder and give it to
 your assistant, or keep the old one: start the new version once and close it, then copy
-`settings.bin` over from the old folder. One copied in before that first start loses its token.
+`settings.json` over from the old folder - or the `settings.bin` of a version before the JSON settings,
+which is read once and rewritten as `settings.json`. One copied in before that first start loses its token.
 
 **A client that cannot connect is telling you that PrePoMax is closed, or that its automation server
 is off.** Nothing answers on the address unless the session is open - that is the point of serving it
@@ -546,7 +548,7 @@ anything running **as that user** can read it, exactly as anything running as th
 pipe. It stops a web page, which cannot read a file at all. It stops another account logged into the
 machine - which can reach a loopback port, and is the boundary the named pipe used to get from
 Windows for free - **only when the PrePoMax folder is readable by this user alone**, such as a folder
-inside the user profile. `settings.bin` is given no access rules of its own and inherits those of the
+inside the user profile. `settings.json` is given no access rules of its own and inherits those of the
 folder it is in, and a folder under `C:\` is readable by every local account by default, so there any
 other account can read the token. It is not a defence against code already running as the user, and
 nothing served over loopback can be. While the server runs the token is also in the session file under
@@ -738,7 +740,7 @@ model item.
 | --- | --- |
 | `pmx.new_model(model_space, unit_system, discard_changes=False)` | Creates a new empty model. `Undefined` is refused for either argument, and so is the call while an analysis is running. In a session with a window a model with unsaved changes is refused unless `discard_changes=True`; a session without a window discards them. **Console only.** |
 | `pmx.open(file_name, discard_changes=False)` | Opens a .pmx or .pmh model file, which replaces the command history; a .pmh history is regenerated whole, as **File - Open** regenerates it. A result file is refused and named to `pmx.results.open`, and so is the call while an analysis is running. In a session with a window a model with unsaved changes is refused unless `discard_changes=True`; a session without a window discards them. **Console only.** |
-| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. |
+| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. An import that adds parts points the camera to the front view fitted to the model, as the dialog does, so a view the script set before it is replaced. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
 | `pmx.work_directory` | The session's work directory (the -w of a script or regeneration run or of a session without a window, otherwise the settings), read only; a replayed journal writes the files its session saved or exported here, and a relative file name given to the API is taken from here. A session without one raises, telling to pass `-w` or set it in Settings - Solver. |
 | `pmx.is_rerun` | True while a recorded script runs again rather than on the run that recorded it - Regenerate, Undo, Redo, OK of Edit History or a batch regeneration (`-r`) - so the script can accept what its first run left behind, as a journal's `_output` accepts the files that run wrote. False on the first run, in the console and in an automation call. Read only. |
@@ -965,14 +967,15 @@ Reached as `pmx.model.mesh`.
 | `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. `thickness` must be a finite value larger than 0. As in the dialog, the model is in 3D model space. |
 | `remesh_elements(region, ...)` | Remeshes the shell elements of a region, and raises when none was remeshed (a region of solid elements only). The region is a selection or an `ElementSetName` region; the selection target is `elements`, as the dialog picks them, or `geometry`. `max_size` and `min_size` are at least 0, and a `min_size` larger than the `max_size` it ends up with - the one given or the default - is refused naming both; `hausdorff` is larger than 0. |
 | `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. `thickness` must be larger than 0 and `number_of_layers` at least 1. As in the dialog, the model is in 3D model space and every named part is a manifold, consistently oriented shell part. |
+| `change_element_order(part_names, second_order=True, project_to_geometry=True)` | Changes the element order of the named model parts. With `second_order=True` the linear elements become parabolic: a midside node is added at the middle of every straight element edge, shared by the elements and parts that share the edge, and an edge that already has a midside node keeps it. With `second_order=False` the parabolic elements become linear and the midside nodes no element uses any more are removed. Element ids, part names, element sets and surfaces are kept, and the CalculiX element type of each part follows the order, so `C3D8R` becomes `C3D20R` and back. Every named part is a mesh part of beam, triangle, quadrilateral, tetrahedron, pyramid, wedge or hexahedron elements. With `project_to_geometry=True` the new midside nodes on the model edges and faces of a part meshed from CAD geometry are moved onto that geometry, unless one would move farther than half of the length of its edge; a part without CAD geometry keeps its midside nodes on the straight edges. The midside nodes of the elements that are parabolic already are projected the same way with `project_to_geometry=True` and moved back to the middle of the straight edges with `project_to_geometry=False`. |
 | `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. The base part selection target is `parts`, as the dialog picks them, or `geometry`, and the splitter surface selection target is `surfaces`. `max_size` and `min_size` are checked as by `remesh_elements`. As in the dialog, the base part is a solid part meshed with tetrahedra only. |
 | `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
 
-The five tools are **one-shot operations**: they run once and are replayed only during a regenerate.
+The six tools are **one-shot operations**: they run once and are replayed only during a regenerate.
 The tools given a selection - `generate_boundary_layer`, and `remesh_elements` and
 `split_part_mesh_using_surface` when their region is a selection - store that selection, not the
 resolved IDs, so a regenerate that rebuilds a different mesh re-resolves them. `thicken_shell_mesh`
-names its parts and `update_nodal_coordinates_from_file` its file.
+and `change_element_order` name their parts and `update_nodal_coordinates_from_file` its file.
 
 ### `MeshSetupItems`
 
@@ -1056,7 +1059,8 @@ item does not use in the state it ends up with is refused before its range, nami
 used: the factors against `relative_size`, the two Hausdorff distances of a shell MMG item against `relative_size`,
 the QuadWild settings of a sweep against `algorithm_2d`, the `recombine_min_quality` of a Gmsh item against
 `algorithm_recombine='None'`, the `transfinite_angle_deg` of a Gmsh, Netgen or QuadWild item against
-`transfinite_three_sided='No'` together with `transfinite_four_sided=False`, and the `smooth`, `alpha`,
+`transfinite_three_sided='No'` together with `transfinite_four_sided=False` (and, for `shell_gmsh` and
+`sweep_mesh`, `transfinite_submapped=False`), and the `smooth`, `alpha`,
 `flow_profile`, `boundary_layer` and transfinite settings of a QuadWild shell item against `preview=True`, which
 shows the triangulation without running QuadWild. Such a value is also left out of `get_settings`. A minimum is checked
 against the maximum the item ends up with - the one given, or the one it keeps or takes from the selected parts - so a
@@ -1080,7 +1084,253 @@ item, with one exception: the transfinite mesh also takes `algorithm_2d` and `al
 hidden, because they set the mesh size the 2D algorithm needs and mesh the faces and volumes it does not structure.
 A shell has no volume and a sweep builds its volume mesh itself, so neither takes `algorithm_3d`.
 `recombine_min_quality` is shown and taken only while `algorithm_recombine` is not `None`, and
-`transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`.
+`transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`, or,
+for `shell_gmsh` and `sweep_mesh`, `transfinite_submapped` is `True`.
+`transfinite_submapped` belongs to `shell_gmsh` and `sweep_mesh` and is `True` by default, like `transfinite_four_sided`; an item
+read from a file written before the setting existed has it `False`. It meshes as a structured grid every face whose
+vertices are all ends, sides or corners by the interior angle of the face there: an end
+from 180 degrees minus `transfinite_angle_deg` to `transfinite_angle_deg`, a corner from 360 degrees minus it to 180
+degrees plus it, and a side between, the ends outnumbering the corners by four and at least one corner, such as L, T,
+U, plus and staircase shaped faces. A face this rule leaves out is classified again by the turns of its vertices and of
+its edges, so that a fillet, which turns a corner in its middle, and a chamfer, whose two vertices each turn by half a
+corner, are taken as well: a filleted or chamfered L or U, a rectangle with rounded corners, a five-sided house. A
+fillet carries an even number of elements, as its two halves are two sides of the grid; a half circle, the end of a
+slot or of a slot-shaped plate, turns twice and carries a multiple of four, its quarters, half and quarter being three
+sides. A face may have holes with corners - a rectangular tube or box section, a plate with rectangular,
+L-shaped or filleted cut-outs, a slot - each classified by the same rules, its corners turning the other way, and placed
+in the grid where it lies; its outer loop then needs no corner. A round hole - one closed edge, two half circles or four
+quarters of equal length - is a square in the grid with its corners at 45 degrees, so it carries a multiple of four
+elements, as many on each of its edges, and bolt holes, a plate with a round hole or an L bracket with one are taken. A
+hole turned off the outline by more than 20 degrees from a multiple of 90, such as a diamond, an elliptic hole, and a
+disc are not submapped. A face of exactly two loops that run roughly parallel - an annulus, a washer, an elliptic ring,
+a tube with or without corner radii, a plate with a large bore, a diamond or an elliptic hole - is meshed as a ring
+instead, unless its inner loop is shorter than a quarter of its outer one, as a small hole is, or its loops do not run
+side by side, as with a bore far off the centre or a round hole in a long face, where a line of the ring would meet a
+loop at less than 30 degrees: both loops carry the same
+number of elements, each node of one joined to a node of the other, with layers of elements between them as many as
+the distance between the loops over the element size, at least one. Where the two loops have as many edges facing each
+other one to one, each pair carries the same number, otherwise only the two loops do; a number of elements set on one
+loop carries over to the other, and numbers that make the two unequal leave the face free. A shell face that is both
+a ring and submapped keeps its lattice when every loop has sharp corners. The other faces that qualify for both use
+their ring when both the smallest and mean distances between loops are below 1.5 element sizes, and their lattice
+otherwise. A face of `shell_gmsh` closed along exactly one seam
+between exactly two closed rims - a full cylinder, a cone frustum, a pipe bend, a surface of revolution or extrusion of
+a closed profile, also cut obliquely or with its rims split into several edges - is meshed as a tube, a ring that does
+not lie flat: both rims carry the same number of elements N, the seam M, node i of one rim is joined to node i of the
+other counted from the seam, and the face is N x M quads with no irregular node. The rims are balanced like the loops
+of a ring - edge by edge where their vertices lie at the same shares of the way round from the seam, by their totals
+otherwise - so a number set on one rim carries over to the other and numbers that make them unequal leave the face
+free; the seam keeps its own count or the one set on it. A face with a hole besides its rims, a face closed along two
+seams (a torus) and a face with a degenerate edge (a cone with its apex, a sphere) are no tubes, and a tube whose grid
+would fold or have a quad corner of a scaled Jacobian below 0.2 is meshed free; the output says why ("Tube mapping:
+Surface N is meshed free - reason"). A face of `shell_gmsh` closed along exactly one seam that ends in a pole - the
+apex of a cone, the pole of a sphere - at one end and on one closed rim at the other (a dome, a spherical cap, a cone
+with its apex, a paraboloid, an elliptical or torispherical head, also with its rim split or cut obliquely), or in a
+pole at both ends (a sphere, a spheroid), is meshed as a cap, an O-grid: N elements round, rings of N quads from the
+rim inward, and around each pole a block of a x b quads, 2 (a + b) = N, whose four corners are its only irregular
+nodes; the seam is a line of the grid through the rings and the block to the pole. The rim total is balanced even and
+8 at least with the other structured faces, so a dome on a cylinder carries the count of the cylinder (a pressure
+vessel is structured throughout); a sphere takes N from the element size and its longest circle. The seam keeps the
+number the mesh size asks for unless the blocks would take more than 0.45 of it, then it is raised, or keeps the
+number set on it. A cap is meshed on the nodes of its edges before gmsh meshes the other surfaces, so it does not
+depend on gmsh's own mesh at the pole, which at the apex of a sharp cone folds, splits the edges or fails. A rim set to
+an odd number or to fewer than 8, a seam set too short to leave a ring, and a grid that would fold or have a quad
+corner below 0.1 leave the face to gmsh, meshed free ("Cap mapping: Surface N is meshed free - reason"); the floor is
+half that of the other structured faces because the four quads at the apex of a cone share the angle round it (0.26 at
+a half angle of 15 degrees, 0.2 at 11) and gmsh's free mesh is no better there. A face with a hole besides its rim is
+no cap, nor is a face of a plane, a cylinder or a surface of extrusion, which has no pole (an edge with a free end
+inside it, the edge of a baffle, is no seam), and under `algorithm_2d='QuasiStructuredQuad'`, which lays its own quads
+round a pole, a cap is left to gmsh.
+A face of `shell_gmsh` of one boundary loop with exactly two corners - a half disc, a dome cut in half through its
+pole, the wedge of a sphere between two meridians, a cone revolved by more than 180 degrees -, with one corner - a
+teardrop, a half disc with one corner rounded - or with no corner - a disc of one closed edge or of several arcs, an
+ellipse, a stadium, a rounded polygon, a cap of a sphere cut off by a plane, a half sphere between two meridians
+meeting at its poles - is meshed as a lens face. With two corners, one inner line from a node of one side to a node of
+the other splits it into two three-sided pieces of three blocks of quads each, so its grid has two inner nodes of three
+quads. With no corner, a first line across it splits it into two such faces, four inner nodes of three quads: the line
+runs between two poles of the surface, from a pole to the node of the loop opposite it by length, or else from each of
+its first four vertices and from the node farthest from its centre to the node opposite, and the grid that is best in
+space once smoothed is kept. With one corner, a line across the corner from the node at 0.25, 0.3 or 0.35 of the length
+of the loop from the corner to the node as far from it the other way leaves a three-sided piece at the corner and a
+two-sided rest, three inner nodes of three quads, the best of the three grids kept. A side with a pole of the surface
+inside it (the half dome) is split there, otherwise near the middle of each side, and the line runs straight in the
+parameters of the surface, from a pole along a meridian. The sum of its edges is balanced even and each side 4 elements
+at least, the loop of a face with one corner or none 8 at least, with the other structured faces, so a half dome on a
+half cylinder carries the count of the cylinder. A thin lens face, whose line would otherwise carry far
+more elements than its length asks for because its sides carry different counts (a flat circular segment, whose arc is
+given more elements than its chord), also asks for equal counts on its two sides, at the weakest tier, which never
+changes a number set on an edge or a structured face. Once its pieces are laid, the nodes inside the face (those of the
+line included) are smoothed together, in the parameters of the surface or in the chart of its one pole, so that the
+grid lines run on smoothly across the line; the smoothed grid is kept only when it is no worse in space, and a face with
+two poles is not smoothed. A lens face is meshed on the nodes of its edges before
+gmsh meshes the other surfaces, like a cap; numbers set on its edges that leave an odd sum, a side below 4 or a loop of
+one corner or none below 8, and a grid that would fold or have a quad corner below 0.2, leave it to gmsh, meshed free
+("Lens mapping: Surface N is meshed free - reason"). A lens face that is submapped as well (a planar half disc, a
+stadium, a rounded rectangle) is meshed as the kind whose grid, laid on the face alone on the counts that kind asks
+for, is better: it keeps its submapped grid when the worst quad corner of that grid has a scaled Jacobian of 0.5 at
+least, and otherwise takes its lens grid when that one is better in its worst corner and stretches no element beyond
+1.5 times the maximum element size (so a stadium is a lens face at every size, while a rectangle with small fillets
+stays submapped). A submapped grid refused on the face alone makes it a lens face, and one refused on the counts the
+balance gives it sends the face once more into the balance as a lens face; refused at the meshing all the same, it is
+laid as a lens face on the counts of the submapping. One whose counts the submapping cannot balance (a half disc with
+one corner rounded) is balanced as a lens face instead, without the submapping message. A lens face with no straight
+edge (a disc of arcs, an ellipse, a lens of two arcs) is never submapped. A face whose one reentrant vertex is a pole of
+its surface (a dome, a cone or a paraboloid revolved by more than 225 degrees about its apex) with two corners or more
+is a lens face as well: lines along the surface from the pole split it into pieces of about a right angle at the pole
+(three from 225 to 315 degrees), each three-sided, three blocks of quads, or four-sided, one block, so the pole is in
+one quad per piece; a reentrant vertex that is no pole leaves the face free as before.
+Under `algorithm_2d='QuasiStructuredQuad'` a lens face is left to gmsh.
+The corners of the 3-sided, 4-sided and lens faces are judged by the angle between their edges at a vertex, unless the
+interior angle of the face there differs from it by more than 30 degrees - the apex of a cone, round which the face
+turns by its developed angle, or a reentrant vertex - then by the interior angle; a reentrant vertex (above 360 degrees
+minus `transfinite_angle_deg`) makes the face neither 3- nor 4-sided (a dome revolved by 270 degrees is a lens face
+split at its pole). A 3-sided or 4-sided face or a piece of a lens face with a pole of its surface at a corner is mapped
+in a chart that is regular at the pole - the development of a cone, the stereographic projection of a sphere - and in
+the parameters of the surface, the better grid kept; a 3-sided or 4-sided face of `shell_gmsh` with a pole is meshed
+before gmsh meshes the other surfaces as well (but under `QuasiStructuredQuad`, which keeps gmsh's transfinite mapping
+of a 4-sided one), the inner nodes of a 4-sided one smoothed in the chart, and one whose grid would fold or have a quad
+corner below 0.2 is meshed free ("Transfinite: Surface N is meshed free - reason"). A 3-sided face of `shell_gmsh`,
+with a pole or without, whose three blocks would fold, in the
+parameters of the surface or in space, or have a quad corner of a scaled Jacobian below 0.2 in space is meshed free on
+the counts balanced for it ("Transfinite: Surface N is meshed free - reason"), as the other structured faces are. A
+3-sided face without a pole and with a sharp corner, whose quad there cannot be better than the sine of the corner
+(0.2 at 11.5 degrees), is asked for half of that sine instead: a free mesh is no better there and keeps triangles.
+Before placing the grid on a 4-sided structured face of `shell_gmsh`, the mesher matches nodes at equal fractions of
+arc length along opposite sides when one is split or shares a pattern with its neighbour. The two sides qualify when
+their shapes agree. The mesher samples nine equally spaced arc-length fractions and compares every distance between
+samples after dividing by the side length. Each comparison must agree within 0.02. This allows trapezoids and
+concentric arcs of different lengths. A submapped face without a lens fallback can share this spacing across its
+interior lattice lines, including those joining its outer boundary and cornered holes or connecting two cornered
+holes. Spacing pairs pass through round holes and the nodes on their rims stay fixed. When the face also has
+cornered holes, placement still includes the round holes in the same order as in the mapper.
+The mapper places the holes from the meshed boundary, breaking near-ties in offset distance by lattice i then j.
+The outer logical outline uses edge lengths scaled to close the outline. An affine fit maps the hole corners into
+that frame. Aligned planar shell submaps without a round loop or lens fallback place interior nodes at crossings
+of perpendicular lattice lines; a line that a hole or a reentrant corner cuts may lie differently in each piece.
+Lean is the arctangent of the mismatch along the sides divided by the distance between facing nodes. Below 5 degrees
+of initial largest lean, a chain keeps a match only if every face bordering a moved edge belongs to a spacing
+chain and the largest remaining lean is at most 0.1 degrees. A moved submap with only cornered loops must reach a
+worst scaled Jacobian of 0.9999. A moved submap with a round hole needs a valid grid whose worst scaled Jacobian
+drops by at most 0.02 from the original valid grid. At or above 5 degrees, the mesher restores the chain if an
+originally accepted submap is refused or its worst scaled Jacobian falls below 0.5 and drops by more than 0.02.
+Vertices, element counts, and nodes on submap turn edges and on the rims of round holes stay fixed. Moved nodes
+keep at least a third of the even spacing between them. Edges owned by other structured meshers or bordering free
+faces less than three elements deep stay fixed.
+For chains at or above 5 degrees, a submap refused on both boundaries leaves the chain and matching restarts.
+A free face beside a moved edge is trialled on that boundary. If its worst scaled Jacobian falls below 0.5 and by
+more than 0.02 from the original boundary, its edges stay fixed for the rematch. Trials cover None, Simple, Blossom
+and QuadDominant, excluding periodic surfaces, the quasi-structured quad algorithm and first-order optimized shells.
+The 4-sided and submapped sources of `sweep_mesh` that gmsh meshes are matched by the same rules once the edges are
+meshed. A wall of the sweep takes part by its source and target sides and carries the spacing along the sweep, through
+the sources of the blocks above, and a target follows its source. No free face is trialled, and a wall closed along a
+seam and a ring, lens, 3-sided or free source keep their edges. A planar submapped source whose boundary nodes then
+face each other places its inner nodes at the crossings of perpendicular lattice lines, as a shell face does.
+A face on which two sides of several edges still disagree, so that its grid has a corner of a scaled Jacobian below
+0.5 that is also worse than the corners of the face itself, is meshed free as well - converted by `QuadDominant` when
+that is the recombination, and by the same conversion under a full-quad recombination, where it must end as quads
+only - and the mesh with the better worst corner in space is kept, the grid on a tie, so a face never ends worse than
+its grid and no other face is meshed twice. The output says which was kept ("Transfinite: Surface N is meshed free -
+the numbers of elements on its sides lean its grid by M degrees", or "... is meshed with its grid - ... and the free
+mesh is no better").
+Where the edges of a face of `shell_gmsh` start its boundary loop, and which way they run it, does not change whether it
+is submapped or a lens face, or its grid: a face of one loop is laid from its lowest vertex, and judged from every
+vertex of its loop, the best kept, when its grid from there is poor.
+A structured face whose surface gmsh bounds by other edges than the part shows for it - a face whose
+visualization lost part of its boundary, a surface gmsh did not close along its seam - is meshed free with the reason
+("... is meshed free - the surface gmsh meshes is bounded by other edges than the part shows for it").
+The counts of a submapped face leave room for every
+hole and a row of elements on each side of it, so a wall thinner than the element size is one element thick, its
+elements along the outer edges shortened at a corner so that the corner element does not fold. Its edges are balanced
+together with the 3-sided and 4-sided faces, the edges
+running one way against those running the opposite way, so a number of elements set on one edge carries over, and its
+sides that face each other across it are kept at least one element apart, so a web or a leg thinner than the element
+size keeps a row of elements. A face
+whose counts cannot be balanced, whose counts do not close a valid outline or leave no room or no place for a hole,
+whose fillet was set to an odd number of elements, whose half circle or round hole was set to a number that is not a
+multiple of four, or whose grid would fold or have a quad corner of a scaled Jacobian below 0.2 - as at the middle of a
+convex fillet of 8 or more elements or at the ends of a convex half circle of 16 or more - is meshed free instead, and
+the output says why; the meshing never fails for it.
+A sweep submaps only its source surfaces, of the blocks swept between two ends, by the rules of its structured
+sources, a source with holes as well, whose inner walls are swept like the outer ones, and meshes a ring source - a
+pipe, a tube, a flange - as a ring by the same choice, and a plane source of one loop with two corners, one or none -
+a disc, an ellipse, a half disc, a teardrop, a stadium - as a lens face, chosen against the submapping as on a shell
+(one with no straight edge is never submapped): the rows that tie the counts
+of such a source are given up at a price rather than refuse the sweep, also
+when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free with a
+message, as is one whose grid would fold or have a quad corner below 0.2; under
+`algorithm_2d='QuadWild'` a submapped, ring or lens source is left to gmsh. A source of a revolved block, a curved
+source and, under `algorithm_2d='QuasiStructuredQuad'`, a lens source are not structured this way.
+`algorithm_recombine` of a Gmsh item is `None`, `Simple`, `Blossom`, `SimpleFullQuad`, `BlossomFullQuad` or
+`QuadDominant`.
+`QuadDominant`, for `shell_gmsh`, meshes like `Blossom` - gmsh then gives every edge it meshes itself an even number of
+elements - and then turns every face gmsh meshed free - not transfinite, three-sided, submapped, a ring or a tube -
+into quads on the boundary nodes gmsh placed, at the element size asked for, keeping triangles only where quads would
+be the worse elements or the total around the face is odd: the triangles left are paired and merged into quads, its
+valences evened out and its nodes smoothed; a pair the merging leaves has its region meshed
+again with quads only or the path between its triangles split along its length, which adds nodes inside the face;
+such a result is kept only when it does not narrow the elements below an aspect of about 10:1 or below what gmsh's mesh
+had, so a narrow face may keep a pair of triangles rather than stretched quads.
+Only an even number of elements around a face allows quads only, so the edges of the free faces are balanced to an
+even total around each face where no number set on an edge or structured face holds them, giving way to everything
+else; the balance measures the edges as gmsh meshes them in the end. A face that still has an odd total keeps one
+triangle, and its message names what holds the total odd (the numbers set on its edges, the structured faces beside
+it, or the even totals of the faces beside it). A face is kept as gmsh meshed it when the conversion would not lower
+its number of triangles, would fold a quad or have a corner of a scaled Jacobian below 0.2 that gmsh's own mesh does
+not have - below half the sine of its sharpest corner instead where that corner is below 23.6 degrees, as on a sliver
+of a blend - and the output says why a face keeps triangles ("Quad-dominant meshing: Surface N keeps M triangles -
+reason"). A face closed along a seam - a full cylinder, cone, torus or other surface of revolution or
+extrusion, with or without holes - is converted as well: it is cut open along its seams, and a seam does not count in
+the even total, since the face meets it on both sides. While `transfinite_submapped` is on, a face of one seam between
+two closed rims is a tube instead, quads with no irregular node, and a face of one seam ending in a pole a cap, quads
+with the four corners of the block at each pole as its only irregular nodes, and a face of one loop with two corners,
+one or none - a disc, a teardrop - a lens face; only one the tube, the cap or the lens face leaves free is converted.
+A face with an edge or a point inside it is converted with its nodes there kept in place and its edge inside never
+crossed; the edge does not count in the even total, since the face meets it on both sides. A face with a degenerate
+edge (the pole of a sphere, the apex of a cone) that is no cap, lens, 3- or 4-sided face, or a face the cap or the
+lens face leaves free, and on which gmsh left triangles, is converted in its projection on its mean plane or, where
+that folds an element, in the conformal chart round its pole; it has no even total of its own, which the message of
+one left with an odd total says. One that neither
+unfolds, a cap reaching far beyond its equator, one gmsh meshed with quads only, and a face with an edge inside it
+that is closed along a seam are, for now, kept as gmsh meshed them.
+A face gmsh meshed with quads only has its valences evened out and its nodes smoothed in the same way, which is kept
+only when it leaves no more irregular inner nodes, no fold and no worse corner.
+Second order elements and the full-quad recombinations work as before; gmsh refuses a full-quad recombination of a
+surface closed along a seam, so such a face fails the meshing under `SimpleFullQuad` and `BlossomFullQuad` unless it is
+a tube, which gmsh leaves unrecombined and the grid replaces, or a cap, both on even counts; gmsh also refuses it on
+any face of a periodic surface (a sphere, a cone, a cylinder), so a lens face, a 3-sided or 4-sided face with a pole,
+and a 3-sided, submapped or ring face of such a surface are left unrecombined as well and laid on even counts (one whose
+grid is refused keeps gmsh's triangles, with its message), and a free face of such a surface (a cone sector whose sides
+fold the transfinite grid) fails the meshing as before. A structured face whose parameter range runs over the seam of
+its periodic surface without being closed (a patch of a cylinder, a cone, a sphere or a torus lying across the seam) is
+meshed as the same face with the seam at an edge.
+`tetrahedral_gmsh` takes `QuadDominant` as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep
+turns its free sources into quads in the same way by default, with no setting, and asks the sweep counts for an even
+total around each such source at the weakest tier, so that a block whose free source becomes quads only is swept into
+hexahedra only.
+A part that is its own mirror image is meshed as one, by `shell_gmsh` and by a sweep. Up to three planes
+perpendicular to each other are found from the geometry alone, across which the part as a shape is its own image.
+Its edges need not be split alike on both sides of a plane: where the image of a vertex - the seam of a circle, the
+end of an edge inside a straight side - falls inside an edge, the edge is split there for the mesh and gets a node,
+so a plate with a bore is mirrored across both its middle planes wherever the modelling kernel put the seam. Across
+each plane the balance is asked for the same number of elements on a piece of an edge and on its image and for the
+sums a mirrored grid needs where the plane cuts a structured face: a node, or the middle of an element, at both ends
+of the cut, a node on every edge of a lens face the plane crosses, and a multiple of eight on a round hole of a
+submapped face in the plane. They are asked at the weakest tier, so a mirrored mesh never changes a number the user
+set and never costs a structured face. The inner lines of a lens grid and the squares of the round holes of a
+submapped face are then chosen as mirror images, and at the end a node and its image are put half way between
+where they lie and the mirror images of each other, wherever the elements are mirror images of elements with no
+node farther from the mirror image of its image than half the shortest element side at it; the elements are matched
+across the whole surface mesh, so the seam of a cylinder and an edge between two faces that has no edge as its image
+are matched with a line of the mesh. A face meshed free seldom is mirrored and is left as gmsh meshed it. The output
+window says how far it went ("Mirror: the part is symmetric across N plane/s - the mesh of M of its K surfaces is
+mirrored.", for a sweep "of its K source and side surfaces"). A plane across which the element sizes or the numbers
+of elements set on the part are not mirrored - a local mesh size on one side only, a number set on an edge that is
+split unlike its image, or edges meshed with another spacing - is not used, which a line of its own says. A face
+whose grid cannot be mirrored by its kind (a face of five sides mapped as one of four keeps one of its two like
+corners flat) is left as it is. A sweep takes the planes of its part, adds their rows to its own counts, mirrors
+its sources and side faces before the layers are built on them, and so sweeps a mirrored mesh; the sources QuadWild
+meshes are not mirrored. `symmetry` of `add_sweep_mesh` is another thing: it meshes one of the cells of a compound
+that are mirror images and copies its mesh onto the others.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
 3-sided face with `Polar` is the structured grid gmsh collapses at one corner, with triangles there and arcs around
 it as a revolution about that corner would make, and its two sides meeting there carry one number of elements. The
@@ -1096,9 +1346,9 @@ polar face the counts fixed on its sides do not allow is meshed as an ordinary p
 | Item | Settings |
 | --- | --- |
 | `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_solid`, `optimize_high_order` |
-| `shell_gmsh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell` |
+| `shell_gmsh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_submapped`, `transfinite_angle_deg`, `optimize_first_order_shell` |
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle_deg`, `transfinite_three_sided` (`Polar` caps the five-faced cells with the grid gmsh collapses at one corner and fills them with wedges and hexahedra; `Mapped` meshes the caps as three blocks of quads and, recombined, the cells by hexahedra only) |
-| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). gmsh meshes the walls whichever mesher meshes the sources, so the recombination and optimisation settings apply with either `algorithm_2d`; as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'`, refused naming `algorithm_2d` otherwise and left out of `get_settings` |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_submapped`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). gmsh meshes the walls whichever mesher meshes the sources, so the recombination and optimisation settings apply with either `algorithm_2d`; as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'`, refused naming `algorithm_2d` otherwise and left out of `get_settings` |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,
@@ -1744,7 +1994,7 @@ refuse to name it, naming the argument.
 | --- | --- |
 | `add(name, selection)` | Creates an element set from a selection. The selection target is `elements`. |
 | `replace(old_name, name=None, selection=None)` | Replaces an existing element set. A value that is not given is kept. |
-| `add_from_quality(name, metric, part_names, larger_than, limit)` | Adds an element set of the elements of the named model parts whose quality metric is larger, or with `larger_than=False` not larger, than the limit, and returns the `ElementSet`. `metric` is one of the gmsh quality measures `minDetJac`, `maxDetJac`, `minSJ`, `minSICN`, `minSIGE`, `gamma`, `innerRadius`, `outerRadius`, `minIsotropy`, `angleShape`, `minEdge`, `maxEdge` or `volume`, in any case; a name another mesh entity or a part uses is refused, because a part is written to the solver input as an element set of its name, and the dialog numbers its set past those names for the same reason. A part named twice in `part_names` is refused. It has no `replace_*`; replace the set with `replace`. |
+| `add_from_quality(name, metric, part_names, larger_than, limit)` | Adds an element set of the elements of the named model parts whose quality metric is larger, or with `larger_than=False` not larger, than the limit, and returns the `ElementSet`. `metric` is one of the standard metrics `ScaledJacobian`, `AspectRatio`, `EdgeRatio`, `MinimumAngle`, `MaximumAngle` (both in degrees), `Skew`, `Warpage` (in degrees) or `Taper`, measured on the corner nodes and only for the element types a metric is defined for - an element it is not defined for is in no set - or one of the gmsh quality measures `minDetJac`, `maxDetJac`, `minSJ`, `minSICN`, `minSIGE`, `gamma`, `innerRadius`, `outerRadius`, `minIsotropy`, `angleShape`, `minEdge`, `maxEdge` or `volume`, in any case; a name another mesh entity or a part uses is refused, because a part is written to the solver input as an element set of its name, and the dialog numbers its set past those names for the same reason. A part named twice in `part_names` is refused. It has no `replace_*`; replace the set with `replace`. |
 | `convert_to_mesh_parts(names)` | Converts the named element sets into mesh parts. |
 
 `ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()` (an `IntList`).
@@ -1770,12 +2020,12 @@ and `get_face_ids()` (an `IntList`).
 
 | Member | Description |
 | --- | --- |
-| `add(name, coordinates, name_visible=None, color=None)` | Creates a reference point at `[x, y, z]`. In a 2D model the point is a 2D point, as the dialog makes it, and a non-zero `z` is refused. |
-| `add_from_selection(name, created_from, selection, name_visible=None, color=None)` | Creates a reference point whose coordinates the mesh computes from selected points. |
-| `add_from_region(name, created_from, region_type, region_name, name_visible=None, color=None)` | Creates a reference point whose coordinates the mesh computes from a named region. |
-| `replace(old_name, name=None, coordinates=None, name_visible=None, color=None)` | Replaces an existing reference point. Coordinates that are not given are kept, and giving them turns the point back into a coordinate point. |
-| `replace_from_selection(old_name, name=None, created_from=None, selection=None, name_visible=None, color=None)` | Replaces a reference point by selected mesh points. |
-| `replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None, name_visible=None, color=None)` | Replaces a reference point by a named region. |
+| `add(name, coordinates, name_visible=None, color=None, node_id=None, rotation_node_id=None)` | Creates a reference point at `[x, y, z]`. In a 2D model the point is a 2D point, as the dialog makes it, and a non-zero `z` is refused. |
+| `add_from_selection(name, created_from, selection, name_visible=None, color=None, node_id=None, rotation_node_id=None)` | Creates a reference point whose coordinates the mesh computes from selected points. |
+| `add_from_region(name, created_from, region_type, region_name, name_visible=None, color=None, node_id=None, rotation_node_id=None)` | Creates a reference point whose coordinates the mesh computes from a named region. |
+| `replace(old_name, name=None, coordinates=None, name_visible=None, color=None, node_id=None, rotation_node_id=None)` | Replaces an existing reference point. Coordinates that are not given are kept, and giving them turns the point back into a coordinate point. |
+| `replace_from_selection(old_name, name=None, created_from=None, selection=None, name_visible=None, color=None, node_id=None, rotation_node_id=None)` | Replaces a reference point by selected mesh points. |
+| `replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None, name_visible=None, color=None, node_id=None, rotation_node_id=None)` | Replaces a reference point by a named region. |
 | `hide(names)`, `show(names)` | Reference point visibility. |
 
 `created_from` decides which of the two add methods applies. The three point modes `OnPoint`,
@@ -1787,7 +2037,12 @@ type is `NodeSetName` or `SurfaceName`.
 `[red, green, blue]`, `[red, green, blue, alpha]` or a color name. Both are part of the stored definition and keep
 their defaults when they are not given.
 
-`ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `visible`, `valid`,
+`node_id` and `rotation_node_id` are the ids of the reference node and of the rotation node a rigid body uses in the
+input file. They are fixed, so user keywords can refer to them: an add takes the next free ids above the mesh and the
+other reference points for the ones it is not given, a replace keeps the stored ones, and the mesh never gives a node
+either id. An id a mesh node or another reference point holds is refused, as are two equal ids.
+
+`ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `node_id`, `rotation_node_id`, `visible`, `valid`,
 `get_coordinates()` (`[x, y, z]`), `get_equations()` (a `dict[str, list]` with the coordinates under
 `coordinates`, the argument of `add` and `replace`, when any of them was entered as an expression; its plain
 coordinates are numbers, and a point without an expression returns an empty `dict`) and `get_construction()` (a
@@ -2071,6 +2326,7 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 | --- | --- |
 | `add(name, surface_interaction_name, master_region, slave_region, method=None, small_sliding=None, adjust=None, adjustment_size=None, master_color=None, slave_color=None)` | Adds a contact pair. `method` is `NodeToSurface`, `SurfaceToSurface`, `Mortar` or `Massless`. |
 | `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. A `method` other than `NodeToSurface` on a pair with small sliding is refused unless `small_sliding=False` is given too, because no other method supports it. |
+| `search(distance, angle_deg=35, pair_type='Tie', group_by='ByParts', solid=True, shell=True, shell_edges=True, ignore_hidden=True)` | Searches the mesh for touching faces of different parts, as **Interaction > Search Contact Pairs** does, and returns a `ContactSearchResult` without changing the model. See below. |
 | `swap_master_slave(names)` | Swaps the two sides. |
 | `merge_by_master_slave(names)` | Merges the contact pairs that share a master and a slave surface. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
@@ -2094,6 +2350,95 @@ the `Default` size the dialog offers, is refused together with `adjust=False`, a
 The dialog hides the size while `adjust` is `False`, so it then reads back as `None` too, and the stored size comes
 back when the adjustment is turned on again. A replace that does not change the method keeps the small sliding the
 pair stores, even where the method does not write it; only a change of method clears it.
+
+#### Searching for contact pairs
+
+`search` finds the faces of different parts that lie within `distance` of each other and face each other within
+`angle_deg`, the way the **Search Contact Pairs** dialog does, and takes the dialog's settings as arguments, with
+the dialog's defaults. `distance` is in model units and larger than 0, and `angle_deg` lies between 0 and 180.
+`pair_type` is `Tie` or `Contact`. `group_by` is `None`, one pair for every two touching faces, `ByParts`, one pair
+for every two touching parts, or `ByContactGraph`, which merges the faces that share nodes so that a node is a slave
+node only once. `solid`, `shell` and `shell_edges` choose which faces are searched, and at least one of them must
+stay `True`; `ignore_hidden` leaves hidden parts out. The search needs the mesh, and it records nothing.
+
+**The result follows the mesh and the geometry.** A recorded script that searches runs the search again when it is
+regenerated, on the mesh the model has then, so a changed geometry, or a mesh fine or coarse enough to move a gap
+across `distance`, finds other pairs, and they are named and numbered as they are found. That is intended: the ties
+follow the model. A script that must add the same pairs every time writes their `master_geometry_ids` and
+`slave_geometry_ids` to a file once and adds them from there; the geometry IDs number the faces of the geometry, so
+they hold across a remesh but not across a change of the geometry.
+
+### `ContactSearchResult`
+
+What `contact_pairs.search` found, a list of `FoundContactPair` that `len()`, iteration and a position index
+read. Nothing is in the model until `add` is called.
+
+| Member | Description |
+| --- | --- |
+| `pair_type` | `'Tie'` or `'Contact'`, as searched. |
+| `count` | The number of pairs found. |
+| `add(adjust=False, surface_interaction_name=None, method='SurfaceToSurface')` | Adds every pair found using command history, as **OK** of the dialog adds them, and returns the names of what it added as a `StringList`. |
+
+`add` gives every pair the settings of the dialog's lower half:
+
+- A **tie** takes the search `distance` as its position tolerance. An `unresolved` pair, a tie whose sides the
+  search could not tell apart, is added as a surface holding all its faces, for the sides to be picked by hand, and
+  its name is returned among the others. `surface_interaction_name` and `method` are refused for ties.
+- A **contact pair** needs `surface_interaction_name`, and takes the search `distance` as its adjustment size.
+  `method` is `NodeToSurface` or `SurfaceToSurface`, the two the dialog offers; change it afterwards with
+  `contact_pairs.replace`.
+- Pairs that share a name, or whose name the model already holds, are numbered as they are added, and the tree
+  and the symbols are updated once, after the last one. Calling `add` again adds the pairs again, numbered.
+
+### `FoundContactPair`
+
+One pair of a `ContactSearchResult`. It is not a model item; its regions can be given to `constraints.add_tie` or
+`contact_pairs.add`, which is how a script adds only some of the pairs.
+
+| Member | Description |
+| --- | --- |
+| `name` | The name the pair is added under, before numbering: the master part, `_to_` and the slave part, or `Item` for a name that would be too long. |
+| `geometry_type` | The kind of the master and of the slave faces joined by a dash, such as `Solid-Solid` or `Shell-Edge`, each `Solid`, `Shell`, `Edge` for shell edge faces or `Mixed`. An unresolved pair names its one side. |
+| `unresolved` | `True` for a tie whose sides the search could not tell apart; all its faces are on the master side. |
+| `master_region` | The master faces, as a new `'femodel'` surface `Selection` of geometry IDs. |
+| `slave_region` | The slave faces the same way, or `None` for an unresolved pair. |
+| `master_geometry_ids` | The geometry IDs of the master faces, sorted, as an `IntList`. The `'geometry'` selection source takes them back. |
+| `slave_geometry_ids` | The geometry IDs of the slave faces the same way, or an empty list for an unresolved pair. |
+| `master_part_names` | The names of the parts of the master faces, sorted, as a `StringList`. |
+| `slave_part_names` | The names of the parts of the slave faces the same way, or an empty list for an unresolved pair. |
+
+The regions resolve to element faces, so `master_region.get_ids()` returns element face IDs; the geometry IDs a
+found pair is made of are read from `master_geometry_ids` and `slave_geometry_ids`.
+
+```python
+found = pmx.model.contact_pairs.search(0.01, angle_deg=35, pair_type='Tie', group_by='ByParts')
+print(len(found), 'pairs found')
+names = found.add()
+
+# Only the pairs between solids, one by one under names of the script's own
+for i, pair in enumerate(pmx.model.contact_pairs.search(0.01)):
+    if pair.geometry_type == 'Solid-Solid' and not pair.unresolved:
+        pmx.model.constraints.add_tie('Tie-%d' % (i + 1), pair.master_region, pair.slave_region,
+                                      position_tolerance=0.01)
+
+# Write the pairs to a file once, review it, and add the ties from it on every later run
+import json
+pairs = [{'name': pair.name,
+          'master_parts': list(pair.master_part_names), 'master_ids': list(pair.master_geometry_ids),
+          'slave_parts': list(pair.slave_part_names), 'slave_ids': list(pair.slave_geometry_ids)}
+         for pair in pmx.model.contact_pairs.search(0.01) if not pair.unresolved]
+with open('pairs.json', 'w') as f:
+    json.dump(pairs, f, indent=1)
+
+with open('pairs.json') as f:
+    for i, pair in enumerate(json.load(f)):
+        # A shell edge face needs the option the found regions carry
+        master = pmx.create.selection_by_ids('femodel', 'surfaces', 'geometry', pair['master_ids'])
+        slave = pmx.create.selection_by_ids('femodel', 'surfaces', 'geometry', pair['slave_ids'])
+        master.configure(enable_shell_edge_faces=True)
+        slave.configure(enable_shell_edge_faces=True)
+        pmx.model.constraints.add_tie('Tie-%d' % (i + 1), master, slave)
+```
 
 ## Steps and step content
 
@@ -2285,9 +2630,10 @@ command, naming the step type.
 ### `Loads`
 
 Reached as `step.loads`. It shares the collection verbs. Every `region` argument is a `Selection` or
-a `Region`; the selection target follows the load type. A gravity, a centrifugal and a body flux load
+a `Region`; the selection target follows the load type. A gravity, a centrifugal, a body force and a body flux load
 pick parts, as their dialog does, because the selection becomes an element set made of the picked parts;
-named, their region is an `ElementSetName` or a `PartName` region.
+named, their region is an `ElementSetName` or a `PartName` region. An edge load picks geometry edges, which the
+controller keeps in a node set.
 
 | Member | Selection target | Description |
 | --- | --- | --- |
@@ -2297,9 +2643,11 @@ named, their region is an `ElementSetName` or a `PartName` region.
 | `add_hydrostatic_pressure(name, region, first_point=None, second_point=None, direction=None, first_point_pressure=None, second_point_pressure=None, cutoff=None, ...)` | surfaces | A hydrostatic pressure. `cutoff` is `None`, `Positive` or `Negative`. The default `direction` is zero, so a direction must be given, and the two points must lie apart along it. |
 | `add_imported_pressure(name, region, file_name, pressure_time, pressure_variable_name, interpolator_type=None, magnitude_factor=None, geometry_scale_factor=None, ...)` | surfaces | A pressure read from an OpenFOAM case, named by its `.foam` file, and interpolated onto the surface. As the dialog does, a case without results, a `pressure_time` the case does not hold and a `pressure_variable_name` that is not a scalar field of that time are refused, on an add and on the load a replace ends with. |
 | `add_surface_traction(name, region, f1=None, f2=None, f3=None, p1=None, p2=None, p3=None, distribution_name=None, ...)` | surfaces | A surface traction. |
-| `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
+| `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A normal shell edge load (`*Dload EDNOR`). The dialog offers it only to edit an existing one; `add_edge_load` with `normal` replaces it. |
+| `add_edge_load(name, region, f1=None, f2=None, f3=None, normal=None, distribution_name=None, ...)` | edges | A force per unit length on geometry edges of solid, shell or 2D parts, written as the equivalent nodal forces in `*Cload` lines. Named, the region is a `NodeSetName` region of a node set created by picking geometry edges. A distribution is evaluated at the edge nodes and multiplies the components; in a cylindrical `coordinate_system_name` the components are radial, tangential and axial. Instead of the components, a `normal` acts normal to the edge in the plane of the shell or 2D part, a positive value pushing into the part as a pressure and `*Dload EDNOR` do; it needs edges that each bound one shell or 2D element, a scalar distribution and no coordinate system. On a shell the `normal` is written as `*Dload EDNOR` with the mean value over each element edge, so it follows the shell under NLGEOM; on a 2D part it is written as nodal forces. Giving the components or the `normal` on a replace switches between the two. An axisymmetric model refuses it. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | parts | A gravity load. |
 | `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | parts | A centrifugal load. The `rotational_speed` is in rad/s. The defaults of `axis_direction` and `rotational_speed` are zero, so a model that is not axisymmetric needs the direction, and every model the speed. |
+| `add_body_force(name, region, f1=None, f2=None, f3=None, distribution_name=None, ...)` | parts | A force per unit volume, written as `*Dload` `BX`, `BY` and `BZ`. A distribution is evaluated at the element centroids and multiplies the components; in a cylindrical `coordinate_system_name` the components are radial, tangential and axial. |
 | `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ..., auto_direction=None)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
 | `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
 | `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
@@ -2327,9 +2675,9 @@ The details the model imposes:
   `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
   force components without a distribution, the force per area components with one. The other group is
   refused, checked against the distribution the load carries after the call.
-- **A coordinate system belongs to a concentrated force or a surface traction.** The solver input
-  transforms only their nodes, and the dialog offers one only for them, so any other load refuses a
-  `coordinate_system_name` other than `Global`.
+- **A coordinate system belongs to a concentrated force, a surface traction, a body force or an edge load.** The
+  solver input orients only their components, and the dialog offers one only for them, so any other load, and an
+  edge load with a `normal`, refuses a `coordinate_system_name` other than `Global`.
 - **A phase belongs to a complex load.** Only a steady state dynamics step makes its loads complex, so
   `phase_deg` is refused in any other step and by a thermal or pre-tension load, and is read back only
   where it is taken. A phase is at least 0 and below 360 degrees: the load would wrap any other value
@@ -2338,11 +2686,18 @@ The details the model imposes:
   `p3`, `m1` and `m2` of a moment, and the third component of a hydrostatic point or direction. An
   axisymmetric model turns a centrifugal load about its y axis, so there `axis_point` must be `[0, 0, 0]`
   and `axis_direction` `[0, 1, 0]` when given. A negative `rotational_speed` is refused.
+- **A surface load of a two dimensional model acts on element edges.** The solver input gives a 2D
+  element no front or back face, so, as the dialog does, a `surfaces` selection of a pressure, hydrostatic
+  or imported pressure, surface traction, surface flux, film or radiation load is limited to element
+  edges (`shell_edges_only`), and a named surface not made of edges is refused. A pick that takes the
+  elements themselves, such as a `Geometry` box over an edge, is refused naming the picks that take
+  edges: `selection_by_pick` with `select_by` `'Edge'`, `'GeometryEdge'` or `'Geometry'`. A load already on
+  element faces is marked invalid.
 - **A load acts.** The dialog refuses on OK a load that would do nothing, and so does the API, in the
   dialog's words and naming the arguments, judged on the load an add or a replace ends with and on the
   value an expression evaluates to: a concentrated force, a moment, a gravity load or the component group
   a surface traction writes with every component 0, a pressure, a shell edge load or a pre-tension
-  `Force` with a magnitude of 0, a centrifugal load with a zero axis or a `rotational_speed` of 0, and a
+  `Force` with a magnitude of 0, an edge load with every component or its `normal` 0, a centrifugal load with a zero axis or a `rotational_speed` of 0, and a
   hydrostatic pressure whose direction is zero or whose two points lie on one plane across it.
 - **A direction is not zero.** A given `axis_direction` of a centrifugal load and `direction` of a hydrostatic
   pressure or a pre-tension load of zero length is refused naming the argument, as the dialog refuses it; so are
@@ -2365,7 +2720,7 @@ An **imported pressure** is read from its results file on every model check, so 
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The load name and the step it belongs to. |
-| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `gravity`, `centrifugal`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
+| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `edge_load`, `gravity`, `centrifugal`, `body_force`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
 | `active`, `visible` | Item state. |
 | `valid` | False when the region, distribution, amplitude, coordinate system or an equation the load refers to no longer resolves, or the load does not fit the model space; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region the load is applied to. |
@@ -3109,8 +3464,8 @@ Collection of user-defined result field outputs. These are postprocessing defini
 | `create_field_output_equation(name, equation, unit="/")` | Creates an equation draft. References use case-sensitive `FIELD.COMPONENT` names. |
 | `create_field_output_coordinate_system_transform(name, field_name, coordinate_system_name)` | Creates a coordinate-system transform draft for a vector or tensor field. |
 | `create_field_output_material_axes(name, field_name)` | Creates a draft of a tensor field in the material axes of the shells: axis 1 and 2 in the shell plane, axis 3 along the normal, as the material orientation of each shell element gives them, turned by the layer angle on each layer of a composite shell. It has the components of the source field, `S11` to `S31` for `STRESS`, and its invariants. A node off the shells reads NaN. |
-| `create_field_output_shell_plane_stress(name, field_name)` | Creates a draft of the plane stress of the shells from the in-plane components of a tensor field in the material axes: `S11`, `S22`, `S12`, the in-plane principal values `PRINCIPAL_MAX` and `PRINCIPAL_MIN`, the maximum in-plane shear `SHEAR_MAX`, and `ANGLE`, the angle in degrees from axis 1 to the maximum principal direction, in (-90, 90]. A node whose in-plane shear is below 0.1 % of half the difference of `S11` and `S22` is in its principal axes and reads exactly 0 or 90, and a node whose in-plane stress is practically zero - its maximum shear below a millionth of the largest in the field - has no principal direction and reads NaN in `ANGLE`. A node off the shells reads NaN. |
-| `create_field_output_composite_failure(name, field_name, criterion)` | Creates a draft of a failure criterion of the plies, evaluated from the in-plane stresses in the material axes with the composite strength of the material of each ply. `criterion` is `MaxStress`, `TsaiHill`, `TsaiWu` or `Hashin` (Hashin 1980, plane stress). The components are `FAILURE_INDEX`, `RESERVE_FACTOR`, the factor the stresses can be multiplied by to reach failure, NaN where no factor does, and `MODE`, the governing mode: 1 fiber tension, 2 fiber compression, 3 matrix tension, 4 matrix compression, 5 in-plane shear, and 0 for `TsaiHill` and `TsaiWu`, which have no modes. A node off the shells or of a material without a composite strength reads NaN. |
+| `create_field_output_shell_in_plane_state(name, field_name, quantity='Stress')` | Creates a draft of the in-plane state of the shells, in the material axes of the shell elements and of the layers of composite shells, neglecting the components through the thickness. `quantity` `Stress` takes the stresses of a stress field such as `STRESS` as CalculiX solves them in 3D; `PlaneStressFromStrain` the plane stresses the elastic constants of the ply material - E1, E2, v12 and G12 of its first temperature - give the in-plane strains of a strain field such as `TOSTRAIN`, as classical lamination theory computes them, a node whose material has no elastic constants reading NaN; and `Strain` the in-plane strains of a strain field. A stress field takes only `Stress` and a strain field, one without a unit, only the other two: any other pairing is refused naming `field_name`. The components are `S11`, `S22` and `S12` of a stress, or `E11`, `E22` and the tensor shear `E12` of a strain, the in-plane principal values `PRINCIPAL_MAX` and `PRINCIPAL_MIN`, the maximum in-plane shear `SHEAR_MAX`, and `ANGLE`, the angle in degrees from axis 1 to the maximum principal direction, in (-90, 90]. A node whose in-plane shear is below 0.1 % of half the difference of the two normal components is in its principal axes and reads exactly 0 or 90, and a node whose in-plane state is practically zero - its maximum shear below a millionth of the largest in the field - has no principal direction and reads NaN in `ANGLE`. A node off the shells reads NaN. |
+| `create_field_output_composite_failure(name, field_name, criterion, quantity='Stress')` | Creates a draft of a failure criterion of the plies, evaluated from the in-plane stresses in the material axes with the composite strength of the material of each ply; `quantity` takes them as `create_field_output_shell_in_plane_state` does, `Stress` or `PlaneStressFromStrain` - `Strain` is refused naming `quantity`, since a criterion evaluates stresses. `criterion` is `MaxStress`, `TsaiHill`, `TsaiWu` or `Hashin` (Hashin 1980, plane stress). The components are `FAILURE_INDEX`, `RESERVE_FACTOR`, the factor the stresses can be multiplied by to reach failure, NaN where no factor does, and `MODE`, the governing mode: 1 fiber tension, 2 fiber compression, 3 matrix tension, 4 matrix compression, 5 in-plane shear, and 0 for `TsaiHill` and `TsaiWu`, which have no modes. `MAX_FAILURE_INDEX` is the largest failure index and `MIN_RESERVE_FACTOR` the smallest reserve factor of all layers of a shell element, shown on each of its layers, and `CRITICAL_LAYER` the layer the smallest reserve factor is reached in, the layer that fails first. For `TsaiWu` and `Hashin` the reserve factor does not follow from the failure index, so the largest index can be in another layer. A node takes the most critical of the shell elements around it. A node off the shells or of a material without a composite strength reads NaN. |
 | `create_median_filter(source="AllNodes", number_of_layers=1, number_of_iterations=1)` | Creates a median filter. `source` can be `"AllNodes"` or `"SurfaceNodes"`, in any case. |
 | `create_average_filter(source="AllNodes", number_of_layers=1, number_of_iterations=1)` | Creates an average filter. `source` can be `"AllNodes"` or `"SurfaceNodes"`, in any case. |
 | `create_smooth_filter(source="AllNodes", number_of_layers=1, number_of_iterations=1)` | Creates a smooth filter. `source` can be `"AllNodes"` or `"SurfaceNodes"`, in any case. |
@@ -3252,7 +3607,7 @@ result.field_outputs.export_to_csv(
 
 Every `create_*` above has a single call counterpart that creates the definition and adds it to the
 result in one step: `add_limit`, `add_envelope`, `add_equation` and
-`add_coordinate_system_transform`, `add_material_axes`, `add_shell_plane_stress` and `add_composite_failure`, each
+`add_coordinate_system_transform`, `add_material_axes`, `add_shell_in_plane_state` and `add_composite_failure`, each
 taking the arguments of its `create_*` plus the optional
 `filter1` and `filter2`, and each with a matching `replace_*` that takes `old_name` first.
 
@@ -3265,7 +3620,7 @@ draft = outputs.create_field_output_equation('SEQV3', 'STRESS.MISES * 3')
 outputs.add(draft)
 ```
 
-The shell outputs - material axes, shell plane stress and composite failure - need the model the results were
+The shell outputs - material axes, shell in-plane state and composite failure - need the model the results were
 solved from: when the results are opened, the shell sections and material orientations of the model give the material
 axes of every shell element, and of every layer of a composite shell, whose layer elements CalculiX writes after all
 others. Each layer of a composite shell section is then a result element set named `<section name>_LAYER-<n>`, layer 1
@@ -3274,12 +3629,16 @@ nodes of its own, it is also a result part of its own, named `<model part>_Layer
 on - `<model part>_<section name>_Layer-<n>` when the part holds layers of more than one section - and the layers of a
 model part are gathered in a group of the results parts tree named after it, or `<model part>_Layers` when a result
 part still has that name; `pmx.model.tree.get_layout('results', 'parts')` lists it. Results opened without such a model, or a field that is not a tensor with all its
-components in the global axes, are refused naming `field_name`.
+components in the global axes, are refused naming `field_name`. A `TensorPlot` of the material axes draws `S11`, `S22`
+and `S33` along the material axes of each node and the principal values along their directions, and one of the shell
+in-plane state draws its first two components along axes 1 and 2 and `PRINCIPAL_MAX` and `PRINCIPAL_MIN` along the in-plane
+principal directions; the other components and the composite failure have no direction to draw.
 
 ```python
 outputs = pmx.results.current.field_outputs
 outputs.add_material_axes('PLY', 'STRESS')
 outputs.add_composite_failure('TSAI_WU', 'STRESS', 'TsaiWu')
+outputs.add_shell_in_plane_state('CLT', 'TOSTRAIN', quantity='PlaneStressFromStrain')
 ```
 
 A results `replace_*` **re-specifies the whole definition**, unlike a model `replace_*` where a value
@@ -3350,14 +3709,15 @@ Material axes draft returned by `create_field_output_material_axes`.
 | `name` | Field output name. |
 | `field_name` | Source tensor field name. |
 
-### `FieldOutputShellPlaneStressDraft`
+### `FieldOutputShellInPlaneStateDraft`
 
-Shell plane stress draft returned by `create_field_output_shell_plane_stress`.
+Shell in-plane state draft returned by `create_field_output_shell_in_plane_state`.
 
 | Member | Description |
 | --- | --- |
 | `name` | Field output name. |
 | `field_name` | Source tensor field name. |
+| `quantity` | `Stress`, `PlaneStressFromStrain` or `Strain`. |
 
 ### `FieldOutputCompositeFailureDraft`
 
@@ -3368,6 +3728,7 @@ Composite failure draft returned by `create_field_output_composite_failure`.
 | `name` | Field output name. |
 | `field_name` | Source tensor field name. |
 | `criterion` | `MaxStress`, `TsaiHill`, `TsaiWu` or `Hashin`. |
+| `quantity` | `Stress` or `PlaneStressFromStrain`. |
 
 ### `FieldOutput`
 
@@ -3376,7 +3737,7 @@ Base representation of a user-defined result field output.
 | Member | Description |
 | --- | --- |
 | `name` | Field output name. |
-| `item_type` | `limit`, `envelope`, `equation`, `coordinate_system_transform`, `material_axes`, `shell_plane_stress` or `composite_failure`, named after the `add_*` method that makes it. |
+| `item_type` | `limit`, `envelope`, `equation`, `coordinate_system_transform`, `material_axes`, `shell_in_plane_state` or `composite_failure`, named after the `add_*` method that makes it. |
 | `valid` | False when a field, part, element set or coordinate system the output is computed from no longer resolves. |
 | `filter1` | First `FieldOutputFilter`, or `None` when disabled. |
 | `filter2` | Second `FieldOutputFilter`, or `None` when disabled. |
@@ -3421,11 +3782,12 @@ Limit-based field output returned by `add(output)` or collection lookup.
 | --- | --- |
 | `field_name` | Source tensor field name. |
 
-### `FieldOutputShellPlaneStress`
+### `FieldOutputShellInPlaneState`
 
 | Member | Description |
 | --- | --- |
 | `field_name` | Source tensor field name. |
+| `quantity` | `Stress`, `PlaneStressFromStrain` or `Strain`. |
 
 ### `FieldOutputCompositeFailure`
 
@@ -3433,6 +3795,7 @@ Limit-based field output returned by `add(output)` or collection lookup.
 | --- | --- |
 | `field_name` | Source tensor field name. |
 | `criterion` | `MaxStress`, `TsaiHill`, `TsaiWu` or `Hashin`. |
+| `quantity` | `Stress` or `PlaneStressFromStrain`. |
 
 ## Steps and increments
 

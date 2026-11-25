@@ -2,28 +2,29 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10538)]
     public enum NumberFormatType
     {
         Scientific,
         General
     }
 
-    [Serializable]
+    [PmxType(10539)]
     public class NumberFormatSettings : ISettings
     {
         // Variables
-        private NumberFormatType _numberFormat;
-        private int _numberOfSignificantDigits;
+        [PmxKey(0)] private NumberFormatType _numberFormat;
+        [PmxKey(1)] private int _numberOfSignificantDigits;
 
 
         // Properties

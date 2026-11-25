@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,16 +18,16 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class GravityLoad : Load, ISerializable
+    [PmxType(3261)]
+    public class GravityLoad : Load
     {
         // Variables                                                                                                                
-        private string _regionName;             //ISerializable
-        private RegionTypeEnum _regionType;     //ISerializable
-        private EquationContainer _f1;          //ISerializable
-        private EquationContainer _f2;          //ISerializable
-        private EquationContainer _f3;          //ISerializable
-        private EquationContainer _magnitude;   //ISerializable
+        [PmxKey(0)] private string _regionName;             //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;     //ISerializable
+        [PmxKey(2)] private EquationContainer _f1;          //ISerializable
+        [PmxKey(3)] private EquationContainer _f2;          //ISerializable
+        [PmxKey(4)] private EquationContainer _f3;          //ISerializable
+        [PmxKey(5)] private EquationContainer _magnitude;   //ISerializable
 
 
         // Properties                                                                                                               
@@ -108,6 +108,14 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetF1(_f1, false);
+            SetF2(_f2, false);
+            SetF3(_f3, false);
+            SetMagnitude(_magnitude, false);
+        }
         private void UpdateEquations()
         {
             try
@@ -200,19 +208,6 @@ namespace CaeModel
             _f2.CheckEquation();
             _f3.CheckEquation();
             _magnitude.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_f1", _f1, typeof(EquationContainer));
-            info.AddValue("_f2", _f2, typeof(EquationContainer));
-            info.AddValue("_f3", _f3, typeof(EquationContainer));
-            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }
 }

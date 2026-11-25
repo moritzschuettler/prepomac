@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,13 +19,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10210)]
     class CReplaceDefinedField : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _oldDefinedFieldName;
-        private DefinedField _newDefinedField;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _oldDefinedFieldName;
+        [PmxKey(2)] private DefinedField _newDefinedField;
 
 
         // Properties                                                                                                               

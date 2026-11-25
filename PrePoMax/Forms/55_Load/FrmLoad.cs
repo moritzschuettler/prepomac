@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,6 +17,7 @@ using CaeModel;
 using CaeGlobals;
 using CaeMesh;
 using CaeResults;
+using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
@@ -26,6 +27,7 @@ namespace PrePoMax.Forms
         private string[] _loadNames;
         private string _loadToEditName;
         private ViewLoad _viewLoad;
+        private Dictionary<PressureLoadTypeEnum, ViewLoad> _pressureViews;
         private Controller _controller;
         private Selection _selectionCopy;
 
@@ -46,8 +48,10 @@ namespace PrePoMax.Forms
                 else if (clone is STLoad stl) _viewLoad = new ViewSTLoad(stl);
                 else if (clone is ImportedSTLoad istl) _viewLoad = new ViewImportedSTLoad(istl);
                 else if (clone is ShellEdgeLoad sel) _viewLoad = new ViewShellEdgeLoad(sel);
+                else if (clone is EdgeLoad edl) _viewLoad = new ViewEdgeLoad(edl);
                 else if (clone is GravityLoad gl) _viewLoad = new ViewGravityLoad(gl);
                 else if (clone is CentrifLoad cfl) _viewLoad = new ViewCentrifLoad(cfl);
+                else if (clone is BodyForce bfl) _viewLoad = new ViewBodyForce(bfl);
                 else if (clone is PreTensionLoad ptl) _viewLoad = new ViewPreTensionLoad(ptl);
                 // Thermal
                 else if (clone is CFlux cf) _viewLoad = new ViewCFlux(cf);
@@ -199,8 +203,10 @@ namespace PrePoMax.Forms
                     _viewLoad = vsel;
                     _controller.Selection.LimitSelectionToShellEdges = true;
                 }
+                else if (itemTag is ViewEdgeLoad vedl) _viewLoad = vedl;
                 else if (itemTag is ViewGravityLoad vgl) _viewLoad = vgl;
                 else if (itemTag is ViewCentrifLoad vcfl) _viewLoad = vcfl;
+                else if (itemTag is ViewBodyForce vbfl) _viewLoad = vbfl;
                 else if (itemTag is ViewPreTensionLoad vprl) _viewLoad = vprl;
                 // Thermal
                 else if (itemTag is ViewCFlux vcf) _viewLoad = vcf;
@@ -262,107 +268,11 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewLoad.RegionType))
-            {
-                ShowHideSelectionForm();
-                //
-                HighlightLoad();
-            }
-            else if (property == nameof(_viewLoad.CoordinateSystemName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewCLoad vcl &&
-                     (property == nameof(vcl.NodeSetName) || property == nameof(vcl.ReferencePointName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewMomentLoad vml &&
-                     (property == nameof(vml.NodeSetName) || property == nameof(vml.ReferencePointName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewDLoad vdl && property == nameof(vdl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewHydrostaticPressureLoad vhpl && 
-                (property == nameof(vhpl.SurfaceName) ||
-                 property == nameof(vhpl.X1) || property == nameof(vhpl.Y1) || property == nameof(vhpl.Z1) ||
-                 property == nameof(vhpl.X2) || property == nameof(vhpl.Y2) || property == nameof(vhpl.Z2)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewImportedPressureLoad vipl && property == nameof(vipl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewSTLoad vstl && property == nameof(vstl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewImportedSTLoad vistl &&
-                     (property == nameof(vistl.SurfaceName) || property == nameof(vistl.FileName) ||
-                      property == nameof(vistl.GeometryScaleFactor)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewShellEdgeLoad vsel && property == nameof(vsel.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewGravityLoad vgl &&
-                     (property == nameof(vgl.PartName) || property == nameof(vgl.ElementSetName) ||
-                      property == nameof(vgl.MassSectionName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewCentrifLoad vcfl &&
-                     (property == nameof(vcfl.PartName) || property == nameof(vcfl.ElementSetName) ||
-                      property == nameof(vcfl.MassSectionName) ||
-                      property == nameof(vcfl.X) || property == nameof(vcfl.Y) || property == nameof(vcfl.Z)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewPreTensionLoad vptl && property == nameof(vptl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            // Thermal
-            else if (_viewLoad is ViewCFlux vcf && property == nameof(vcf.NodeSetName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewDFlux vdf && property == nameof(vdf.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewBodyFlux vbf &&
-                     (property == nameof(vbf.PartName) || property == nameof(vbf.ElementSetName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewFilmHeatTransfer vfht && property == nameof(vfht.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewRadiationHeatTransfer vrht && property == nameof(vrht.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewBladeAeroLoad vbal &&
-                     (property == nameof(vbal.Direction) || property == nameof(vbal.ForceDirection) ||
-                      property == nameof(vbal.OriginX) || property == nameof(vbal.OriginY) ||
-                      property == nameof(vbal.OriginZ) || property == nameof(vbal.LoadForces)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewBladeAeroPressureLoad vbapl &&
-                     (property == nameof(vbapl.Direction) || property == nameof(vbapl.SurfaceName) ||
-                      property == nameof(vbapl.LoadPressures)))
-            {
-                HighlightLoad();
-            }
+            if (property == nameof(_viewLoad.RegionType)) ShowHideSelectionForm();
+            else if (property == nameof(IViewPressureLoad.PressureType) && _viewLoad is IViewPressureLoad vpl)
+                ChangePressureType(vpl.PressureType);
+            // Every value can change the symbols
+            HighlightLoad();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -446,6 +356,18 @@ namespace PrePoMax.Forms
                 if (sel.Magnitude.Value == 0)
                     throw new CaeException("The shell edge load magnitude must not be equal to 0.");
             }
+            else if (FELoad is EdgeLoad edl)
+            {
+                if (edl.IsZero())
+                {
+                    if (edl.Direction == EdgeLoadDirectionEnum.Normal)
+                        throw new CaeException("The normal edge load must not be equal to 0.");
+                    else
+                        throw new CaeException("At least one edge load component must not be equal to 0.");
+                }
+                if (edl.Direction == EdgeLoadDirectionEnum.Normal)
+                    _controller.Model.GetEdgeLoadCellForcesPerLength(edl, out _, out _);
+            }
             else if (FELoad is GravityLoad gl)
             {
                 if (gl.Magnitude.Value == 0)
@@ -457,6 +379,11 @@ namespace PrePoMax.Forms
                     throw new CaeException("At least one axis direction component must not be equal to 0.");
                 if (cfl.RotationalSpeed2 == 0)
                     throw new CaeException("Rotational speed must not be equal to 0.");
+            }
+            else if (FELoad is BodyForce bfl)
+            {
+                if (bfl.Magnitude.Value == 0)
+                    throw new CaeException("At least one body force component must not be equal to 0.");
             }
             else if (FELoad is PreTensionLoad ptl)
             {
@@ -586,6 +513,7 @@ namespace PrePoMax.Forms
             _loadNames = null;
             _loadToEditName = null;
             _viewLoad = null;
+            _pressureViews = null;
             lvTypes.Items.Clear();
             propertyGrid.SelectedObject = null;
             //
@@ -595,6 +523,8 @@ namespace PrePoMax.Forms
             //
             string[] partNames = _controller.GetModelPartNames();
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
+            // Only node sets created by picking geometry edges
+            string[] edgeNodeSetNames = _controller.GetUserGeometryEdgeNodeSetNames();
             string[] elementSetNames = _controller.GetUserElementSetNames();
             // All element based surfaces
             string[] elementBasedSurfaceNames = _controller.GetUserSurfaceNames(FeSurfaceType.Element);
@@ -612,6 +542,7 @@ namespace PrePoMax.Forms
             //
             if (partNames == null) partNames = new string[0];
             if (nodeSetNames == null) nodeSetNames = new string[0];
+            if (edgeNodeSetNames == null) edgeNodeSetNames = new string[0];
             if (elementSetNames == null) elementSetNames = new string[0];
             if (elementBasedSurfaceNames == null) elementBasedSurfaceNames = new string[0];
             if (shellEdgeSurfaceNames == null) shellEdgeSurfaceNames = new string[0];
@@ -626,9 +557,9 @@ namespace PrePoMax.Forms
             // Only element based surfaces based on solid and shell faces
             string[] noEdgeSurfaceNames = elementBasedSurfaceNames.Except(shellEdgeSurfaceNames).ToArray();
             //
-            PopulateListOfLoads(partNames, nodeSetNames, elementSetNames, referencePointNames, elementBasedSurfaceNames,
-                                solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames, massSectionNames,
-                                distributionNames, amplitudeNames, coordinateSystemNames);
+            PopulateListOfLoads(partNames, nodeSetNames, edgeNodeSetNames, elementSetNames, referencePointNames,
+                                elementBasedSurfaceNames, solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames,
+                                massSectionNames, distributionNames, amplitudeNames, coordinateSystemNames);
             // Check if this step supports any loads
             if (lvTypes.Items.Count == 0) return false;
             // Create new load
@@ -720,7 +651,7 @@ namespace PrePoMax.Forms
                     if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
                     else surfaceNames = elementBasedSurfaceNames.ToArray();
                     //
-                    selectedId = lvTypes.FindItemWithText("Hydrostatic Pressure").Index;
+                    selectedId = lvTypes.FindItemWithText("Pressure").Index;
                     // Check for deleted regions
                     if (vhpl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vhpl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -735,7 +666,7 @@ namespace PrePoMax.Forms
                     if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
                     else surfaceNames = elementBasedSurfaceNames.ToArray();
                     //
-                    selectedId = lvTypes.FindItemWithText("Imported Pressure").Index;
+                    selectedId = lvTypes.FindItemWithText("Pressure").Index;
                     // Check for deleted regions
                     if (vipl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vipl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -785,6 +716,17 @@ namespace PrePoMax.Forms
                     //
                     vsel.PopulateDropDownLists(shellEdgeSurfaceNames, amplitudeNames);
                 }
+                else if (_viewLoad is ViewEdgeLoad vedl)
+                {
+                    selectedId = lvTypes.FindItemWithText("Edge Load").Index;
+                    // Check for deleted regions
+                    if (vedl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vedl.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref edgeNodeSetNames, vedl.NodeSetName, s => { vedl.NodeSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vedl.PopulateDropDownLists(edgeNodeSetNames, distributionNames, amplitudeNames, coordinateSystemNames);
+                }
                 else if (_viewLoad is ViewGravityLoad vgl)
                 {
                     selectedId = lvTypes.FindItemWithText("Gravity").Index;
@@ -822,6 +764,20 @@ namespace PrePoMax.Forms
                     }
                     //
                     vcfl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
+                }
+                else if (_viewLoad is ViewBodyForce vbfl)
+                {
+                    selectedId = lvTypes.FindItemWithText("Body Force").Index;
+                    // Check for deleted regions
+                    if (vbfl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vbfl.RegionType == RegionTypeEnum.PartName.ToFriendlyString())
+                        CheckMissingValueRef(ref partNames, vbfl.PartName, s => { vbfl.PartName = s; });
+                    else if (vbfl.RegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref elementSetNames, vbfl.ElementSetName, s => { vbfl.ElementSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vbfl.PopulateDropDownLists(partNames, elementSetNames, distributionNames, amplitudeNames,
+                                               coordinateSystemNames);
                 }
                 else if (_viewLoad is ViewPreTensionLoad vptl)
                 {
@@ -925,6 +881,7 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewLoad;
+                if (_viewLoad is IViewPressureLoad vpl) _pressureViews[vpl.PressureType] = _viewLoad;
                 _preselectIndex = selectedId;
             }
             ShowHideSelectionForm();
@@ -936,8 +893,9 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfLoads(string[] partNames, string[] nodeSetNames, string[] elementSetNames, 
-                                         string[] referencePointNames, string[] elementBasedSurfaceNames,
+        private void PopulateListOfLoads(string[] partNames, string[] nodeSetNames, string[] edgeNodeSetNames,
+                                         string[] elementSetNames, string[] referencePointNames,
+                                         string[] elementBasedSurfaceNames,
                                          string[] solidFaceSurfaceNames, string[] noEdgeSurfaceNames,
                                          string[] shellEdgeSurfaceNames, string[] massSectionNames,
                                          string[] distributionNames, string[] amplitudeNames,
@@ -977,55 +935,46 @@ namespace PrePoMax.Forms
                 item.Tag = vml;
                 lvTypes.Items.Add(item);
             }
-            // Pressure
+            // Pressure - the hydrostatic and the imported pressure are selected by its pressure type
             name = "Pressure";
             loadName = GetLoadName(name);
             item = new ListViewItem(name);
             DLoad dLoad = new DLoad(loadName, "", RegionTypeEnum.Selection, 0, twoD, complex, 0);
-            if (step.IsLoadSupported(dLoad))
+            HydrostaticPressure hpLoad = new HydrostaticPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
+            ImportedPressure ipLoad = new ImportedPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
+            if (step.IsLoadSupported(dLoad) && step.IsLoadSupported(hpLoad) && step.IsLoadSupported(ipLoad))
             {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = noEdgeSurfaceNames.ToArray();
+                string[] noEdgePressureSurfaceNames;
+                string[] allPressureSurfaceNames;
+                if (twoD)
+                {
+                    noEdgePressureSurfaceNames = shellEdgeSurfaceNames.ToArray();
+                    allPressureSurfaceNames = shellEdgeSurfaceNames.ToArray();
+                }
+                else
+                {
+                    noEdgePressureSurfaceNames = noEdgeSurfaceNames.ToArray();
+                    allPressureSurfaceNames = elementBasedSurfaceNames.ToArray();
+                }
                 //
                 ViewDLoad vdl = new ViewDLoad(dLoad);
-                vdl.PopulateDropDownLists(surfaceNames, distributionNames, amplitudeNames);
+                vdl.PopulateDropDownLists(noEdgePressureSurfaceNames, distributionNames, amplitudeNames);
                 vdl.Color = color;
-                item.Tag = vdl;
-                lvTypes.Items.Add(item);
-            }
-            // Hydrostatic pressure
-            name = "Hydrostatic Pressure";
-            loadName = GetLoadName(name);
-            item = new ListViewItem(name);
-            HydrostaticPressure hpLoad = new HydrostaticPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
-            if (step.IsLoadSupported(hpLoad))
-            {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = elementBasedSurfaceNames.ToArray();
                 //
                 ViewHydrostaticPressureLoad vhpl = new ViewHydrostaticPressureLoad(hpLoad);
-                vhpl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                vhpl.PopulateDropDownLists(allPressureSurfaceNames, amplitudeNames);
                 vhpl.Color = color;
-                item.Tag = vhpl;
-                lvTypes.Items.Add(item);
-            }
-            // Pressure
-            name = "Imported Pressure";
-            loadName = GetLoadName(name);
-            item = new ListViewItem(name);
-            ImportedPressure ipLoad = new ImportedPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
-            if (step.IsLoadSupported(ipLoad))
-            {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = noEdgeSurfaceNames.ToArray();
                 //
                 ViewImportedPressureLoad vipl = new ViewImportedPressureLoad(ipLoad);
-                vipl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                vipl.PopulateDropDownLists(noEdgePressureSurfaceNames, amplitudeNames);
                 vipl.Color = color;
-                item.Tag = vipl;
+                //
+                _pressureViews = new Dictionary<PressureLoadTypeEnum, ViewLoad>();
+                _pressureViews.Add(PressureLoadTypeEnum.Standard, vdl);
+                _pressureViews.Add(PressureLoadTypeEnum.Hydrostatic, vhpl);
+                _pressureViews.Add(PressureLoadTypeEnum.Imported, vipl);
+                //
+                item.Tag = vdl;
                 lvTypes.Items.Add(item);
             }
             // Surface traction
@@ -1045,17 +994,33 @@ namespace PrePoMax.Forms
                 item.Tag = vstl;
                 lvTypes.Items.Add(item);
             }
-            // Shell edge load
+            // Shell edge load - the edge load with the normal direction replaces it, so only an existing one is edited
             name = "Normal Shell Edge Load";
             loadName = GetLoadName(name);
             item = new ListViewItem(name);
             ShellEdgeLoad shellEdgeLoad = new ShellEdgeLoad(loadName, "", RegionTypeEnum.Selection, 0, twoD, complex, 0);
-            if (step.IsLoadSupported(shellEdgeLoad) && !twoD)
+            bool editingShellEdgeLoad = _loadToEditName != null &&
+                                        _controller.GetLoad(_stepName, _loadToEditName) is ShellEdgeLoad;
+            if (step.IsLoadSupported(shellEdgeLoad) && !twoD && editingShellEdgeLoad)
             {
                 ViewShellEdgeLoad vsel = new ViewShellEdgeLoad(shellEdgeLoad);
                 vsel.PopulateDropDownLists(shellEdgeSurfaceNames, amplitudeNames);
                 vsel.Color = color;
                 item.Tag = vsel;
+                lvTypes.Items.Add(item);
+            }
+            // Edge load - geometry edges, node sets created from geometry edges
+            name = "Edge Load";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            EdgeLoad edgeLoad = new EdgeLoad(loadName, "", RegionTypeEnum.Selection, 0, 0, 0, twoD, complex, 0);
+            bool axisymmetricModel = _controller.Model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
+            if (step.IsLoadSupported(edgeLoad) && !axisymmetricModel)
+            {
+                ViewEdgeLoad vedl = new ViewEdgeLoad(edgeLoad);
+                vedl.PopulateDropDownLists(edgeNodeSetNames, distributionNames, amplitudeNames, coordinateSystemNames);
+                vedl.Color = color;
+                item.Tag = vedl;
                 lvTypes.Items.Add(item);
             }
             // Gravity load -  part, element sets
@@ -1083,6 +1048,20 @@ namespace PrePoMax.Forms
                 vcfl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
                 vcfl.Color = color;
                 item.Tag = vcfl;
+                lvTypes.Items.Add(item);
+            }
+            // Body force -  part, element sets
+            name = "Body Force";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            BodyForce bodyForce = new BodyForce(loadName, "", RegionTypeEnum.Selection, 0, 0, 0, twoD, complex, 0);
+            if (step.IsLoadSupported(bodyForce))
+            {
+                ViewBodyForce vbfl = new ViewBodyForce(bodyForce);
+                vbfl.PopulateDropDownLists(partNames, elementSetNames, distributionNames, amplitudeNames,
+                                           coordinateSystemNames);
+                vbfl.Color = color;
+                item.Tag = vbfl;
                 lvTypes.Items.Add(item);
             }
             // Pre-tension load
@@ -1211,6 +1190,61 @@ namespace PrePoMax.Forms
             //
             return name;
         }
+        private void ChangePressureType(PressureLoadTypeEnum pressureType)
+        {
+            ViewLoad sourceView = _viewLoad;
+            ViewLoad targetView = _pressureViews[pressureType];
+            if (targetView == sourceView) return;
+            //
+            ((IViewPressureLoad)sourceView).PressureType = _pressureViews.First(entry => entry.Value == sourceView).Key;
+            CopyPressureLoadData(sourceView.GetBase(), targetView);
+            //
+            foreach (ListViewItem listViewItem in lvTypes.Items)
+            {
+                if (listViewItem.Tag == sourceView) listViewItem.Tag = targetView;
+            }
+            //
+            _viewLoad = targetView;
+            if (_viewLoad is ViewImportedPressureLoad vipl) vipl.UpdateFileBrowserDialog();
+            propertyGrid.SelectedObject = _viewLoad;
+            //
+            ShowHideSelectionForm();
+        }
+        private void CopyPressureLoadData(Load sourceLoad, ViewLoad targetView)
+        {
+            Load targetLoad = targetView.GetBase();
+            //
+            targetLoad.Name = sourceLoad.Name;
+            targetLoad.AmplitudeName = sourceLoad.AmplitudeName;
+            targetLoad.PhaseDeg.Equation = sourceLoad.PhaseDeg.Equation;
+            targetLoad.Color = sourceLoad.Color;
+            //
+            if (sourceLoad.RegionType == RegionTypeEnum.SurfaceName &&
+                !IsStandardValue(targetView, nameof(ViewDLoad.SurfaceName), sourceLoad.RegionName))
+            {
+                targetLoad.RegionType = RegionTypeEnum.Selection;
+                targetLoad.RegionName = "";
+                targetLoad.CreationIds = null;
+                targetLoad.CreationData = null;
+            }
+            else
+            {
+                targetLoad.RegionType = sourceLoad.RegionType;
+                targetLoad.RegionName = sourceLoad.RegionName;
+                targetLoad.CreationIds = sourceLoad.CreationIds?.ToArray();
+                targetLoad.CreationData = sourceLoad.CreationData?.DeepCopy(true, false);
+            }
+            targetView.UpdateRegionVisibility();
+        }
+        private static bool IsStandardValue(ViewLoad view, string propertyName, string value)
+        {
+            CustomPropertyDescriptor propertyDescriptor = view.DynamicCustomTypeDescriptor.GetProperty(propertyName);
+            foreach (StandardValueAttribute standardValue in propertyDescriptor.StatandardValues)
+            {
+                if (standardValue.Value != null && standardValue.Value.ToString() == value) return true;
+            }
+            return false;
+        }
         private void HighlightLoad()
         {
             try
@@ -1227,8 +1261,10 @@ namespace PrePoMax.Forms
                          load is STLoad ||
                          load is ImportedSTLoad ||
                          load is ShellEdgeLoad ||
+                         load is EdgeLoad ||
                          load is GravityLoad ||
                          load is CentrifLoad ||
+                         load is BodyForce ||
                          load is PreTensionLoad ||
                          // Thermal
                          load is CFlux ||
@@ -1293,6 +1329,8 @@ namespace PrePoMax.Forms
                         double[][] nodeCoor = new double[][] { new double[] { cf.X.Value, cf.Y.Value, cf.Z.Value } };
                         _controller.HighlightNodes(nodeCoor, true);
                     }
+                    // Symbols
+                    _controller.HighlightEditedLoad(load);
                 }
                 else if (load is BladeAeroLoad bal)
                 {
@@ -1332,8 +1370,10 @@ namespace PrePoMax.Forms
                 else if (FELoad is STLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is ImportedSTLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is ShellEdgeLoad) _controller.SetSelectItemToSurface();
+                else if (FELoad is EdgeLoad) _controller.SetSelectItemToGeometryEdge();
                 else if (FELoad is GravityLoad) _controller.SetSelectItemToPart();
                 else if (FELoad is CentrifLoad) _controller.SetSelectItemToPart();
+                else if (FELoad is BodyForce) _controller.SetSelectItemToPart();
                 else if (FELoad is PreTensionLoad) _controller.SetSelectItemToSurface();
                 // Thermal
                 else if (FELoad is CFlux) _controller.SetSelectItemToNode();
@@ -1373,8 +1413,10 @@ namespace PrePoMax.Forms
                         FELoad is STLoad ||
                         FELoad is ImportedSTLoad ||
                         FELoad is ShellEdgeLoad ||
+                        FELoad is EdgeLoad ||
                         FELoad is GravityLoad ||
                         FELoad is CentrifLoad ||
+                        FELoad is BodyForce ||
                         FELoad is PreTensionLoad ||
                         FELoad is CFlux ||
                         FELoad is DFlux ||

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,17 +20,28 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
-    public class ViewHydrostaticPressureLoad : ViewLoad
+    [PmxType(10468)]
+    public class ViewHydrostaticPressureLoad : ViewLoad, IViewPressureLoad
     {
-        // Variables                                                                                                                
-        private HydrostaticPressure _hpLoad;
-        private ItemSetData _singlePointItemSetData;
-        private ItemSetData _twoPointPointItemSetData;
+        // Variables
+        [PmxKey(0)] private HydrostaticPressure _hpLoad;
+        [PmxKey(1)] private ItemSetData _singlePointItemSetData;
+        [PmxKey(2)] private ItemSetData _twoPointPointItemSetData;
+        [NonSerialized] private PressureLoadTypeEnum? _pressureType;
 
 
-        // Properties                                                                                                               
+        // Properties
         public override string Name { get { return _hpLoad.Name; } set { _hpLoad.Name = value; } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Pressure type")]
+        [DescriptionAttribute("Select the pressure type.")]
+        [Id(2, 1)]
+        public PressureLoadTypeEnum PressureType
+        {
+            get { return _pressureType ?? PressureLoadTypeEnum.Hydrostatic; }
+            set { _pressureType = value; }
+        }
         //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(2, 10, "Surface")]

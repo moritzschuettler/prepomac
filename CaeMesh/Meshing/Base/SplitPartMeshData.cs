@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,25 +18,25 @@ using System.Drawing;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2095)]
     public class SplitPartMeshData : IMasterSlaveMultiRegion
     {
         // Variables                                                                                                                
-        private double _offset;
-        private double _maxH;
-        private double _minH;
-        private double _hausdorff;
-        private bool _exact;
+        [PmxKey(0)] private double _offset;
+        [PmxKey(1)] private double _maxH;
+        [PmxKey(2)] private double _minH;
+        [PmxKey(3)] private double _hausdorff;
+        [PmxKey(4)] private bool _exact;
         //
-        private RegionTypeEnum _basePartRegionType;
-        private string _basePartRegionName;
-        private RegionTypeEnum _splitterSurfaceRegionType;
-        private string _splitterSurfaceRegionName;
+        [PmxKey(5)] private RegionTypeEnum _basePartRegionType;
+        [PmxKey(6)] private string _basePartRegionName;
+        [PmxKey(7)] private RegionTypeEnum _splitterSurfaceRegionType;
+        [PmxKey(8)] private string _splitterSurfaceRegionName;
         //
-        private int[] _basePartCreationIds;
-        private Selection _basePartCreationData;
-        private int[] _splitterSurfaceCreationIds;
-        private Selection _splitterSurfaceCreationData;
+        [PmxKey(9)] private int[] _basePartCreationIds;
+        [PmxKey(10)] private Selection _basePartCreationData;
+        [PmxKey(11)] private int[] _splitterSurfaceCreationIds;
+        [PmxKey(12)] private Selection _splitterSurfaceCreationData;
 
 
         // Properties                                                                                                               

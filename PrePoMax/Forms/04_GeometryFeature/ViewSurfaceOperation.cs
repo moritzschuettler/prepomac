@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
-    public class ViewSurfaceOperation
+    [PmxType(10331)]
+    public class ViewSurfaceOperation : UserControls.IMissingPropertyValues
     {
         // Variables
-        private GeometrySelection _geometrySelection;
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private GeometrySelection _geometrySelection;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties
@@ -59,6 +59,11 @@ namespace PrePoMax.Forms
         public GeometrySelection GetBase()
         {
             return _geometrySelection;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(RegionSelection) &&
+                   (_geometrySelection.GeometryIds == null || _geometrySelection.GeometryIds.Length == 0);
         }
         private static string GetRegionDescription(SurfaceOperationEnum operation)
         {

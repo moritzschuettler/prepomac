@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,13 +17,13 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class LinearSpringSectionData : SectionData, ISerializable
+    [PmxType(3198)]
+    public class LinearSpringSectionData : SectionData
     {
         // Variables                                                                                                                
-        private int _direction;                 //ISerializable
-        private int _secondDirection;           //ISerializable
-        private double _stiffness;              //ISerializable
+        [PmxKey(0)] private int _direction;                 //ISerializable
+        [PmxKey(1)] private int _secondDirection;           //ISerializable
+        [PmxKey(2)] private double _stiffness;              //ISerializable
 
 
         // Properties                                                                                                               
@@ -68,18 +68,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-        
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_direction", _direction, typeof(int));
-            info.AddValue("_secondDirection", _secondDirection, typeof(int));
-            info.AddValue("_stiffness", _stiffness, typeof(double));
-        }
     }
 }

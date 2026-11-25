@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,14 +22,14 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CMirrorModelParts : PreprocessCommand, ISerializable
+    [PmxType(10090)]
+    class CMirrorModelParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private double[] _mirrorPoint;
-        private double[] _mirrorDirection;
-        private bool _copy;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _mirrorPoint;
+        [PmxKey(2)] private double[] _mirrorDirection;
+        [PmxKey(3)] private bool _copy;
 
 
         // Constructor                                                                                                              
@@ -82,16 +82,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + GetArrayAsString(_partNames);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_partNames", _partNames, typeof(string[]));
-            info.AddValue("_mirrorPoint", _mirrorPoint, typeof(double[]));
-            info.AddValue("_mirrorDirection", _mirrorDirection, typeof(double[]));
-            info.AddValue("_copy", _copy, typeof(bool));
         }
     }
 }

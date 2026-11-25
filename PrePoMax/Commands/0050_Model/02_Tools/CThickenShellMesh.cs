@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,15 +21,15 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10082)]
     class CThickenShellMesh : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private double _thickness;
-        private int _numberOfLayers;
-        private double _offset;
-        private bool _keepModelEdges;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double _thickness;
+        [PmxKey(2)] private int _numberOfLayers;
+        [PmxKey(3)] private double _offset;
+        [PmxKey(4)] private bool _keepModelEdges;
 
 
         // Constructor                                                                                                              

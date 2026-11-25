@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -217,6 +217,7 @@ namespace CaeGlobals
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase);
             e.Parameters = GetNCalcParameters();
             AddFunctionsToExpression(e);
+            ConvertIntegersToDoubles(e);
             return e;
         }
         static public Expression GetArrayExpression(string expression)
@@ -225,7 +226,14 @@ namespace CaeGlobals
             // Parameters, so this must not be given the shared dictionary
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase | EvaluateOptions.IterateParameters);
             AddParametersToExpression(e);
+            AddFunctionsToExpression(e);
+            ConvertIntegersToDoubles(e);
             return e;
+        }
+        static private void ConvertIntegersToDoubles(Expression e)
+        {
+            // HasErrors parses the equation; an equation with errors keeps them for its caller to report
+            if (!e.HasErrors()) e.ParsedExpression.Accept(new IntegerToDoubleVisitor());
         }
         static private void AddParametersToExpression(Expression e)
         {
@@ -405,17 +413,45 @@ namespace CaeGlobals
         {
             if (name.ToLower() == "ln")
             {
-                double param1 = Convert.ToDouble(functionArgs.Parameters[0].Evaluate());
+                double param1 = EvaluateArgument(functionArgs.Parameters[0]);
                 //
                 functionArgs.Result = (double)Math.Log(param1, Math.E);
+            }
+            // NCalc returns Abs as a decimal, which cannot be combined with a double and is limited to 1e-28 - 7.9e28
+            else if (name.ToLower() == "abs")
+            {
+                if (functionArgs.Parameters.Length != 1)
+                    throw new ArgumentException("Abs() requires one parameter: Abs(Value).");
+                double param1 = EvaluateArgument(functionArgs.Parameters[0]);
+                //
+                functionArgs.Result = Math.Abs(param1);
+            }
+            // NCalc converts the second argument of Max and Min to the type of the first one, so an integer
+            // first argument rounds the second one: Max(0, 0.7) = 1
+            else if (name.ToLower() == "max")
+            {
+                if (functionArgs.Parameters.Length != 2)
+                    throw new ArgumentException("Max() requires two parameters: Max(Value1, Value2).");
+                double param1 = EvaluateArgument(functionArgs.Parameters[0]);
+                double param2 = EvaluateArgument(functionArgs.Parameters[1]);
+                //
+                functionArgs.Result = Math.Max(param1, param2);
+            }
+            else if (name.ToLower() == "min")
+            {
+                if (functionArgs.Parameters.Length != 2)
+                    throw new ArgumentException("Min() requires two parameters: Min(Value1, Value2).");
+                double param1 = EvaluateArgument(functionArgs.Parameters[0]);
+                double param2 = EvaluateArgument(functionArgs.Parameters[1]);
+                //
+                functionArgs.Result = Math.Min(param1, param2);
             }
             else if (name.ToLower() == "dist")
             {
                 if (functionArgs.Parameters.Length != 2)
                     throw new ArgumentException("Dist() requires two parameters: Dist(NodeId1, NodeId2).");
-                functionArgs.EvaluateParameters();
-                int id1 = Convert.ToInt32(functionArgs.Parameters[0].Evaluate());
-                int id2 = Convert.ToInt32(functionArgs.Parameters[1].Evaluate());
+                int id1 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[0]));
+                int id2 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[1]));
                 //
                 if (Dist != null) functionArgs.Result = Dist(id1, id2);
                 else functionArgs.Result = double.NaN;
@@ -424,9 +460,8 @@ namespace CaeGlobals
             {
                 if (functionArgs.Parameters.Length != 2)
                     throw new ArgumentException("DistX() requires two parameters: DistX(NodeId1, NodeId2).");
-                functionArgs.EvaluateParameters();
-                int id1 = Convert.ToInt32(functionArgs.Parameters[0].Evaluate());
-                int id2 = Convert.ToInt32(functionArgs.Parameters[1].Evaluate());
+                int id1 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[0]));
+                int id2 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[1]));
                 //
                 if (DistX != null) functionArgs.Result = DistX(id1, id2);
                 else functionArgs.Result = double.NaN;
@@ -435,9 +470,8 @@ namespace CaeGlobals
             {
                 if (functionArgs.Parameters.Length != 2)
                     throw new ArgumentException("DistY() requires two parameters: DistY(NodeId1, NodeId2).");
-                functionArgs.EvaluateParameters();
-                int id1 = Convert.ToInt32(functionArgs.Parameters[0].Evaluate());
-                int id2 = Convert.ToInt32(functionArgs.Parameters[1].Evaluate());
+                int id1 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[0]));
+                int id2 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[1]));
                 //
                 if (DistY != null) functionArgs.Result = DistY(id1, id2);
                 else functionArgs.Result = double.NaN;
@@ -446,13 +480,22 @@ namespace CaeGlobals
             {
                 if (functionArgs.Parameters.Length != 2)
                     throw new ArgumentException("DistZ() requires two parameters: DistZ(NodeId1, NodeId2).");
-                functionArgs.EvaluateParameters();
-                int id1 = Convert.ToInt32(functionArgs.Parameters[0].Evaluate());
-                int id2 = Convert.ToInt32(functionArgs.Parameters[1].Evaluate());
+                int id1 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[0]));
+                int id2 = Convert.ToInt32(EvaluateArgument(functionArgs.Parameters[1]));
                 //
                 if (DistZ != null) functionArgs.Result = DistZ(id1, id2);
                 else functionArgs.Result = double.NaN;
             }
+        }
+        private static double EvaluateArgument(Expression argument)
+        {
+            // An argument inherits IterateParameters from an array equation and would return a list of all the
+            // iterations, while its parameters already hold the values of the current one
+            Expression scalarArgument = new Expression(argument.ParsedExpression,
+                                                       argument.Options & ~EvaluateOptions.IterateParameters);
+            scalarArgument.Parameters = argument.Parameters;
+            AddFunctionsToExpression(scalarArgument);
+            return Convert.ToDouble(scalarArgument.Evaluate());
         }
     }
 }

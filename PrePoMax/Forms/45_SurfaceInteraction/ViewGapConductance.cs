@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10401)]
     public class ViewGapConductance : ViewSurfaceInteractionProperty
     {
         // Variables                                                                                                                
-        private CaeModel.GapConductance _gapConductance;
-        private List<GapConductanceDataPoint> _points;
+        [PmxKey(0)] private CaeModel.GapConductance _gapConductance;
+        [PmxKey(1)] private List<GapConductanceDataPoint> _points;
 
 
         // Properties                                                                                                               

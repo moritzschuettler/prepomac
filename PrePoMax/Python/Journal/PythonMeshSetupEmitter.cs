@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -118,7 +118,7 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Format(sweep.NumberOfGlobalSmoothSteps));
                 // The 2D algorithm of a sweep may be QuadWild, and the sweep builds its volume mesh itself
                 arguments.Add("algorithm_2d=" + PythonValueFormatter.Text(sweep.SweepAlgorithmMesh2D.ToString()));
-                AddRecombinationValues(arguments, sweep);
+                AddRecombinationValues(arguments, sweep, true);
                 arguments.Add("optimize_first_order_shell=" +
                               PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
                 arguments.Add("elements_per_layer=" + PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
@@ -199,15 +199,15 @@ namespace PrePoMax.Python.Journal
             arguments.Add("algorithm_3d=" + PythonValueFormatter.Text(item.AlgorithmMesh3D.ToString()));
             AddRecombinationValues(arguments, item);
         }
-        // A surface item has no three dimensional algorithm of its own
+        // A surface item has no three dimensional algorithm of its own, and takes the submapped faces as a sweep does
         private static void AddSurfaceGmshValues(List<string> arguments, GmshSetupItem item)
         {
             arguments.Add("algorithm_2d=" + PythonValueFormatter.Text(item.AlgorithmMesh2D.ToString()));
-            AddRecombinationValues(arguments, item);
+            AddRecombinationValues(arguments, item, true);
         }
         // The minimum quality is written only while the item recombines and the angle only while it structures a
         // face, as the dialog shows them and the API takes them only then
-        private static void AddRecombinationValues(List<string> arguments, GmshSetupItem item)
+        private static void AddRecombinationValues(List<string> arguments, GmshSetupItem item, bool submapped = false)
         {
             if (item.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None)
                 arguments.Add("recombine_min_quality=" + PythonValueFormatter.Number(item.RecombineMinQuality));
@@ -217,7 +217,9 @@ namespace PrePoMax.Python.Journal
                           PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
             arguments.Add("transfinite_four_sided=" +
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
-            if (item.IsTransfiniteThreeSided || item.TransfiniteFourSided)
+            if (submapped)
+                arguments.Add("transfinite_submapped=" + PythonValueFormatter.Format(item.TransfiniteSubmapped));
+            if (item.IsTransfiniteThreeSided || item.TransfiniteFourSided || (submapped && item.TransfiniteSubmapped))
                 arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
         }
         // Gmsh, Mmg and the local mesh size limits use the sizes in either mode, and the dialog sizes the Netgen

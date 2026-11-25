@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,12 +17,12 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ThermalExpansion : MaterialProperty, ISerializable
+    [PmxType(3187)]
+    public class ThermalExpansion : MaterialProperty
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _thermalExpansionTemp;        //ISerializable
-        private EquationContainer _zeroTemperature;                 //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _thermalExpansionTemp;        //ISerializable
+        [PmxKey(1)] private EquationContainer _zeroTemperature;                 //ISerializable
 
 
         // Properties                                                                                                               
@@ -75,6 +75,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetThermalExpansionTemp(_thermalExpansionTemp, false);
+            SetZeroTemperature(_zeroTemperature, false);
+        }
         private void SetThermalExpansionTemp(double[][] value, bool checkEquation = true)
         {
             _thermalExpansionTemp = new EquationContainer[value.Length][];
@@ -111,15 +117,6 @@ namespace CaeModel
                 _thermalExpansionTemp[i][1].CheckEquation();
             }
             _zeroTemperature.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_thermalExpansionTemp", _thermalExpansionTemp, typeof(EquationContainer[][]));
-            info.AddValue("_zeroTemperature", _zeroTemperature, typeof(EquationContainer));
         }
     }
 }

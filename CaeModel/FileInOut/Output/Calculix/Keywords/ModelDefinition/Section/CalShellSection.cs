@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,13 +18,13 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3103)]
     internal class CalShellSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ShellSection _section;
-        private string _elementSetName;
-        private string _orientationName;
+        [PmxKey(0)] private ShellSection _section;
+        [PmxKey(1)] private string _elementSetName;
+        [PmxKey(2)] private string _orientationName;
 
 
         // Properties                                                                                                               

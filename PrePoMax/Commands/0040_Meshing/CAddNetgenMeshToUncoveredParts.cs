@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -11,6 +11,7 @@ using System;
 using System.Runtime.Serialization;
 using CaeMesh;
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
@@ -27,11 +28,11 @@ namespace PrePoMax.Commands
     /// front of the meshing instead would not do: a model built by a script carries no meshing command at
     /// all, since the whole script is recorded as one command.
     /// </summary>
-    [Serializable]
+    [PmxType(10071)]
     class CAddNetgenMeshToUncoveredParts : PreprocessCommand
     {
         // Variables
-        [OptionalField]
+        [PmxKey(0)] [OptionalField]
         private NetgenMesh[] _meshSetupItems;
 
 

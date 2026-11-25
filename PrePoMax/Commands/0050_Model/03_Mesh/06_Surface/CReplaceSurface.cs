@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10112)]
     class CReplaceSurface : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldSurfaceName;
-        private FeSurface _newSurface;
+        [PmxKey(0)] private string _oldSurfaceName;
+        [PmxKey(1)] private FeSurface _newSurface;
 
         // Constructor                                                                                                              
         public CReplaceSurface(string oldSurfaceName, FeSurface newSurface)

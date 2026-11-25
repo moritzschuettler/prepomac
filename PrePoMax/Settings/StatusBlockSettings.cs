@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,13 +20,13 @@ using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10544)]
     public class StatusBlockSettings : ISettings
     {
         // Variables                                                                                                                
-        private bool _visible;
-        private AnnotationBackgroundType _backgroundType;
-        private bool _drawBorder;
+        [PmxKey(0)] private bool _visible;
+        [PmxKey(1)] private AnnotationBackgroundType _backgroundType;
+        [PmxKey(2)] private bool _drawBorder;
 
 
         // Properties                                                                                                               

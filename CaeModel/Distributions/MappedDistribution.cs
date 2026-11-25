@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,19 +18,19 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class MappedDistribution : Distribution, ISerializable
+    [PmxType(3034)]
+    public abstract class MappedDistribution : Distribution
     {
         // Variables                                                                                                                
-        protected CloudInterpolatorEnum _interpolatorType;      //ISerializable
-        protected EquationContainer _interpolatorRadius;        //ISerializable
-        private EquationContainer _scaleX;                      //ISerializable
-        private EquationContainer _scaleY;                      //ISerializable
-        private EquationContainer _scaleZ;                      //ISerializable
-        private EquationContainer _translateX;                  //ISerializable
-        private EquationContainer _translateY;                  //ISerializable
-        private EquationContainer _translateZ;                  //ISerializable
-        protected double[][] _coorValues;                       //ISerializable
+        [PmxKey(0)] protected CloudInterpolatorEnum _interpolatorType;      //ISerializable
+        [PmxKey(1)] protected EquationContainer _interpolatorRadius;        //ISerializable
+        [PmxKey(2)] private EquationContainer _scaleX;                      //ISerializable
+        [PmxKey(3)] private EquationContainer _scaleY;                      //ISerializable
+        [PmxKey(4)] private EquationContainer _scaleZ;                      //ISerializable
+        [PmxKey(5)] private EquationContainer _translateX;                  //ISerializable
+        [PmxKey(6)] private EquationContainer _translateY;                  //ISerializable
+        [PmxKey(7)] private EquationContainer _translateZ;                  //ISerializable
+        [PmxKey(8)] protected double[][] _coorValues;                       //ISerializable
         //
         [NonSerialized] protected CloudInterpolator _interpolator;
         [NonSerialized] protected CloudPoint[] _cloudPoints;
@@ -98,6 +98,17 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetInterpolatorRadius(_interpolatorRadius, false);
+            SetScaleX(_scaleX, false);
+            SetScaleY(_scaleY, false);
+            SetScaleZ(_scaleZ, false);
+            SetTranslateX(_translateX, false);
+            SetTranslateY(_translateY, false);
+            SetTranslateZ(_translateZ, false);
+        }
         private void SetInterpolatorRadius(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _interpolatorRadius, value, CheckPositive, EquationChanged, checkEquation);
@@ -133,22 +144,6 @@ namespace CaeModel
         {
             if (value <= 0) throw new CaeException("The value must be larger than 0.");
             else return value;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_interpolatorType", _interpolatorType, typeof(CloudInterpolatorEnum));
-            info.AddValue("_interpolatorRadius", _interpolatorRadius, typeof(EquationContainer));
-            info.AddValue("_scaleX", _scaleX, typeof(EquationContainer));
-            info.AddValue("_scaleY", _scaleY, typeof(EquationContainer));
-            info.AddValue("_scaleZ", _scaleZ, typeof(EquationContainer));
-            info.AddValue("_translateX", _translateX, typeof(EquationContainer));
-            info.AddValue("_translateY", _translateY, typeof(EquationContainer));
-            info.AddValue("_translateZ", _translateZ, typeof(EquationContainer));
-            info.AddValue("_coorValues", _coorValues, typeof(double[][]));
         }
     }
 }

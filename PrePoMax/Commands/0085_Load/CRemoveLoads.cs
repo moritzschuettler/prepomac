@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,15 +16,21 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CRemoveLoads : PreprocessCommand
+    [PmxType(10202)]
+    class CRemoveLoads : PreprocessCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _loadNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _loadNames;
+
+        // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return _loadNames; } set { _loadNames = value; } }
+
 
         // Constructor                                                                                                              
         public CRemoveLoads(string stepName, string[] loadNames)

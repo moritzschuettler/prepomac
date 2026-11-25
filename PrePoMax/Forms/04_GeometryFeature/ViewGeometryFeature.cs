@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,15 +19,15 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
-    public abstract class ViewGeometryFeature
+    [PmxType(10323)]
+    public abstract class ViewGeometryFeature : UserControls.IMissingPropertyValues
     {
         // Variables
         public const string RegionSelectionName = "RegionSelection";
         public const string SplitterSelectionName = "SplitterSelection";
         public const string DirectionSelectionName = "DirectionSelection";
         //
-        protected DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] protected DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties
@@ -44,6 +44,14 @@ namespace PrePoMax.Forms
 
         // Methods
         public abstract GeometryFeature GetBase();
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            if (propertyName != RegionSelectionName) return false;
+            //
+            GeometryFeature geometryFeature = GetBase();
+            return geometryFeature != null &&
+                   (geometryFeature.CreationIds == null || geometryFeature.CreationIds.Length == 0);
+        }
         /// <summary>
         /// The region row asks for parts in one splitting tool and for surfaces in the other, so what it
         /// says is set by the form that built the view rather than by the attribute.

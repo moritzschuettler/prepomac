@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,17 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CPropagateLoad : PreprocessCommand
+    [PmxType(10201)]
+    class CPropagateLoad : PreprocessCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _loadName;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _loadName;
+
+
+        // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return new string[] { _loadName }; } set { _loadName = value[0]; } }
 
 
         // Constructor                                                                                                              

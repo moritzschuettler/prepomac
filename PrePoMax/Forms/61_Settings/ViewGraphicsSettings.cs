@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using System.Drawing;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10482)]
     public class ViewGraphicsSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private GraphicsSettings _graphicsSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private GraphicsSettings _graphicsSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
         // Background                                                                               
         [CategoryAttribute("Background")]
@@ -123,6 +123,26 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.WidgetHighlightEnabled; }
             set { _graphicsSettings.WidgetHighlightEnabled = value; }
         }
+        //
+        [CategoryAttribute("Widgets")]
+        [OrderedDisplayName(3, 10, "Font family")]
+        [DescriptionAttribute("Select the font family of the viewport text: widgets, annotations, legends and " +
+                              "captions.")]
+        public string TextFontFamily
+        {
+            get { return _graphicsSettings.TextFontFamily; }
+            set { _graphicsSettings.TextFontFamily = value; }
+        }
+        //
+        [CategoryAttribute("Widgets")]
+        [OrderedDisplayName(4, 10, "Font size")]
+        [DescriptionAttribute("Select the font size of the viewport text in pixels (8 ... 48): widgets, annotations, " +
+                              "legends and captions.")]
+        public int TextFontSize
+        {
+            get { return _graphicsSettings.TextFontSize; }
+            set { _graphicsSettings.TextFontSize = value; }
+        }
         // Lighting                                                                                 
         [CategoryAttribute("Lighting")]
         [OrderedDisplayName(0, 10, "Ambient component")]
@@ -142,6 +162,35 @@ namespace PrePoMax.Settings
         {
             get { return _graphicsSettings.DiffuseComponent; }
             set { _graphicsSettings.DiffuseComponent = value; }
+        }
+        //
+        [CategoryAttribute("Lighting")]
+        [OrderedDisplayName(2, 10, "Ambient occlusion")]
+        [DescriptionAttribute("Enable/disable screen space ambient occlusion (SSAO) shading of the model in the VTK 9 view.")]
+        public bool AmbientOcclusion
+        {
+            get { return _graphicsSettings.AmbientOcclusion; }
+            set { _graphicsSettings.AmbientOcclusion = value; UpdateVisibilities(); }
+        }
+        //
+        [CategoryAttribute("Lighting")]
+        [OrderedDisplayName(3, 10, "Ambient occlusion radius")]
+        [DescriptionAttribute("Select the ambient occlusion sampling radius relative to the model size (0.001 ... 1).")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        public double AmbientOcclusionRadius
+        {
+            get { return _graphicsSettings.AmbientOcclusionRadius; }
+            set { _graphicsSettings.AmbientOcclusionRadius = value; }
+        }
+        //
+        [CategoryAttribute("Lighting")]
+        [OrderedDisplayName(4, 10, "Ambient occlusion samples")]
+        [DescriptionAttribute("Select the number of ambient occlusion samples per pixel (8 ... 512). Higher values are smoother "
+                              + "but slower.")]
+        public int AmbientOcclusionKernelSize
+        {
+            get { return _graphicsSettings.AmbientOcclusionKernelSize; }
+            set { _graphicsSettings.AmbientOcclusionKernelSize = value; }
         }
         // Smoothing                                                                                
         [CategoryAttribute("Smoothing")]
@@ -213,9 +262,14 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToOnOff(nameof(CoorSysVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(ScaleWidgetVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(WidgetHighlightEnabled));
+            _dctd.RenameBooleanPropertyToOnOff(nameof(AmbientOcclusion));
             _dctd.RenameBooleanPropertyToOnOff(nameof(PointSmoothing));
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
             _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");
+            //
+            List<string> familyNames = new List<string>(vtkControl.Native.VtkNativeViewFont.GetFamilyNames());
+            if (!familyNames.Contains(TextFontFamily)) familyNames.Insert(0, TextFontFamily);
+            _dctd.PopulateProperty(nameof(TextFontFamily), familyNames.ToArray());
             //
             UpdateVisibilities();
         }
@@ -240,6 +294,10 @@ namespace PrePoMax.Settings
             bool visible = _graphicsSettings.LinearDeflectionRelative;
             _dctd.GetProperty(nameof(LinearDeflection)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(LinearDeflectionInUnits)).SetIsBrowsable(!visible);
+            //
+            bool ambientOcclusion = _graphicsSettings.AmbientOcclusion;
+            _dctd.GetProperty(nameof(AmbientOcclusionRadius)).SetIsBrowsable(ambientOcclusion);
+            _dctd.GetProperty(nameof(AmbientOcclusionKernelSize)).SetIsBrowsable(ambientOcclusion);
         }
     }
 

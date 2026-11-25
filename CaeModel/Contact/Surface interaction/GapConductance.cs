@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,20 +16,20 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3024)]
     public enum GapConductanceEnum
     {
         Constant,
         Tabular
     }
-    [Serializable]
+    [PmxType(3025)]
     public class GapConductance : SurfaceInteractionProperty
     {
         // Variables                                                                                                                
         private static string _positive = "The value must be larger than 0.";
         //
-        private double[][] _conductnancePressureTemp;
-        private GapConductanceEnum _gapConductanceType;
+        [PmxKey(0)] private double[][] _conductnancePressureTemp;
+        [PmxKey(1)] private GapConductanceEnum _gapConductanceType;
 
 
         // Properties                                                                                                               

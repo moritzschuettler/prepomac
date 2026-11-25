@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10109)]
     class CAddSurface : PreprocessCommand
     {
         // Variables                                                                                                                
-        private FeSurface _surface;
-        private bool _update;
+        [PmxKey(0)] private FeSurface _surface;
+        [PmxKey(1)] private bool _update;
 
 
         // Constructor                                                                                                              

@@ -2,23 +2,24 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6207)]
     public class PythonPanelState
     {
         // Variables                                                                                                                
-        private string _scriptText;
-        private string _fileName;
-        private bool _modified;
-        private double _splitterRatio;
+        [PmxKey(0)] private string _scriptText;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private bool _modified;
+        [PmxKey(3)] private double _splitterRatio;
 
 
         // Properties                                                                                                               

@@ -2,17 +2,19 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using System.Runtime.Serialization;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5020)]
     public enum CompositeFailureCriterionEnum
     {
         [StandardValue("MaxStress", DisplayName = "Maximum stress")]
@@ -27,20 +29,27 @@ namespace CaeResults
 
     // A failure criterion of the plies of composite shells, evaluated from the in-plane stresses in the ply axes with
     // the ply strengths of the material of the ply
-    [Serializable]
+    [PmxType(5021)]
     public class ResultFieldOutputCompositeFailure : ResultFieldOutput
     {
         // Variables
         public const string ComponentFailureIndex = "FAILURE_INDEX";
         public const string ComponentReserveFactor = "RESERVE_FACTOR";
         public const string ComponentMode = "MODE";
-        private string _fieldName;
-        private CompositeFailureCriterionEnum _criterion;
+        public const string ComponentMaxFailureIndex = "MAX_FAILURE_INDEX";
+        public const string ComponentCriticalLayer = "CRITICAL_LAYER";
+        public const string ComponentMinReserveFactor = "MIN_RESERVE_FACTOR";
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private CompositeFailureCriterionEnum _criterion;
+        [PmxKey(2)] [OptionalField]
+        private ShellInPlaneQuantityEnum _quantity;
 
 
-        // Properties
+        // Properties                                                                                                               
         public string FieldName { get { return _fieldName; } set { _fieldName = value; } }
         public CompositeFailureCriterionEnum Criterion { get { return _criterion; } set { _criterion = value; } }
+        // A failure criterion evaluates stresses, so the in-plane strains are none of its quantities
+        public ShellInPlaneQuantityEnum Quantity { get { return _quantity; } set { _quantity = value; } }
 
 
         // Constructor
@@ -59,7 +68,8 @@ namespace CaeResults
         }
         public override string[] GetComponentNames()
         {
-            return new string[] { ComponentFailureIndex, ComponentReserveFactor, ComponentMode };
+            return new string[] { ComponentFailureIndex, ComponentReserveFactor, ComponentMode, ComponentMaxFailureIndex,
+                                  ComponentCriticalLayer, ComponentMinReserveFactor };
         }
     }
 }

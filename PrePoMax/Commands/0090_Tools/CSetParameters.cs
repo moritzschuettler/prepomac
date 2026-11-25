@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -26,11 +26,11 @@ namespace PrePoMax.Commands
     /// that is defined below it, so the table is applied at once: applying it one parameter at a time would
     /// leave the model holding an equation whose parameter is not there yet.
     /// </summary>
-    [Serializable]
+    [PmxType(10217)]
     class CSetParameters : PreprocessCommand
     {
         // Variables                                                                                                                
-        private EquationParameter[] _parameters;
+        [PmxKey(0)] private EquationParameter[] _parameters;
 
 
         // Constructor                                                                                                              

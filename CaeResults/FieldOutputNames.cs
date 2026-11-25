@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -115,6 +115,8 @@ namespace CaeResults
         public const string Distance = "DISTANCE";                      // vector
         public const string Imported = "IMPORTED";                      // scalar
         public const string ForcePerArea = "FORCE_PER_AREA";            // vector
+        public const string ForcePerVolume = "FORCE_PER_VOLUME";        // vector
+        public const string ForcePerLength = "FORCE_PER_LENGTH";        // vector
         public const string Pressure = "PRESSURE";                      // scalar
         // Preview
         public const string PrescribedDisp = "PRESCRIBED_DISP";         // vector

@@ -2,13 +2,14 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
 using System.Linq;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -17,14 +18,14 @@ namespace CaeMesh
     /// boundary loop runs, and the edges of each side between them. A side is a chain of edges, joined where they
     /// meet at a flatter angle than the transfinite angle.
     /// </summary>
-    [Serializable]
+    [PmxType(2129)]
     public class TransfiniteFace
     {
         // Variables
-        private int _faceId;
-        private int[] _cornerNodeIds;
-        private double[] _cornerAnglesDeg;
-        private int[][] _sideEdgeIds;
+        [PmxKey(0)] private int _faceId;
+        [PmxKey(1)] private int[] _cornerNodeIds;
+        [PmxKey(2)] private double[] _cornerAnglesDeg;
+        [PmxKey(3)] private int[][] _sideEdgeIds;
 
 
         // Properties

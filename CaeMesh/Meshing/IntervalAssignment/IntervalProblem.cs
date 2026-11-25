@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,22 +18,26 @@ namespace CaeMesh
 {
     /// <summary>
     /// The element counts of a set of edges, settled in one solve: every edge has the count the mesh size asks for, its
-    /// target, and the rows tie the counts together. lp_solve finds the integer counts that keep every hard row and come
-    /// closest to the targets, a count above its target costing more than one below, for the coarser mesh, and the
-    /// deviation measured relative to the target. Each element below half the target costs more, by _downBandGrowth for
-    /// every further halving, so a side lowered far is lowered on all its edges: priced the same all the way down, the
-    /// elements of the longest edge were the cheapest to take, and a chain of edges lowered to one element on its longest
-    /// edge while its short ones kept theirs. An edge is not lowered below the count that keeps its elements within the
-    /// maximum element size, unless the counts that are fixed leave no other way: every element short of it costs more
-    /// than giving up a structured row. A structured or a preferred row may be given up at a price; with the hard rows
-    /// relaxed as well, at a far higher price, the counts that come back name the rows that cannot be kept.
+    /// target, and the rows tie the counts together. HiGHS finds the integer counts that keep every hard row and come
+    /// closest to the targets. A count below its target is priced by how many times larger its elements are than asked
+    /// for, a count above it by how many times more elements it has, times the logarithm of that number and _upWeight:
+    /// a count above its target costs more than one below, for the coarser mesh. Every further element off the target
+    /// costs more than the one before, so a side lowered or raised far is lowered or raised on all its edges: with one
+    /// price for all the elements those of the longest edge were the cheapest to take, and a chain of edges lowered to
+    /// one element on its longest edge while its short ones kept theirs. An edge is not lowered below the count that
+    /// keeps its elements within the maximum element size, unless the counts that are fixed leave no other way: every
+    /// element short of it costs more than giving up a structured row. A structured or a preferred row may be given up
+    /// at a price; with the hard rows relaxed as well, at a far higher price, the counts that come back name the rows
+    /// that cannot be kept.
     /// </summary>
     public class IntervalProblem
     {
         // Variables
         private const double _upWeight = 1.5;
         private const double _downWeight = 1.0;
-        private const double _downBandGrowth = 4;
+        private const int _maxUpRatio = 64;
+        private const int _priceResolution = 8;
+        private const double _orderStep = 0.01;
         private const double _hardPenalty = 1E4;
         private const double _maxSizePenalty = 1E3;
         private const double _structuredPenalty = 1E2;
@@ -137,13 +141,22 @@ namespace CaeMesh
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EqualSums, new int[][] { sideA, sideB }, surfaceId));
         }
-        public void AddEvenSum(string name, IntervalRowTierEnum tier, int[] side)
+        /// <summary>
+        /// The side carries a total that is a multiple of the given number, an even one unless set.
+        /// </summary>
+        public void AddEvenSum(string name, IntervalRowTierEnum tier, int[] side, int multiple = 2)
         {
-            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EvenSum, new int[][] { side }));
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EvenSum, new int[][] { side }, 0, 0, multiple));
         }
         public void AddAtLeastSum(string name, IntervalRowTierEnum tier, int[] side, int bound, int surfaceId = 0)
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastSum, new int[][] { side }, surfaceId, bound));
+        }
+        public void AddAtLeastDifference(string name, IntervalRowTierEnum tier, int[] sideA, int[] sideB, int bound,
+                                         int surfaceId = 0)
+        {
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastDifference, new int[][] { sideA, sideB },
+                                   surfaceId, bound));
         }
         public void AddThreeSided(string name, IntervalRowTierEnum tier, int[][] sides, int surfaceId = 0)
         {
@@ -167,48 +180,102 @@ namespace CaeMesh
         public double GetDeviation(Func<int, int> getCount)
         {
             double deviation = 0;
+            Dictionary<int, double> edgeIdOrderFactor = GetOrderFactors();
             foreach (var entry in _edgeIdTarget)
             {
                 int difference = getCount(entry.Key) - entry.Value;
-                if (difference > 0) deviation += GetWeight(entry.Key) * _upWeight * difference / entry.Value;
-                else
+                double rest = Math.Abs(difference);
+                foreach (var segment in GetSegments(entry.Key, entry.Value, difference > 0,
+                                                    edgeIdOrderFactor[entry.Key]))
                 {
-                    double down = -difference;
-                    foreach (var band in GetDownBands(entry.Value))
-                    {
-                        if (down <= 0) break;
-                        double inBand = Math.Min(down, band.Item1);
-                        deviation += GetWeight(entry.Key) * GetDownWeight(entry.Key) * _downWeight * band.Item2 * inBand /
-                                     entry.Value;
-                        down -= inBand;
-                    }
+                    if (rest <= 0) break;
+                    double inSegment = Math.Min(rest, segment.Item1);
+                    deviation += inSegment * segment.Item2;
+                    rest -= inSegment;
                 }
             }
             return deviation;
         }
         /// <summary>
-        /// The bands a count below the target falls through, from the target down: the number of elements each band
-        /// holds, every one halving the count, and the factor its elements cost. The last band holds the rest.
+        /// The price of a count of the edge. Below the target it is the number of times the elements are larger than
+        /// asked for, less one. Above it, it is the number of times more elements the edge has, times its logarithm.
+        /// Both start from nothing at the target with a price for the first element, and every further element costs
+        /// more than the one before.
         /// </summary>
-        private static List<Tuple<double, double>> GetDownBands(int target)
+        private double GetPrice(int edgeId, int target, int count)
         {
-            List<Tuple<double, double>> bands = new List<Tuple<double, double>>();
-            double width = target / 2.0;
-            double factor = 1;
-            while (width > 0.5)
+            double ratio = (double)count / target;
+            if (count < target) return GetWeight(edgeId) * GetDownWeight(edgeId) * _downWeight * (1 / ratio - 1);
+            else return GetWeight(edgeId) * _upWeight * ratio * Math.Log(ratio);
+        }
+        /// <summary>
+        /// The price of the counts from the target up or down as the solver gets it, in segments: the number of
+        /// elements each segment holds and the price of one of them. A segment holds one element, and more only far
+        /// from the target and from a single element, where it holds one _priceResolution-th of the distance to the
+        /// nearer of them, so the edges of a side that are priced the same share its deviation to within that part.
+        /// Above _maxUpRatio times the target the price of an element stays. Every price is multiplied by the order
+        /// factor of the edge.
+        /// </summary>
+        private List<Tuple<double, double>> GetSegments(int edgeId, int target, bool above, double orderFactor)
+        {
+            List<Tuple<double, double>> segments = new List<Tuple<double, double>>();
+            int count = target;
+            int last = above ? target * _maxUpRatio : 1;
+            double price = 0;
+            while (count != last)
             {
-                bands.Add(new Tuple<double, double>(width, factor));
-                width /= 2;
-                factor *= _downBandGrowth;
+                int distance = Math.Abs(count - target);
+                int width = Math.Max(1, (above ? distance : Math.Min(distance, count - 1)) / _priceResolution);
+                int next = above ? Math.Min(last, count + width) : Math.Max(last, count - width);
+                price = (GetPrice(edgeId, target, next) - GetPrice(edgeId, target, count)) / Math.Abs(next - count);
+                segments.Add(new Tuple<double, double>(Math.Abs(next - count), price * orderFactor));
+                count = next;
             }
-            bands.Add(new Tuple<double, double>(LpSolve.Infinity, factor));
-            return bands;
+            if (above) segments.Add(new Tuple<double, double>(Highs.Infinity, price * orderFactor));
+            return segments;
+        }
+        /// <summary>
+        /// The factors that settle which of the edges priced the same gives way first: every edge costs up to
+        /// _orderStep more by the place the rows name it at, which follows the faces and their loops and not the
+        /// numbers of the edges. The place gives the square root of a prime of its own, less its whole part: no sum of
+        /// such roots equals another one, so no two sets of counts cost the same and the counts do not depend on which
+        /// of them the solver meets first.
+        /// </summary>
+        private Dictionary<int, double> GetOrderFactors()
+        {
+            List<int> edgeIds = new List<int>();
+            HashSet<int> namedEdgeIds = new HashSet<int>();
+            foreach (var row in _rows)
+            {
+                foreach (var side in row.Sides)
+                {
+                    foreach (var edgeId in side)
+                    {
+                        if (namedEdgeIds.Add(edgeId)) edgeIds.Add(edgeId);
+                    }
+                }
+            }
+            foreach (var edgeId in _edgeIdTarget.Keys)
+            {
+                if (namedEdgeIds.Add(edgeId)) edgeIds.Add(edgeId);
+            }
+            Dictionary<int, double> edgeIdOrderFactor = new Dictionary<int, double>();
+            for (int number = 2; edgeIdOrderFactor.Count < edgeIds.Count; number++)
+            {
+                bool isPrime = true;
+                for (int divisor = 2; isPrime && divisor * divisor <= number; divisor++) isPrime = number % divisor != 0;
+                if (isPrime)
+                {
+                    edgeIdOrderFactor.Add(edgeIds[edgeIdOrderFactor.Count], 1 + _orderStep * (Math.Sqrt(number) % 1));
+                }
+            }
+            return edgeIdOrderFactor;
         }
         public IntervalSolution Solve(bool relaxHardRows, int timeoutSeconds, string lpFileName = null)
         {
             Stopwatch watch = Stopwatch.StartNew();
-            // Columns: the count of every edge with its deviation above and, band by band, below the target, then the auxiliary
-            // integers and the slacks of the rows
+            // Columns: the count of every edge with its deviation above and below the target, segment by segment, then
+            // auxiliary integers and the slacks of the rows
             List<double> lower = new List<double>();
             List<double> upper = new List<double>();
             List<bool> integer = new List<bool>();
@@ -221,14 +288,16 @@ namespace CaeMesh
                 upper.Add(up);
                 integer.Add(isInteger);
                 cost.Add(price);
-                return lower.Count;
+                return lower.Count - 1;
             };
-            List<Tuple<Dictionary<int, double>, int, double>> lpRows = new List<Tuple<Dictionary<int, double>, int, double>>();
+            List<Tuple<Dictionary<int, double>, double, double>> lpRows =
+                new List<Tuple<Dictionary<int, double>, double, double>>();
             List<string> rowNames = new List<string>();
             //
             int fixedCount;
             int[] edgeIds = _edgeIdTarget.Keys.ToArray();
             Dictionary<int, int> edgeIdColumn = new Dictionary<int, int>();
+            Dictionary<int, double> edgeIdOrderFactor = GetOrderFactors();
             foreach (var edgeId in edgeIds)
             {
                 int target = _edgeIdTarget[edgeId];
@@ -236,27 +305,32 @@ namespace CaeMesh
                 int minimum;
                 if (!_edgeIdMinimum.TryGetValue(edgeId, out minimum)) minimum = 1;
                 int maximum;
-                double upperBound = _edgeIdMaximum.TryGetValue(edgeId, out maximum) ? Math.Max(minimum, maximum) : LpSolve.Infinity;
+                double upperBound = _edgeIdMaximum.TryGetValue(edgeId, out maximum) ? Math.Max(minimum, maximum) : Highs.Infinity;
                 int column = addColumn("n" + edgeId, isFixed ? fixedCount : minimum, isFixed ? fixedCount : upperBound, true, 0);
-                double weight = GetWeight(edgeId);
-                int upColumn = addColumn("up" + edgeId, 0, LpSolve.Infinity, false, weight * _upWeight / target);
-                Dictionary<int, double> targetRow = new Dictionary<int, double>() { { column, 1 }, { upColumn, -1 } };
-                List<Tuple<double, double>> downBands = GetDownBands(target);
-                for (int i = 0; i < downBands.Count; i++)
+                Dictionary<int, double> targetRow = new Dictionary<int, double>() { { column, 1 } };
+                List<Tuple<double, double>> segments = GetSegments(edgeId, target, true, edgeIdOrderFactor[edgeId]);
+                for (int i = 0; i < segments.Count; i++)
                 {
-                    targetRow.Add(addColumn("down" + edgeId + "_" + i, 0, downBands[i].Item1, false,
-                                            weight * GetDownWeight(edgeId) * _downWeight * downBands[i].Item2 / target), 1);
+                    targetRow.Add(addColumn("up" + edgeId + "_" + i, 0, segments[i].Item1, false, segments[i].Item2),
+                                  -1);
+                }
+                segments = GetSegments(edgeId, target, false, edgeIdOrderFactor[edgeId]);
+                for (int i = 0; i < segments.Count; i++)
+                {
+                    targetRow.Add(addColumn("down" + edgeId + "_" + i, 0, segments[i].Item1, false, segments[i].Item2),
+                                  1);
                 }
                 edgeIdColumn.Add(edgeId, column);
                 rowNames.Add("target" + edgeId);
-                lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(targetRow, LpSolve.EQ, target));
+                lpRows.Add(new Tuple<Dictionary<int, double>, double, double>(targetRow, target, target));
                 int maxSizeCount;
                 if (!isFixed && _edgeIdMaxSizeCount.TryGetValue(edgeId, out maxSizeCount) && maxSizeCount > minimum)
                 {
-                    int shortColumn = addColumn("short" + edgeId, 0, LpSolve.Infinity, false, _maxSizePenalty);
+                    int shortColumn = addColumn("short" + edgeId, 0, Highs.Infinity, false, _maxSizePenalty);
                     rowNames.Add("maxSize" + edgeId);
-                    lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(
-                        new Dictionary<int, double>() { { column, 1 }, { shortColumn, 1 } }, LpSolve.GE, maxSizeCount));
+                    lpRows.Add(new Tuple<Dictionary<int, double>, double, double>(
+                        new Dictionary<int, double>() { { column, 1 }, { shortColumn, 1 } }, maxSizeCount,
+                        Highs.Infinity));
                 }
             }
             //
@@ -278,13 +352,21 @@ namespace CaeMesh
                 else penalty = _preferredPenalty;
                 //
                 List<Dictionary<int, double>> rowCoefficients = new List<Dictionary<int, double>>();
-                int rowType = LpSolve.EQ;
+                bool atLeast = false;
                 if (row.Kind == IntervalRowKindEnum.AtLeastSum)
                 {
                     Dictionary<int, double> coefficients = new Dictionary<int, double>();
                     addSide(coefficients, row.Sides[0], 1);
                     rowCoefficients.Add(coefficients);
-                    rowType = LpSolve.GE;
+                    atLeast = true;
+                }
+                else if (row.Kind == IntervalRowKindEnum.AtLeastDifference)
+                {
+                    Dictionary<int, double> coefficients = new Dictionary<int, double>();
+                    addSide(coefficients, row.Sides[0], 1);
+                    addSide(coefficients, row.Sides[1], -1);
+                    rowCoefficients.Add(coefficients);
+                    atLeast = true;
                 }
                 else if (row.Kind == IntervalRowKindEnum.EqualSums)
                 {
@@ -297,13 +379,13 @@ namespace CaeMesh
                 {
                     Dictionary<int, double> coefficients = new Dictionary<int, double>();
                     addSide(coefficients, row.Sides[0], 1);
-                    coefficients.Add(addColumn("k" + r, 0, LpSolve.Infinity, true, 0), -2);
+                    coefficients.Add(addColumn("k" + r, 0, Highs.Infinity, true, 0), -row.Multiple);
                     rowCoefficients.Add(coefficients);
                 }
                 else
                 {
                     // a = q + r, b = r + p, c = p + q
-                    int[] blockColumns = Enumerable.Range(0, 3).Select(i => addColumn("b" + r + "_" + i, 1, LpSolve.Infinity, true, 0))
+                    int[] blockColumns = Enumerable.Range(0, 3).Select(i => addColumn("b" + r + "_" + i, 1, Highs.Infinity, true, 0))
                                                 .ToArray();
                     for (int i = 0; i < 3; i++)
                     {
@@ -319,71 +401,54 @@ namespace CaeMesh
                     Dictionary<int, double> coefficients = rowCoefficients[i];
                     if (penalty > 0)
                     {
-                        coefficients.Add(addColumn("plus" + r + "_" + i, 0, LpSolve.Infinity, false, penalty), 1);
-                        coefficients.Add(addColumn("minus" + r + "_" + i, 0, LpSolve.Infinity, false, penalty), -1);
+                        coefficients.Add(addColumn("plus" + r + "_" + i, 0, Highs.Infinity, false, penalty), 1);
+                        coefficients.Add(addColumn("minus" + r + "_" + i, 0, Highs.Infinity, false, penalty), -1);
                     }
-                    lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(coefficients, rowType,
-                                                                               rowType == LpSolve.GE ? row.Bound : 0));
+                    lpRows.Add(new Tuple<Dictionary<int, double>, double, double>(
+                        coefficients, atLeast ? row.Bound : 0, atLeast ? Highs.Infinity : 0));
                     rowNames.Add("row" + r + (rowCoefficients.Count > 1 ? "_" + i : ""));
                 }
             }
             //
-            IntPtr lp;
+            IntPtr highs = Highs.Create(timeoutSeconds);
             try
             {
-                lp = LpSolve.make_lp(0, lower.Count);
-            }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is BadImageFormatException ||
-                                       ex is EntryPointNotFoundException)
-            {
-                throw new CaeException("lp_solve, which settles the numbers of elements on the edges, could not be loaded " +
-                                       "from lpsolve55.dll next to GmshCaller.exe: " + ex.Message);
-            }
-            if (lp == IntPtr.Zero) throw new CaeException("lp_solve could not create a model.");
-            try
-            {
-                LpSolve.set_verbose(lp, LpSolve.Critical);
-                LpSolve.set_add_rowmode(lp, 1);
-                int[] costColumns = Enumerable.Range(1, cost.Count).Where(column => cost[column - 1] != 0).ToArray();
-                LpSolve.set_obj_fnex(lp, costColumns.Length, costColumns.Select(column => cost[column - 1]).ToArray(),
-                                     costColumns);
+                Highs.Check(Highs.Highs_addVars(highs, lower.Count, lower.ToArray(), upper.ToArray()));
+                Highs.Check(Highs.Highs_changeColsCostByRange(highs, 0, cost.Count - 1, cost.ToArray()));
+                int[] integrality = integer.Select(isInteger => isInteger ? Highs.Integer : Highs.Continuous).ToArray();
+                Highs.Check(Highs.Highs_changeColsIntegralityByRange(highs, 0, integrality.Length - 1, integrality));
+                Highs.Check(Highs.Highs_changeObjectiveSense(highs, Highs.Minimize));
                 foreach (var lpRow in lpRows)
                 {
                     int[] columns = lpRow.Item1.Where(entry => entry.Value != 0).Select(entry => entry.Key).ToArray();
                     double[] values = columns.Select(column => lpRow.Item1[column]).ToArray();
-                    LpSolve.add_constraintex(lp, columns.Length, values, columns, lpRow.Item2, lpRow.Item3);
+                    Highs.Check(Highs.Highs_addRow(highs, lpRow.Item2, lpRow.Item3, columns.Length, columns, values));
                 }
-                LpSolve.set_add_rowmode(lp, 0);
-                for (int i = 0; i < rowNames.Count; i++) LpSolve.set_row_name(lp, i + 1, rowNames[i]);
-                for (int column = 1; column <= lower.Count; column++)
-                {
-                    LpSolve.set_col_name(lp, column, columnNames[column - 1]);
-                    LpSolve.set_bounds(lp, column, lower[column - 1], upper[column - 1]);
-                    if (integer[column - 1]) LpSolve.set_int(lp, column, 1);
-                }
-                LpSolve.set_minim(lp);
-                LpSolve.set_timeout(lp, timeoutSeconds);
                 if (lpFileName != null)
                 {
-                    LpSolve.write_lp(lp, lpFileName);
+                    for (int i = 0; i < rowNames.Count; i++) Highs.Highs_passRowName(highs, i, rowNames[i]);
+                    for (int i = 0; i < columnNames.Count; i++) Highs.Highs_passColName(highs, i, columnNames[i]);
+                    Highs.Highs_writeModel(highs, lpFileName);
                     File.WriteAllLines(lpFileName + ".rows.txt", _rows.Select((row, index) => "row" + index + ": " +
                                                                                              row.Describe(id => _edgeIdTarget[id])));
                 }
                 //
-                int status = LpSolve.solve(lp);
-                if (status != LpSolve.Optimal && status != LpSolve.SubOptimal)
+                Highs.Highs_run(highs);
+                int status = Highs.Highs_getModelStatus(highs);
+                // No column has a negative price and every priced column starts at 0, so the problem is never unbounded
+                if (status == Highs.UnboundedOrInfeasible) status = Highs.Infeasible;
+                if (status != Highs.Optimal && !(status == Highs.TimeLimit && Highs.HasFeasibleSolution(highs)))
                     return new IntervalSolution(status, null, null, 0, watch.Elapsed.TotalSeconds);
                 //
-                double[] solution = new double[lower.Count];
-                LpSolve.get_variables(lp, solution);
-                Dictionary<int, int> counts = edgeIds.ToDictionary(edgeId => edgeId,
-                                                                   edgeId => (int)Math.Round(solution[edgeIdColumn[edgeId] - 1]));
+                double[] solution = Highs.GetColumnValues(highs, lower.Count);
+                Dictionary<int, int> counts = edgeIds.ToDictionary(
+                    edgeId => edgeId, edgeId => (int)Math.Round(solution[edgeIdColumn[edgeId]]));
                 return new IntervalSolution(status, counts, GetViolatedRows(edgeId => counts[edgeId]),
-                                            LpSolve.get_objective(lp), watch.Elapsed.TotalSeconds);
+                                            Highs.Highs_getObjectiveValue(highs), watch.Elapsed.TotalSeconds);
             }
             finally
             {
-                LpSolve.delete_lp(lp);
+                Highs.Highs_destroy(highs);
             }
         }
     }

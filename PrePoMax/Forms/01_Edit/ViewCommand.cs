@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,12 +14,12 @@ using PrePoMax.Commands;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10312)]
     public class ViewCommand
     {
         // Variables                                                                                                                
-        private int _id;
-        private Command _command;
+        [PmxKey(0)] private int _id;
+        [PmxKey(1)] private Command _command;
 
 
         // Properties                                                                                                               

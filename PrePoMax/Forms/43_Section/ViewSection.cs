@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,12 +18,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10386)]
     public class ViewSection : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private CaeModel.Section _section;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private CaeModel.Section _section;
 
 
         // Properties                                                                                                               
@@ -35,7 +35,7 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Material")]
         [DescriptionAttribute("Select the material for the creation of the section.")]
-        public string MaterialName { get { return _section.MaterialName; } set { _section.MaterialName = value; } }
+        public virtual string MaterialName { get { return _section.MaterialName; } set { _section.MaterialName = value; } }
         //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(0, 10, "Region type")]

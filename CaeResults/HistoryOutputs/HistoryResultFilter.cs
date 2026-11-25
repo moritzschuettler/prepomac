@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -12,10 +12,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5039)]
     public enum HistoryResultFilterTypeEnum
     {
         None,
@@ -25,7 +26,7 @@ namespace CaeResults
         Average
     }
     //
-    [Serializable]
+    [PmxType(5040)]
     public class HistoryResultFilter
     {
         // Variables                                                                                                                
@@ -34,8 +35,8 @@ namespace CaeResults
         public static string Rows = "Rows";
         public static string Columns = "Columns";
         //
-        protected HistoryResultFilterTypeEnum _type;
-        protected string _option;
+        [PmxKey(0)] protected HistoryResultFilterTypeEnum _type;
+        [PmxKey(1)] protected string _option;
 
 
         // Properties                                                                                                               

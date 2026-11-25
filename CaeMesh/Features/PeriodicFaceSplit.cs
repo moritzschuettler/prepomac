@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,13 +17,13 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class PeriodicFaceSplit : ISerializable
+    [PmxType(2068)]
+    public class PeriodicFaceSplit
     {
         // Variables
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private int _numOfFaces;                            //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(1)] private Selection _creationData;                    //ISerializable
+        [PmxKey(2)] private int _numOfFaces;                            //ISerializable
 
 
         // Properties
@@ -79,14 +79,6 @@ namespace CaeMesh
             if (_creationIds == null || _creationIds.Length == 0) return "Select at least one part to split.";
             //
             return null;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_numOfFaces", _numOfFaces, typeof(int));
         }
     }
 }

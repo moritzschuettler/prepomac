@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,13 +13,13 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class CompositeLayer : ISerializable
+    [PmxType(3194)]
+    public class CompositeLayer
     {
         // Variables                                                                                                                
-        private string _materialName;               //ISerializable
-        private EquationContainer _thickness;       //ISerializable
-        private EquationContainer _angle;           //ISerializable
+        [PmxKey(0)] private string _materialName;               //ISerializable
+        [PmxKey(1)] private EquationContainer _thickness;       //ISerializable
+        [PmxKey(2)] private EquationContainer _angle;           //ISerializable
 
 
         // Properties                                                                                                               
@@ -62,6 +62,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetThickness(_thickness, false);
+            SetAngle(_angle, false);
+        }
         private void SetThickness(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _thickness, value, CheckPositive, checkEquation);
@@ -85,14 +91,6 @@ namespace CaeModel
         {
             _thickness.CheckEquation();
             _angle.CheckEquation();
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_materialName", _materialName, typeof(string));
-            info.AddValue("_thickness", _thickness, typeof(EquationContainer));
-            info.AddValue("_angle", _angle, typeof(EquationContainer));
         }
     }
 }

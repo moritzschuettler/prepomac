@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -125,6 +125,8 @@ namespace PrePoMax.Python
                                                  string.Join(" ", _controller.GetErrors()).Replace(Environment.NewLine, " "));
                 }
             }
+            // As File - Import leaves it: the camera of an empty model would show none of the imported parts
+            if (_controller.Form != null && CountModelParts() > numOfParts) _controller.Form.SetFrontBackView(false, true);
         }
         private int CountModelParts()
         {
@@ -580,6 +582,19 @@ namespace PrePoMax.Python
         public void ShowContactPairs(string[] contactPairNames)
         {
             _controller.ShowContactPairsCommand(contactPairNames);
+        }
+        public List<MasterSlaveItem> SearchContactPairs(double distance, double angleDeg,
+                                                        CaeMesh.ContactSearchNamespace.GeometryFilterEnum filter,
+                                                        GroupContactPairsByEnum groupBy, bool tryToResolve)
+        {
+            return _controller.SearchContactPairs(distance, angleDeg, filter, groupBy, tryToResolve);
+        }
+        public string[] AddSearchedContactPairs(List<MasterSlaveItem> masterSlaveItems, bool tie, bool adjust,
+                                                double distance, string surfaceInteractionName, ContactPairMethod method)
+        {
+            return _controller.AddSearchedContactPairsCommand(
+                _controller.CreateSearchContactPairRows(masterSlaveItems, tie, adjust, distance, surfaceInteractionName,
+                                                        method));
         }
         //
         public void AddNodeSet(FeNodeSet nodeSet)

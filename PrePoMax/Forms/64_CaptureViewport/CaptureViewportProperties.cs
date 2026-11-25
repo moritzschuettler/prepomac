@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -15,18 +15,18 @@ namespace PrePoMax
 {
     // What a picture of the viewport is made of. The toolbar button takes these defaults and asks
     // nothing, so the picture it writes and the one the dialog writes come out of one renderer call.
-    [Serializable]
+    [PmxType(10493)]
     public class CaptureViewportProperties
     {
         // Variables                                                                                                                
         private const string Extension = ".png";
-        private bool _saveToFile;
-        private string _folder;
-        private string _fileName;
-        private bool _autoIncrement;
-        private bool _transparentBackground;
-        private int _magnification;
-        private bool _copyToClipboard;
+        [PmxKey(0)] private bool _saveToFile;
+        [PmxKey(1)] private string _folder;
+        [PmxKey(2)] private string _fileName;
+        [PmxKey(3)] private bool _autoIncrement;
+        [PmxKey(4)] private bool _transparentBackground;
+        [PmxKey(5)] private int _magnification;
+        [PmxKey(6)] private bool _copyToClipboard;
 
 
         // Properties                                                                                                             

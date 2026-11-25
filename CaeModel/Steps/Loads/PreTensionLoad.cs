@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,7 +19,7 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3266)]
     public enum PreTensionLoadType
     {
         [StandardValue("Force", Description = "Pre-tension by force.")]
@@ -28,19 +28,19 @@ namespace CaeModel
         Displacement = 1
     }
     //
-    [Serializable]
-    public class PreTensionLoad : Load, ISerializable
+    [PmxType(3267)]
+    public class PreTensionLoad : Load
     {
         // Variables                                                                                                                
-        private string _surfaceName;                    //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private bool _autoComputeDirection;             //ISerializable
-        private EquationContainer _x;                   //ISerializable
-        private EquationContainer _y;                   //ISerializable
-        private EquationContainer _z;                   //ISerializable
-        private PreTensionLoadType _type;               //ISerializable
-        private EquationContainer _forceMagnitude;      //ISerializable
-        private EquationContainer _dispMagnitude;       //ISerializable
+        [PmxKey(0)] private string _surfaceName;                    //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private bool _autoComputeDirection;             //ISerializable
+        [PmxKey(3)] private EquationContainer _x;                   //ISerializable
+        [PmxKey(4)] private EquationContainer _y;                   //ISerializable
+        [PmxKey(5)] private EquationContainer _z;                   //ISerializable
+        [PmxKey(6)] private PreTensionLoadType _type;               //ISerializable
+        [PmxKey(7)] private EquationContainer _forceMagnitude;      //ISerializable
+        [PmxKey(8)] private EquationContainer _dispMagnitude;       //ISerializable
 
 
         // Properties                                                                                                               
@@ -136,6 +136,15 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX(_x, false);
+            SetY(_y, false);
+            SetZ(_z, false);
+            SetForceMagnitude(_forceMagnitude, false);
+            SetDisplacementMagnitude(_dispMagnitude, false);
+        }
         private void SetX(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _x, value, null, checkEquation);
@@ -185,23 +194,6 @@ namespace CaeModel
             if (_type == PreTensionLoadType.Force) return _forceMagnitude.Value;
             else if (_type == PreTensionLoadType.Displacement) return _dispMagnitude.Value;
             else throw new NotSupportedException();
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_autoComputeDirection", _autoComputeDirection, typeof(bool));
-            info.AddValue("_x", _x, typeof(EquationContainer));
-            info.AddValue("_y", _y, typeof(EquationContainer));
-            info.AddValue("_z", _z, typeof(EquationContainer));
-            info.AddValue("_type", _type, typeof(PreTensionLoadType));
-            info.AddValue("_forceMagnitude", _forceMagnitude, typeof(EquationContainer));
-            info.AddValue("_dispMagnitude", _dispMagnitude, typeof(EquationContainer));
         }
     }
 }

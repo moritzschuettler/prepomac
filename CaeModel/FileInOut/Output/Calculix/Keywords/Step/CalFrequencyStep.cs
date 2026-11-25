@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3119)]
     internal class CalFrequencyStep : CalStep
     {
         // Variables                                                                                                                
-        private FrequencyStep _step;
+        [PmxKey(0)] private FrequencyStep _step;
 
 
         // Properties                                                                                                               

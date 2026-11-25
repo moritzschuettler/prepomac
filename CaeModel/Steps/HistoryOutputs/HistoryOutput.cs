@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,7 +20,7 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3247)]
     public enum TotalsTypeEnum
     {
         [StandardValue("Yes", Description = "Sum of external forces is printed in addition to the individual node values.")]
@@ -31,16 +31,16 @@ namespace CaeModel
         No
     }
 
-    [Serializable]
-    public abstract class HistoryOutput : NamedClass, IMultiRegion, ISerializable
+    [PmxType(3248)]
+    public abstract class HistoryOutput : NamedClass, IMultiRegion
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;         //ISerializable
-        private string _regionName;                 //ISerializable
-        private TotalsTypeEnum _totals;             //ISerializable
-        private int[] _creationIds;                 //ISerializable
-        private Selection _creationData;            //ISerializable
-        private bool _global;                       //ISerializable
+        [PmxKey(0)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(1)] private string _regionName;                 //ISerializable
+        [PmxKey(2)] private TotalsTypeEnum _totals;             //ISerializable
+        [PmxKey(3)] private int[] _creationIds;                 //ISerializable
+        [PmxKey(4)] private Selection _creationData;            //ISerializable
+        [PmxKey(5)] private bool _global;                       //ISerializable
 
 
         // Properties                                                                                                               
@@ -95,21 +95,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_totals", _totals, typeof(TotalsTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_global", _global, typeof(bool));
-        }
     }
 }

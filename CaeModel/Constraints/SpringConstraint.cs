@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,14 +19,14 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class SpringConstraint : Constraint, IMultiRegion, ISerializable
+    [PmxType(3018)]
+    public abstract class SpringConstraint : Constraint, IMultiRegion
     {
         // Variables                                                                                                                
-        private bool _checkPositive;        //ISerializable
-        private EquationContainer _k1;      //ISerializable
-        private EquationContainer _k2;      //ISerializable
-        private EquationContainer _k3;      //ISerializable
+        [PmxKey(0)] private bool _checkPositive;        //ISerializable
+        [PmxKey(1)] private EquationContainer _k1;      //ISerializable
+        [PmxKey(2)] private EquationContainer _k2;      //ISerializable
+        [PmxKey(3)] private EquationContainer _k3;      //ISerializable
 
 
         // Properties                                                                                                               
@@ -96,6 +96,13 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetK1(_k1, false);
+            SetK2(_k2, false);
+            SetK3(_k3, false);
+        }
         private void SetK1(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _k1, value, CheckPositive, checkEquation);
@@ -143,17 +150,6 @@ namespace CaeModel
             _k1.CheckEquation();
             _k2.CheckEquation();
             _k3.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_checkPositive", _checkPositive, typeof(bool));
-            info.AddValue("_k1", _k1, typeof(EquationContainer));
-            info.AddValue("_k2", _k2, typeof(EquationContainer));
-            info.AddValue("_k3", _k3, typeof(EquationContainer));
         }
     }
 }

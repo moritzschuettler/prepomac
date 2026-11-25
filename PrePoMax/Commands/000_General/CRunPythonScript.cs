@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,14 +17,14 @@ using System.Text;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10033)]
     class CRunPythonScript : GeneralCommand
     {
         // Variables                                                                                                                
-        private string _script;
-        [OptionalField] private string _fileName;
-        [OptionalField] private string[] _arguments;
-        [OptionalField] private bool _failed;
+        [PmxKey(0)] private string _script;
+        [PmxKey(1)] [OptionalField] private string _fileName;
+        [PmxKey(2)] [OptionalField] private string[] _arguments;
+        [PmxKey(3)] [OptionalField] private bool _failed;
         [NonSerialized] private PythonEngineResult _executionResult;
         // Only the instance a run creates starts true; a command read from a history file is always a rerun
         [NonSerialized] private bool _isFirstRun;

@@ -9,11 +9,11 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3079)]
     internal class CalCyclicSymmetry : CalculixKeyword
     {
-        private CyclicSymmetry _cyclicSymmetry;
-        private string _elementSetName;
+        [PmxKey(0)] private CyclicSymmetry _cyclicSymmetry;
+        [PmxKey(1)] private string _elementSetName;
 
         public CalCyclicSymmetry(CyclicSymmetry cyclicSymmetry, string elementSetName)
         {

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,29 +19,29 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3221)]
     public class TimeIncrementationStepControlParameter : StepControlParameter
     {
         // Variables                                                                                                                
-        private int _i0;
-        private int _ir;
-        private int _ip;
-        private int _ic;
-        private int _il;
-        private int _ig;
-        private int _is;
-        private int _ia;
-        private int _ij;
-        private int _it;
+        [PmxKey(0)] private int _i0;
+        [PmxKey(1)] private int _ir;
+        [PmxKey(2)] private int _ip;
+        [PmxKey(3)] private int _ic;
+        [PmxKey(4)] private int _il;
+        [PmxKey(5)] private int _ig;
+        [PmxKey(6)] private int _is;
+        [PmxKey(7)] private int _ia;
+        [PmxKey(8)] private int _ij;
+        [PmxKey(9)] private int _it;
         //
-        private double _df;
-        private double _dc;
-        private double _db;
-        private double _da;
-        private double _ds;
-        private double _dh;
-        private double _dd;
-        private double _wg;
+        [PmxKey(10)] private double _df;
+        [PmxKey(11)] private double _dc;
+        [PmxKey(12)] private double _db;
+        [PmxKey(13)] private double _da;
+        [PmxKey(14)] private double _ds;
+        [PmxKey(15)] private double _dh;
+        [PmxKey(16)] private double _dd;
+        [PmxKey(17)] private double _wg;
 
 
         // Properties                                                                                                               

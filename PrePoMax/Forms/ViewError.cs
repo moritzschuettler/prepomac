@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,14 +13,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using CaeGlobals;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10519)]
     public class ViewError
     {
         // Variables                                                                                                                
-        private string _message;
+        [PmxKey(0)] private string _message;
 
 
         // Properties                                                                                                               

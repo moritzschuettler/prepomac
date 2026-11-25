@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -15,17 +15,18 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3058)]
     public abstract class CalculixKeyword //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
         // CalculiX reads this many characters of a line
         protected const int CalculixLineLength = 132;
-        protected List<CalculixKeyword> _keywords;          //ISerializable
-        private bool _active;                               //ISerializable
+        [PmxKey(0)] protected List<CalculixKeyword> _keywords;          //ISerializable
+        [PmxKey(1)] private bool _active;                               //ISerializable
 
 
         // Properties                                                                                                               
@@ -104,13 +105,6 @@ namespace FileInOut.Output.Calculix
             else throw new NotSupportedException();
             //
             return ratio;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_keywords", _keywords, typeof(List<CalculixKeyword>));
-            info.AddValue("_active", _active, typeof(bool));
         }
     }
 }

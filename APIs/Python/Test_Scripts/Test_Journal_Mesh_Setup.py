@@ -9,7 +9,8 @@
 #Every mesh setup value is given away from its default, so that an argument the emitter writes and the API
 #does not take - or writes in a form the API refuses - fails the replay rather than passing unnoticed. The
 #steps cover deltmx, whose default is infinite: it must be emitted on an add, and a replace must be able to
-#put a finite value back to the default.
+#put a finite value back to the default. A gmsh shell item on an imported shell is added with every face meshed free
+#and replaced with its submapped faces turned back on together with an angle, which only they then use.
 #
 #  PrePoMax.com --script Test_Journal_Mesh_Setup.py -g No -x Yes -w <dir>
 #
@@ -42,6 +43,8 @@ TETRAHEDRAL = PREFIX + "Tet"
 TRANSFINITE = PREFIX + "Transfinite"
 TRANSFINITE_OFF = PREFIX + "Transfinite_Off"
 SWEEP = PREFIX + "Sweep"
+SHELL = PREFIX + "Shell"
+SHELL_MODEL = "shell_end_chain.brep"
 PARAMETERS = PREFIX + "Parameters"
 HEAT_TRANSFER = PREFIX + "Heat_Transfer"
 UNCOUPLED = PREFIX + "Uncoupled"
@@ -59,11 +62,17 @@ items.add_transfinite_mesh('%(transfinite)s', box_selection, recombine=True, tra
 items.add_transfinite_mesh('%(transfinite_off)s', box_selection, recombine=False)
 items.add_sweep_mesh('%(sweep)s', pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
                                                              {box.id: [5]}),
-                     transfinite_four_sided=True, transfinite_angle_deg=100.0)
+                     transfinite_four_sided=True, transfinite_submapped=False, transfinite_angle_deg=100.0)
 items.replace_sweep_mesh('%(sweep)s', algorithm_2d='QuadWild', algorithm_recombine='Blossom',
                          recombine_min_quality=0.3, optimize_first_order_shell='Laplace2D')
 items.add_meshing_parameters('%(parameters)s', cylinder_selection, relative_size=True, factor_max=0.2,
                              factor_min=0.02, max_size=7.0, min_size=0.5)
+pmx.import_file(%(shell_model)r)
+shell = [part for part in pmx.model.geometry.parts if part.part_type == 'Shell'][0]
+shell_selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [shell.id])
+items.add_shell_gmsh('%(shell)s', shell_selection, transfinite_three_sided='No', transfinite_four_sided=False,
+                     transfinite_submapped=False)
+items.replace_shell_gmsh('%(shell)s', transfinite_submapped=True, transfinite_angle_deg=125.0)
 steps = pmx.model.steps
 steps.add_heat_transfer('%(heat_transfer)s')
 steps.add_uncoupled_temp_disp('%(uncoupled)s', deltmx=5.0)
@@ -71,13 +80,15 @@ steps.add_coupled_temp_disp('%(coupled)s', deltmx=2.5)
 steps.replace_coupled_temp_disp('%(coupled)s', deltmx=float('inf'))
 """ % {"tetrahedral": TETRAHEDRAL, "transfinite": TRANSFINITE, "transfinite_off": TRANSFINITE_OFF,
        "sweep": SWEEP, "parameters": PARAMETERS, "heat_transfer": HEAT_TRANSFER, "uncoupled": UNCOUPLED,
-       "coupled": COUPLED}
+       "coupled": COUPLED, "shell": SHELL, "shell_model": os.path.join(MODELS, SHELL_MODEL)}
 CHECKED = [(TETRAHEDRAL, ["algorithm_recombine", "recombine_min_quality", "transfinite_four_sided",
                           "transfinite_angle_deg", "optimize_high_order"]),
            (TRANSFINITE, ["recombine", "transfinite_angle_deg"]),
            (TRANSFINITE_OFF, ["recombine"]),
            (SWEEP, ["algorithm_2d", "algorithm_recombine", "recombine_min_quality", "optimize_first_order_shell",
-                    "transfinite_four_sided", "transfinite_angle_deg"]),
+                    "transfinite_four_sided", "transfinite_submapped", "transfinite_angle_deg"]),
+           (SHELL, ["transfinite_three_sided", "transfinite_four_sided", "transfinite_submapped",
+                    "transfinite_angle_deg"]),
            (PARAMETERS, ["relative_size", "factor_max", "factor_min", "max_size", "min_size"])]
 STEPS = {HEAT_TRANSFER: "inf", UNCOUPLED: "5.0", COUPLED: "inf"}
 
@@ -231,6 +242,14 @@ def main():
     # The sizes are used by Gmsh and Mmg in the relative mode as well, so they are written alongside the factors
     check(recorded[PARAMETERS]["relative_size"] == "True" and recorded[PARAMETERS]["max_size"] == "7.0",
           "the relative meshing parameters did not take their sizes: " + str(recorded[PARAMETERS]))
+    # The angle a replace sets is used only through the submapped faces the same replace turns on, so the journal
+    # must write the switch the replace was given, though it is the default
+    check(recorded[SHELL]["transfinite_submapped"] == "True" and recorded[SHELL]["transfinite_angle_deg"] == "125.0",
+          "the shell item did not take its submapped faces and angle: " + str(recorded[SHELL]))
+    check(recorded[SWEEP]["transfinite_submapped"] == "False",
+          "the sweep item did not take transfinite_submapped=False: " + str(recorded[SWEEP]))
+    check("transfinite_submapped=False" in source and "transfinite_submapped=True" in source,
+          "the journal does not write the submapped faces of the shell item:" + os.linesep + source)
     for name, deltmx in STEPS.items():
         check(recorded[name] == deltmx, name + " recorded deltmx " + recorded[name] + ", expected " + deltmx)
     for name in [name for name, _ in CHECKED] + list(STEPS):

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,12 +20,12 @@ using System.Drawing.Printing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10346)]
     public class ViewMergeCoincidentNodes
     {
         // Variables                                                                                                                
-        private MergeCoincidentNodes _mergeCoincidentNodes;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private MergeCoincidentNodes _mergeCoincidentNodes;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

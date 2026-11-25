@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using System.Drawing;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3085)]
     internal class CalInitialAngularVelocity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private InitialAngularVelocity _initialVelocity;
-        private InitialTranslationalVelocity[] _initialTranslationalVelocities;
+        [PmxKey(0)] private InitialAngularVelocity _initialVelocity;
+        [PmxKey(1)] private InitialTranslationalVelocity[] _initialTranslationalVelocities;
 
 
         // Properties                                                                                                               

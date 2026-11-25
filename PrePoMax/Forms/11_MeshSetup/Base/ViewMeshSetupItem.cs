@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,7 +18,7 @@ using System.Xml.Linq;
 
 namespace PrePoMax.Forms
 {
-    public abstract class ViewMeshSetupItem
+    public abstract class ViewMeshSetupItem : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         protected DynamicCustomTypeDescriptor _dctd;
@@ -40,6 +40,13 @@ namespace PrePoMax.Forms
         public void HideName()
         {
             _dctd.GetProperty(nameof(Name)).SetIsBrowsable(false);
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            if (propertyName != nameof(RegionType)) return false;
+            //
+            MeshSetupItem meshSetupItem = GetBase();
+            return meshSetupItem != null && (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0);
         }
     }
 }

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -116,6 +116,7 @@ namespace PrePoMax.Forms
             // 
             this.tvProperties.ChangeHighlightOnFocusLost = true;
             this.tvProperties.DisableMouse = false;
+            this.tvProperties.EnsureSelectedNodeVisible = true;
             this.tvProperties.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.tvProperties.HideSelection = false;
             this.tvProperties.HighlightForeErrorColor = System.Drawing.Color.Red;
@@ -182,9 +183,10 @@ namespace PrePoMax.Forms
             treeNode11,
             treeNode18,
             treeNode13});
+            this.tvProperties.RelatedColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(223)))), ((int)(((byte)(235)))));
             this.tvProperties.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.tvProperties.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelectSameLevel;
-            this.tvProperties.Size = new System.Drawing.Size(192, 185);
+            this.tvProperties.Size = new System.Drawing.Size(192, 165);
             this.tvProperties.TabIndex = 2;
             this.tvProperties.DoubleClick += new System.EventHandler(this.tvProperties_DoubleClick);
             // 
@@ -198,7 +200,7 @@ namespace PrePoMax.Forms
             this.propertyGrid.Location = new System.Drawing.Point(3, 3);
             this.propertyGrid.Name = "propertyGrid";
             this.propertyGrid.ReadOnly = false;
-            this.propertyGrid.Size = new System.Drawing.Size(429, 231);
+            this.propertyGrid.Size = new System.Drawing.Size(429, 251);
             this.propertyGrid.TabIndex = 6;
             this.propertyGrid.ToolbarVisible = false;
             this.propertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.propertyGrid_PropertyValueChanged);
@@ -373,11 +375,11 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcProperties.Controls.Add(this.tpProperties);
             this.tcProperties.Controls.Add(this.tpDataPoints);
-            this.tcProperties.Location = new System.Drawing.Point(6, 225);
+            this.tcProperties.Location = new System.Drawing.Point(6, 205);
             this.tcProperties.Margin = new System.Windows.Forms.Padding(0);
             this.tcProperties.Name = "tcProperties";
             this.tcProperties.SelectedIndex = 0;
-            this.tcProperties.Size = new System.Drawing.Size(443, 265);
+            this.tcProperties.Size = new System.Drawing.Size(443, 285);
             this.tcProperties.TabIndex = 11;
             // 
             // tpProperties
@@ -387,7 +389,7 @@ namespace PrePoMax.Forms
             this.tpProperties.Location = new System.Drawing.Point(4, 24);
             this.tpProperties.Name = "tpProperties";
             this.tpProperties.Padding = new System.Windows.Forms.Padding(3);
-            this.tpProperties.Size = new System.Drawing.Size(435, 237);
+            this.tpProperties.Size = new System.Drawing.Size(435, 257);
             this.tpProperties.TabIndex = 0;
             this.tpProperties.Text = "Properties";
             // 
@@ -419,7 +421,9 @@ namespace PrePoMax.Forms
             this.dgvData.EnablePlotMenu = true;
             this.dgvData.Location = new System.Drawing.Point(3, 3);
             this.dgvData.Name = "dgvData";
+            this.dgvData.PasteSplitsOnTabOnly = false;
             this.dgvData.ShowErrorMsg = true;
+            this.dgvData.ShowPlotMenu = false;
             this.dgvData.Size = new System.Drawing.Size(429, 231);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
@@ -508,7 +512,7 @@ namespace PrePoMax.Forms
             this.lvAddedProperties.MultiSelect = false;
             this.lvAddedProperties.Name = "lvAddedProperties";
             this.lvAddedProperties.ShowGroups = false;
-            this.lvAddedProperties.Size = new System.Drawing.Size(187, 185);
+            this.lvAddedProperties.Size = new System.Drawing.Size(187, 165);
             this.lvAddedProperties.TabIndex = 5;
             this.lvAddedProperties.UseCompatibleStateImageBehavior = false;
             this.lvAddedProperties.View = System.Windows.Forms.View.Details;
@@ -542,10 +546,9 @@ namespace PrePoMax.Forms
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(430, 650);
+            this.MinimumSize = new System.Drawing.Size(430, 580);
             this.Name = "FrmMaterial";
             this.ShowInTaskbar = false;
-            this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Edit Material";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmMaterial_FormClosing);
             this.VisibleChanged += new System.EventHandler(this.FrmMaterial_VisibleChanged);

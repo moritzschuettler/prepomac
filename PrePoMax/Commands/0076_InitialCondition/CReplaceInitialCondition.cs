@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using PrePoMax;
@@ -21,12 +22,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10173)]
     class CReplaceInitialCondition : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldInitialConditionName;
-        private InitialCondition _newInitialCondition;
+        [PmxKey(0)] private string _oldInitialConditionName;
+        [PmxKey(1)] private InitialCondition _newInitialCondition;
 
 
         // Constructor                                                                                                              
@@ -39,6 +40,11 @@ namespace PrePoMax.Commands
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void ConvertInitialVelocity(StreamingContext context)
+        {
+            if (_newInitialCondition is InitialVelocity initialVelocity) _newInitialCondition = initialVelocity.ToInitialTranslationalVelocity();
+        }
         public override bool Execute(Controller receiver)
         {
             receiver.ReplaceInitialCondition(_oldInitialConditionName, _newInitialCondition.DeepClone());

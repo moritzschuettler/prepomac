@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,20 +19,20 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3223)]
     public enum DampingTypeEnum
     {
         Off,
         Rayleigh
     }
 
-    [Serializable]
+    [PmxType(3224)]
     public class Damping : NamedClass
     {
         // Variables                                                                                                                
-        private DampingTypeEnum _dampingType;
-        private double _alpha;
-        private double _beta;
+        [PmxKey(0)] private DampingTypeEnum _dampingType;
+        [PmxKey(1)] private double _alpha;
+        [PmxKey(2)] private double _beta;
 
 
         // Properties                                                                                                               

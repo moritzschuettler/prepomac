@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,17 +20,17 @@ using System.Xml.Linq;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3016)]
     public class PointSpringData
     {
         // Variables                                                                                                                
-        private string _name;
-        private string _regionName;
-        private RegionTypeEnum _regionType;
-        private int _nodeId;
-        private double _k1;
-        private double _k2;
-        private double _k3;
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private string _regionName;
+        [PmxKey(2)] private RegionTypeEnum _regionType;
+        [PmxKey(3)] private int _nodeId;
+        [PmxKey(4)] private double _k1;
+        [PmxKey(5)] private double _k2;
+        [PmxKey(6)] private double _k3;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,13 +19,13 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10341)]
     class BoundaryLayer
     {
         // Properties                                                                                                               
-        public int[] GeometryIds;
-        public Selection CreationData;
-        public double Thickness;
+        [PmxKey(0)] public int[] GeometryIds;
+        [PmxKey(1)] public Selection CreationData;
+        [PmxKey(2)] public double Thickness;
 
 
         // Constructors                                                                                                             
@@ -38,12 +38,12 @@ namespace PrePoMax.Forms
     }
 
 
-    [Serializable]
+    [PmxType(10342)]
     public class ViewBoundaryLayer
     {
         // Variables                                                                                                                
-        private BoundaryLayer _boundaryLayer;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private BoundaryLayer _boundaryLayer;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

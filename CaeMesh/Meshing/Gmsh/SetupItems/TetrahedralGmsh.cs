@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,8 +19,8 @@ using GmshCommon;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class TetrahedralGmsh : GmshSetupItem, ISerializable
+    [PmxType(2121)]
+    public class TetrahedralGmsh : GmshSetupItem
     {
         // Variables                                                                                                                
 
@@ -61,12 +61,6 @@ namespace CaeMesh
         public void CopyFrom(TetrahedralGmsh tetrahedronGmsh)
         {
             base.CopyFrom(tetrahedronGmsh);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
         }
     }
 }

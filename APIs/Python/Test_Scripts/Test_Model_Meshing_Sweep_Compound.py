@@ -49,8 +49,17 @@
 #and overlapping, so no orientation avoids an imprint inside a target that nothing on the source is swept
 #onto. sweep_plate_overhang.brep has the upper block reaching past an edge of the plate. The plate of neither
 #is swept - it has to be split before it can be - so the automatic sweep sweeps the blocks and meshes the
-#plate by tetrahedra. The overhanging plate is meshed at the first order as well, where every mesh part must fill
-#its own cell, and then at either order again with a boundary condition on a face of the plate.
+#plate by tetrahedra. The four-sided faces that bound only a cell left to tetrahedra are meshed with a structured grid
+#of triangles where the counts the sweep settled let their opposite sides balance: the four sides of either plate and
+#the three faces of the upper bored box no bore runs through. The overhanging plate is meshed at the first order as
+#well, where every mesh part must fill its own cell, and then at either order again with a boundary condition on a
+#face of the plate.
+#
+#At the second order with the midside nodes on the geometry, gmsh places the midside node of an edge on a surface
+#by the parametric coordinates of the edge's end nodes. sweep_frustum.brep and sweep_split_target.brep are swept so,
+#and every midside node must lie within a quarter of its edge length of the edge's midpoint. The target nodes took
+#their parametric coordinates from gmsh's closest point, which returns zeros on a CAD face, and the midside nodes of
+#the target were drawn to the origin of the surface parametrization, ten to twenty five edge lengths away.
 #
 #sweep_bent_plate.brep is a plate bent along a cylinder, with a bore through each of its two wings. Its
 #front face is a plane, the cylinder of the bend and a plane again, and the bores make every other face a
@@ -94,7 +103,12 @@
 #Expected process exit code 0.
 
 import os
+import re
 import sys
+import clr
+clr.AddReference('System.Windows.Forms')
+from System.Reflection import BindingFlags
+from System.Windows.Forms import Application
 
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 SWEEP_NAME = "PyTest_Sweep"
@@ -317,10 +331,25 @@ def element_kinds(part):
     return kinds
 
 
-def mesh_with_tetrahedral_cells(solids, compound, tetrahedral_count, what):
+def structured_tetrahedral_faces(part_name):
+    """The structured and all four-sided faces that bound only the cells left to tetrahedra, as the last meshing
+    of the part wrote them to the output window, or None when it wrote no such line."""
+    form = [form for form in Application.OpenForms if form.GetType().Name == "FrmMain"][0]
+    lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
+    starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
+    check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
+    for line in lines[starts[-1]:]:
+        match = re.search(r"Sweep: (\d+) of the (\d+) four-sided surface/s that bound only the cells left to "
+                          r"tetrahedra", line)
+        if match: return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def mesh_with_tetrahedral_cells(solids, compound, tetrahedral_count, what, structured_faces=None):
     """Meshes a compound with the sweep item and checks that the swept cells carry hexahedra or wedges and
     the others tetrahedra with a pyramid on the quadrilaterals of the faces they share with a swept cell,
-    all of them joined through their interface nodes."""
+    all of them joined through their interface nodes. structured_faces is the number of four-sided faces that
+    bound only the cells left to tetrahedra, all of which must be meshed with a structured grid."""
     nodes_before = pmx.model.nodes.count
     report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", what + " reported: " + report[compound.name])
@@ -338,7 +367,12 @@ def mesh_with_tetrahedral_cells(solids, compound, tetrahedral_count, what):
           what + " stood no pyramid on the swept quadrilaterals: " + str(kinds))
     check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
           what + " does not join the tetrahedral and the swept cells through their interface nodes")
-    print("mixed:", what, kinds)
+    if structured_faces is not None:
+        faces = structured_tetrahedral_faces(compound.name)
+        check(faces == (structured_faces, structured_faces),
+              "%s must mesh its %d four-sided tetrahedral faces with a structured grid, got %s" %
+              (what, structured_faces, str(faces)))
+    print("mixed:", what, kinds, structured_tetrahedral_faces(compound.name))
 
 
 def test_plate_imprinted_on_both_sides():
@@ -353,7 +387,7 @@ def test_plate_imprinted_on_both_sides():
         selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
         items.add_sweep_mesh(SWEEP_NAME, selection)
         check(items[SWEEP_NAME].valid, "the automatic sweep of " + file_name + " is not valid")
-        mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of " + file_name)
+        mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of " + file_name, 4)
         items.remove([SWEEP_NAME])
 
 
@@ -391,6 +425,53 @@ def test_cells_at_either_order():
         check_cell_volumes(solids, what)
     pmx.model.steps.remove([STEP_NAME])
     items.remove([SWEEP_NAME, PARAMETERS_NAME])
+
+
+def largest_midside_offset(part):
+    """The largest distance of a midside node from the midpoint of its edge, relative to the edge length, over the
+    second order hexahedra and wedges of a mesh part."""
+    edges = {20: (8, [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)]),
+             15: (6, [(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3), (0, 3), (1, 4), (2, 5)])}
+    data = pmx.model.elements.get_data()
+    offsets = [int(i) for i in data.offsets]
+    connectivity = [int(i) for i in data.connectivity]
+    node_counts = [int(n) for n in data.node_counts]
+    index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
+    coordinates = dict((int(node_id), list(c)) for node_id, c in zip(part.get_node_ids(), part.get_node_coordinates()))
+    largest = 0
+    for element_id in part.get_element_ids():
+        i = index[int(element_id)]
+        check(node_counts[i] in edges, part.name + " must be meshed by second order hexahedra and wedges only: an " +
+              "element has " + str(node_counts[i]) + " nodes")
+        nodes = connectivity[offsets[i]:offsets[i] + node_counts[i]]
+        corners, element_edges = edges[node_counts[i]]
+        for k, (a, b) in enumerate(element_edges):
+            pa, pb, pm = coordinates[nodes[a]], coordinates[nodes[b]], coordinates[nodes[corners + k]]
+            length = sum((pa[j] - pb[j]) ** 2 for j in range(3)) ** 0.5
+            offset = sum((pm[j] - (pa[j] + pb[j]) / 2) ** 2 for j in range(3)) ** 0.5
+            largest = max(largest, offset / length)
+    return largest
+
+
+def test_midside_nodes_on_geometry():
+    # The midside nodes on the target surfaces are placed by the parametric coordinates of the target nodes, which the
+    # projection onto the target took as the zeros gmsh's closest point returns on a CAD face
+    items = pmx.model.mesh.setup_items
+    for file_name in ("sweep_frustum.brep", "sweep_split_target.brep"):
+        solids, compound = import_geometry(file_name)
+        part = solids[0]
+        selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+        items.add_meshing_parameters(PARAMETERS_NAME, selection, second_order=True, midside_nodes_on_geometry=True)
+        items.add_sweep_mesh(SWEEP_NAME, selection)
+        report = pmx.model.mesh.generate(part.name)
+        check(report[part.name] == "", "the sweep of " + file_name + " with the midside nodes on the geometry " +
+              "reported: " + report[part.name])
+        meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+        largest = largest_midside_offset(meshed)
+        print("midside nodes on the geometry:", file_name, "largest offset %.3f" % largest)
+        check(largest < 0.25, "a midside node of the sweep of %s lies %.3g edge lengths from the midpoint of its edge" %
+              (file_name, largest))
+        items.remove([SWEEP_NAME, PARAMETERS_NAME])
 
 
 def test_bent_plate():
@@ -576,7 +657,7 @@ def test_perpendicular_bores():
     selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
     items.add_sweep_mesh(SWEEP_NAME, selection)
     check(items[SWEEP_NAME].valid, "the automatic sweep of the stacked bored boxes is not valid")
-    mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of the stacked bored boxes")
+    mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of the stacked bored boxes", 3)
     items.remove([SWEEP_NAME])
     # The stacked boxes and their mirror image across the side face they share, which is the plane the compound
     # is split on. One lower box is swept and one upper box meshed by tetrahedra, and both are mirrored, so the
@@ -699,6 +780,7 @@ def main():
     test_two_parts_apart()
     test_plate_imprinted_on_both_sides()
     test_cells_at_either_order()
+    test_midside_nodes_on_geometry()
     test_spline_edges_and_round_post()
     test_bent_plate()
     test_geometric_constraints()

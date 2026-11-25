@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,7 +18,7 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5026)]
     public enum LimitPlotBasedOnEnum
     {
         [StandardValue("Parts", DisplayName = "Parts", Description = "Parts")]
@@ -30,14 +30,14 @@ namespace CaeResults
     }
 
 
-    [Serializable]
+    [PmxType(5027)]
     public class ResultFieldOutputLimit : ResultFieldOutput
     {
         // Variables                                                                                                                
-        private string _fieldName;
-        private string _componentName;
-        private LimitPlotBasedOnEnum _limitPlotBasedOn;
-        private CaeGlobals.OrderedDictionary<string, double> _itemNameLimit;
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private string _componentName;
+        [PmxKey(2)] private LimitPlotBasedOnEnum _limitPlotBasedOn;
+        [PmxKey(3)] private CaeGlobals.OrderedDictionary<string, double> _itemNameLimit;
 
 
         // Properties                                                                                                               

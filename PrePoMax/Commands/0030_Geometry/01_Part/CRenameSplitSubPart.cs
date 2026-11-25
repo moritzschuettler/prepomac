@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,13 +21,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10045)]
     class CRenameSplitSubPart : PreprocessCommand
     {
         // Variables
-        private string _compoundPartName;
-        private string _oldSubPartName;
-        private string _newSubPartName;
+        [PmxKey(0)] private string _compoundPartName;
+        [PmxKey(1)] private string _oldSubPartName;
+        [PmxKey(2)] private string _newSubPartName;
 
 
         // Constructor

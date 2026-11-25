@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,8 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class DistributedMassSection : MassSection, ISerializable
+    [PmxType(3196)]
+    public class DistributedMassSection : MassSection
     {
         // Variables                                                                                                                
 
@@ -37,13 +37,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-        
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-        }
     }
 }

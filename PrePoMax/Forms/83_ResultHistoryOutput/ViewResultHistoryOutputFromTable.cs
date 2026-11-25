@@ -12,11 +12,11 @@ using System.Linq;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10513)]
     public class ViewResultHistoryOutputFromTable : ViewResultHistoryOutput
     {
         // Variables                                                                                                                
-        private ResultHistoryOutputFromTable _historyOutput;
+        [PmxKey(0)] private ResultHistoryOutputFromTable _historyOutput;
 
 
         // Properties                                                                                                               

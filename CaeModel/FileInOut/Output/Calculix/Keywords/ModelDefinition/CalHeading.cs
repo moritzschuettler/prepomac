@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,14 +18,14 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3068)]
     internal class CalHeading : CalculixKeyword
     {
         // Variables                                                                                                                
-        string _modelName;
-        string _hashName;
-        UnitSystemType _unitSystemType;
-        ModelSpaceEnum _modelSpace;
+        [PmxKey(0)] string _modelName;
+        [PmxKey(1)] string _hashName;
+        [PmxKey(2)] UnitSystemType _unitSystemType;
+        [PmxKey(3)] ModelSpaceEnum _modelSpace;
         static private readonly Regex _hashValueRegex = new Regex(@"\b(Hash:[ \t]*)[^,\r\n]*", RegexOptions.IgnoreCase);
         static private readonly Regex _dateValueRegex = new Regex(@"\b(Date:[ \t]*)[^,\r\n]*", RegexOptions.IgnoreCase);
         static private readonly Regex _modelSpaceValueRegex = new Regex(@"\b(Model space:[ \t]*)[^,\r\n]*",

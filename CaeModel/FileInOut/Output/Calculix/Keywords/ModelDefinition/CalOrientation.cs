@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,13 +13,13 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3071)]
     internal class CalOrientation : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _name;
-        private double[] _axis1;
-        private double[] _axis2;
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private double[] _axis1;
+        [PmxKey(2)] private double[] _axis2;
 
 
         // Properties                                                                                                               

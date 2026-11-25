@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -128,44 +128,9 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewBc.RegionType))
-            {
-                ShowHideSelectionForm();
-                //
-                HighlightBoundaryCondition();
-            }
-            else if (property == nameof(_viewBc.CoordinateSystemName))
-            {
-                HighlightBoundaryCondition();
-            }
-            else if ((_viewBc is ViewFixedBC fix) &&
-                     (property == nameof(fix.NodeSetName) ||
-                      property == nameof(fix.ReferencePointName) ||
-                      property == nameof(fix.SurfaceName)))
-            {
-                HighlightBoundaryCondition();
-            }
-            else if (_viewBc is ViewDisplacementRotation vdr)
-            {
-                if (property == nameof(vdr.NodeSetName) ||
-                    property == nameof(vdr.ReferencePointName) ||
-                    property == nameof(vdr.SurfaceName))
-                {
-                    HighlightBoundaryCondition();
-                }
-            }
-            else if (_viewBc is ViewSubmodelBC vsm && 
-                    (property == nameof(vsm.NodeSetName) ||
-                     property == nameof(vsm.SurfaceName)))
-            {
-                HighlightBoundaryCondition();
-            }
-            else if (_viewBc is ViewTemperatureBC vtmp &&
-                    (property == nameof(vtmp.NodeSetName) ||
-                     property == nameof(vtmp.SurfaceName)))
-            {
-                HighlightBoundaryCondition();
-            }
+            if (property == nameof(_viewBc.RegionType)) ShowHideSelectionForm();
+            // Every value can change the symbols
+            HighlightBoundaryCondition();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -489,6 +454,8 @@ namespace PrePoMax.Forms
                     //
                     if (bc.CoordinateSystemName != null)
                         _controller.HighlightCoordinateSystem(bc.CoordinateSystemName);
+                    // Symbols
+                    _controller.HighlightEditedBoundaryCondition(bc);
                 }
                 else throw new NotSupportedException();
             }
@@ -539,6 +506,8 @@ namespace PrePoMax.Forms
                     propertyGrid.Refresh();
                     //
                     _propertyItemChanged = true;
+                    //
+                    Highlight();
                 }
                 else throw new NotSupportedException();
             }

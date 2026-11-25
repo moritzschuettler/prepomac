@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,12 +16,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10000)]
     public abstract class AnnotationBase : NamedClass
     {
         // Variables                                                                                                                
-        protected int[] _partIds;
-        protected string _overriddenText;
+        [PmxKey(0)] protected int[] _partIds;
+        [PmxKey(1)] protected string _overriddenText;
         //
         [NonSerialized] public static Controller Controller;
 

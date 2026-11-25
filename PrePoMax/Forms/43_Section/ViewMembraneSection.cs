@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,11 +18,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10384)]
     public class ViewMembraneSection : ViewSection
     {
         // Variables                                                                                                                
-        protected CaeModel.MembraneSection _membraneSection;
+        [PmxKey(0)] protected CaeModel.MembraneSection _membraneSection;
 
 
         // Properties                                                                                                               

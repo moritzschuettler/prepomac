@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,13 +21,13 @@ using System.Data;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class FieldOutput : NamedClass, ISerializable
+    [PmxType(3238)]
+    public abstract class FieldOutput : NamedClass
     {
         // Variables                                                                                                                
-        private bool _lastIterations;       //ISerializable
-        private bool _contactElements;      //ISerializable
-        private bool _global;               //ISerializable
+        [PmxKey(0)] private bool _lastIterations;       //ISerializable
+        [PmxKey(1)] private bool _contactElements;      //ISerializable
+        [PmxKey(2)] private bool _global;               //ISerializable
 
 
         // Properties                                                                                                               
@@ -67,18 +67,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_lastIterations", _lastIterations, typeof(bool));
-            info.AddValue("_contactElements", _contactElements, typeof(bool));
-            info.AddValue("_global", _global, typeof(bool));
-        }
     }
 }

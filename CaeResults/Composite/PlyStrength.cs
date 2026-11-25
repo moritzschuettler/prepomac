@@ -2,27 +2,28 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeResults
 {
     // The ply strengths of a material, the compressive ones as positive values
-    [Serializable]
+    [PmxType(5001)]
     public class PlyStrength
     {
         // Variables
-        private double _tensile1;
-        private double _compressive1;
-        private double _tensile2;
-        private double _compressive2;
-        private double _shear12;
-        private double _shear23;
-        private double _tsaiWuCoefficient;
+        [PmxKey(0)] private double _tensile1;
+        [PmxKey(1)] private double _compressive1;
+        [PmxKey(2)] private double _tensile2;
+        [PmxKey(3)] private double _compressive2;
+        [PmxKey(4)] private double _shear12;
+        [PmxKey(5)] private double _shear23;
+        [PmxKey(6)] private double _tsaiWuCoefficient;
 
 
         // Properties

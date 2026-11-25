@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10496)]
     public class LimitElementSetDataPoint
     {
         // Variables                                                                                                                
-        private string _elementSetName;
-        private double _limit;
+        [PmxKey(0)] private string _elementSetName;
+        [PmxKey(1)] private double _limit;
 
 
         // Properties                                                                                                               

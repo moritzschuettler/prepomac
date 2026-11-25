@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,13 +18,13 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5022)]
     public class ResultFieldOutputCoordinateSystemTransform : ResultFieldOutput
     {
         // Variables                                                                                                                
-        private string _fieldName;
-        private string[] _componentNames;
-        private string _coordinateSystemName;
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private string[] _componentNames;
+        [PmxKey(2)] private string _coordinateSystemName;
 
 
         // Properties                                                                                                               

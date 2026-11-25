@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -25,8 +25,10 @@ namespace APIs.Python.Model
             { typeof(ImportedPressure), "imported_pressure" },
             { typeof(STLoad), "surface_traction" },
             { typeof(ShellEdgeLoad), "shell_edge_load" },
+            { typeof(EdgeLoad), "edge_load" },
             { typeof(GravityLoad), "gravity" },
             { typeof(CentrifLoad), "centrifugal" },
+            { typeof(BodyForce), "body_force" },
             { typeof(PreTensionLoad), "pre_tension" },
             { typeof(CFlux), "concentrated_flux" },
             { typeof(DFlux), "surface_flux" },
@@ -115,6 +117,10 @@ namespace APIs.Python.Model
                 else ModelItemValueReader.AddArguments(names, "p1", "p2", "p3");
                 ModelItemValueReader.AddArguments(names, "distribution_name");
             }
+            else if (load is EdgeLoad edgeLoad && edgeLoad.Direction == EdgeLoadDirectionEnum.Normal)
+                ModelItemValueReader.AddArguments(names, "normal", "distribution_name");
+            else if (load is BodyForce || load is EdgeLoad)
+                ModelItemValueReader.AddArguments(names, "f1", "f2", "f3", "distribution_name");
             else if (load is CentrifLoad)
             {
                 names.Add("axis_point", new string[] { "x", "y", "z" });
@@ -154,11 +160,12 @@ namespace APIs.Python.Model
         {
             return load.Complex && !(load is PreTensionLoad);
         }
-        // The solver input transforms only the nodes of a concentrated force and of a surface traction into a
-        // coordinate system, and the dialog offers one for those two only
+        // The solver input orients only a concentrated force, a surface traction, a body force and an edge load in a
+        // coordinate system, and the dialog offers one for those four only
         internal static bool TakesCoordinateSystem(Load load)
         {
-            return load is CLoad || load is STLoad;
+            return load is CLoad || load is STLoad || load is BodyForce ||
+                   (load is EdgeLoad edgeLoad && edgeLoad.Direction == EdgeLoadDirectionEnum.Components);
         }
         private static Dictionary<string, object> GetValues(Load load)
         {

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,14 +19,14 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10219)]
     public abstract class Command   //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
-        protected string _name;
-        protected DateTime _dateCreated;
-        protected TimeSpan _timeSpan;
-        [OptionalField] private bool _periodicFacesSplitOnlyOnRequest;
+        [PmxKey(0)] protected string _name;
+        [PmxKey(1)] protected DateTime _dateCreated;
+        [PmxKey(2)] protected TimeSpan _timeSpan;
+        [PmxKey(3)] [OptionalField] private bool _periodicFacesSplitOnlyOnRequest;
         [NonSerialized] private long _sequenceNumber;
 
         // Properties                                                                                                               
@@ -112,14 +112,6 @@ namespace PrePoMax.Commands
             names += "]";
 
             return names;
-        }
-        protected virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_dateCreated", _dateCreated, typeof(DateTime));
-            info.AddValue("_timeSpan", _timeSpan, typeof(TimeSpan));
-            info.AddValue("_periodicFacesSplitOnlyOnRequest", _periodicFacesSplitOnlyOnRequest, typeof(bool));
         }
     }
 }

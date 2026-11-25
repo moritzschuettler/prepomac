@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,13 +21,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10128)]
     class CDuplicateMaterial : PreprocessCommand
     {
         // Compatibility v1.4.0 - the name of the class is missing one s - CDuplicateMaterials
 
         // Variables                                                                                                                
-        private string[] _materialNames;
+        [PmxKey(0)] private string[] _materialNames;
 
 
         // Constructor                                                                                                              

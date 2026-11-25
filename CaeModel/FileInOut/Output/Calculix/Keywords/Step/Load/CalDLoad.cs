@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,13 +19,13 @@ using System.Diagnostics;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3150)]
     internal class CalDLoad : CalLoad
     {
         // Variables                                                                                                                
-        protected DLoad _load;
-        protected FeSurface _surface;
-        protected ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(0)] protected DLoad _load;
+        [PmxKey(1)] protected FeSurface _surface;
+        [PmxKey(2)] protected ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               

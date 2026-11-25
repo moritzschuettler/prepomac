@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -64,6 +64,7 @@ namespace PrePoMax
             this.tsbShowElementEdges = new System.Windows.Forms.ToolStripButton();
             this.tsbShowModelEdges = new System.Windows.Forms.ToolStripButton();
             this.tsbShowNoEdges = new System.Windows.Forms.ToolStripButton();
+            this.tsbShowNodes = new System.Windows.Forms.ToolStripButton();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsbSectionView = new System.Windows.Forms.ToolStripButton();
             this.tsbExplodedView = new System.Windows.Forms.ToolStripButton();
@@ -177,6 +178,7 @@ namespace PrePoMax
             this.tsmiShowElementEdges = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowModelEdges = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowNoEdges = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowNodes = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerView2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSectionView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExplodedView = new System.Windows.Forms.ToolStripMenuItem();
@@ -197,6 +199,7 @@ namespace PrePoMax
             this.tsmiColorAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateFaceOrientations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateMeshTypes = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAnnotateElementQuality = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerColorAnnotations1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAnnotateParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateMaterials = new System.Windows.Forms.ToolStripMenuItem();
@@ -287,6 +290,7 @@ namespace PrePoMax
             this.tsmiCreateBoundaryLayer = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRemeshElements = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiThickenShellMesh = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiChangeElementOrder = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitPartMeshUsingSurface = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiUpdateNodalCoordinatesFromFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerModel1 = new System.Windows.Forms.ToolStripSeparator();
@@ -595,6 +599,8 @@ namespace PrePoMax
             this.tsmiDeleteAnnotation = new System.Windows.Forms.ToolStripMenuItem();
             this.cmsResultWidget = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiEditLegendValue = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditColorBarTitle = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiColorBarElementQuality = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSetMaxColor = new System.Windows.Forms.ToolStripMenuItem();
@@ -604,6 +610,7 @@ namespace PrePoMax
             this.tsmiMinColorVisible = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiResetLegend = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResetColorBarTitle = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStripMain = new System.Windows.Forms.StatusStrip();
             this.tspbProgress = new System.Windows.Forms.ToolStripProgressBar();
             this.tsslState = new System.Windows.Forms.ToolStripStatusLabel();
@@ -723,6 +730,7 @@ namespace PrePoMax
             this.tsbShowElementEdges,
             this.tsbShowModelEdges,
             this.tsbShowNoEdges,
+            this.tsbShowNodes,
             this.toolStripSeparator1,
             this.tsbSectionView,
             this.tsbExplodedView,
@@ -902,6 +910,16 @@ namespace PrePoMax
             this.tsbShowNoEdges.Size = new System.Drawing.Size(23, 22);
             this.tsbShowNoEdges.Text = "No edges";
             this.tsbShowNoEdges.Click += new System.EventHandler(this.tsbShowNoEdges_Click);
+            //
+            // tsbShowNodes
+            //
+            this.tsbShowNodes.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.tsbShowNodes.Image = global::PrePoMax.Properties.Resources.Nodes;
+            this.tsbShowNodes.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.tsbShowNodes.Name = "tsbShowNodes";
+            this.tsbShowNodes.Size = new System.Drawing.Size(23, 22);
+            this.tsbShowNodes.Text = "Show nodes";
+            this.tsbShowNodes.Click += new System.EventHandler(this.tsbShowNodes_Click);
             // 
             // toolStripSeparator1
             // 
@@ -1056,6 +1074,7 @@ namespace PrePoMax
             "None",
             "Face Orientations",
             "Mesh Types",
+            "Element Quality",
             "Parts",
             "Materials",
             "Sections",
@@ -1705,6 +1724,7 @@ namespace PrePoMax
             this.tsmiShowElementEdges,
             this.tsmiShowModelEdges,
             this.tsmiShowNoEdges,
+            this.tsmiShowNodes,
             this.tsmiDividerView2,
             this.tsmiSectionView,
             this.tsmiExplodedView,
@@ -1919,6 +1939,14 @@ namespace PrePoMax
             this.tsmiShowNoEdges.Size = new System.Drawing.Size(236, 22);
             this.tsmiShowNoEdges.Text = "No Edges";
             this.tsmiShowNoEdges.Click += new System.EventHandler(this.tsmiShowNoEdges_Click);
+            //
+            // tsmiShowNodes
+            //
+            this.tsmiShowNodes.Image = global::PrePoMax.Properties.Resources.Nodes;
+            this.tsmiShowNodes.Name = "tsmiShowNodes";
+            this.tsmiShowNodes.Size = new System.Drawing.Size(236, 22);
+            this.tsmiShowNodes.Text = "Show Nodes";
+            this.tsmiShowNodes.Click += new System.EventHandler(this.tsmiShowNodes_Click);
             // 
             // tsmiDividerView2
             // 
@@ -2046,6 +2074,7 @@ namespace PrePoMax
             this.tsmiColorAnnotations.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiAnnotateFaceOrientations,
             this.tsmiAnnotateMeshTypes,
+            this.tsmiAnnotateElementQuality,
             this.tsmiDividerColorAnnotations1,
             this.tsmiAnnotateParts,
             this.tsmiAnnotateMaterials,
@@ -2077,6 +2106,13 @@ namespace PrePoMax
             this.tsmiAnnotateMeshTypes.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateMeshTypes.Text = "Mesh Types";
             this.tsmiAnnotateMeshTypes.Click += new System.EventHandler(this.tsmiAnnotateMeshTypes_Click);
+            //
+            // tsmiAnnotateElementQuality
+            //
+            this.tsmiAnnotateElementQuality.Name = "tsmiAnnotateElementQuality";
+            this.tsmiAnnotateElementQuality.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateElementQuality.Text = "Element Quality";
+            this.tsmiAnnotateElementQuality.Click += new System.EventHandler(this.tsmiAnnotateElementQuality_Click);
             // 
             // tsmiDividerColorAnnotations1
             // 
@@ -2740,6 +2776,7 @@ namespace PrePoMax
             this.tsmiCreateBoundaryLayer,
             this.tsmiRemeshElements,
             this.tsmiThickenShellMesh,
+            this.tsmiChangeElementOrder,
             this.tsmiSplitPartMeshUsingSurface,
             this.tsmiUpdateNodalCoordinatesFromFile});
             this.tsmiToolsParts.Name = "tsmiToolsParts";
@@ -2773,6 +2810,13 @@ namespace PrePoMax
             this.tsmiThickenShellMesh.Size = new System.Drawing.Size(266, 22);
             this.tsmiThickenShellMesh.Text = "Thicken Shell Mesh";
             this.tsmiThickenShellMesh.Click += new System.EventHandler(this.tsmiThickenShellMesh_Click);
+            // 
+            // tsmiChangeElementOrder
+            // 
+            this.tsmiChangeElementOrder.Name = "tsmiChangeElementOrder";
+            this.tsmiChangeElementOrder.Size = new System.Drawing.Size(266, 22);
+            this.tsmiChangeElementOrder.Text = "Change Element Order";
+            this.tsmiChangeElementOrder.Click += new System.EventHandler(this.tsmiChangeElementOrder_Click);
             // 
             // tsmiSplitPartMeshUsingSurface
             // 
@@ -5187,7 +5231,9 @@ namespace PrePoMax
             // cmsResultWidget
             // 
             this.cmsResultWidget.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiColorBarElementQuality,
             this.tsmiEditLegendValue,
+            this.tsmiEditColorBarTitle,
             this.tsmiResultWidgetSettings,
             this.tsmiResultWidgetSeparator1,
             this.tsmiSetMaxColor,
@@ -5196,7 +5242,8 @@ namespace PrePoMax
             this.tsmiSetMinColor,
             this.tsmiMinColorVisible,
             this.tsmiResultWidgetSeparator3,
-            this.tsmiResetLegend});
+            this.tsmiResetLegend,
+            this.tsmiResetColorBarTitle});
             this.cmsResultWidget.Name = "cmsResultWidget";
             this.cmsResultWidget.Size = new System.Drawing.Size(163, 176);
             this.cmsResultWidget.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsViewportWidget_Closed);
@@ -5207,6 +5254,20 @@ namespace PrePoMax
             this.tsmiEditLegendValue.Size = new System.Drawing.Size(162, 22);
             this.tsmiEditLegendValue.Text = "Edit";
             this.tsmiEditLegendValue.Click += new System.EventHandler(this.tsmiEditLegendValue_Click);
+            //
+            // tsmiEditColorBarTitle
+            //
+            this.tsmiEditColorBarTitle.Name = "tsmiEditColorBarTitle";
+            this.tsmiEditColorBarTitle.Size = new System.Drawing.Size(162, 22);
+            this.tsmiEditColorBarTitle.Text = "Edit Title";
+            this.tsmiEditColorBarTitle.Click += new System.EventHandler(this.tsmiEditColorBarTitle_Click);
+            //
+            // tsmiColorBarElementQuality
+            //
+            this.tsmiColorBarElementQuality.Name = "tsmiColorBarElementQuality";
+            this.tsmiColorBarElementQuality.Size = new System.Drawing.Size(162, 22);
+            this.tsmiColorBarElementQuality.Text = "Element Quality";
+            this.tsmiColorBarElementQuality.Click += new System.EventHandler(this.tsmiElementQuality_Click);
             // 
             // tsmiResultWidgetSettings
             // 
@@ -5268,6 +5329,13 @@ namespace PrePoMax
             this.tsmiResetLegend.Size = new System.Drawing.Size(162, 22);
             this.tsmiResetLegend.Text = "Reset";
             this.tsmiResetLegend.Click += new System.EventHandler(this.tsmiResetLegend_Click);
+            //
+            // tsmiResetColorBarTitle
+            //
+            this.tsmiResetColorBarTitle.Name = "tsmiResetColorBarTitle";
+            this.tsmiResetColorBarTitle.Size = new System.Drawing.Size(162, 22);
+            this.tsmiResetColorBarTitle.Text = "Reset Title";
+            this.tsmiResetColorBarTitle.Click += new System.EventHandler(this.tsmiResetColorBarTitle_Click);
             // 
             // statusStripMain
             // 
@@ -5641,8 +5709,10 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiRenumberAllNodes;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowModelEdges;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowNoEdges;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowNodes;
         private System.Windows.Forms.ToolStripButton tsbShowModelEdges;
         private System.Windows.Forms.ToolStripButton tsbShowNoEdges;
+        private System.Windows.Forms.ToolStripButton tsbShowNodes;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerView1;
         private System.Windows.Forms.SplitContainer splitContainer2;
         private OutputTextBox tbOutput;
@@ -5811,6 +5881,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateContactPairs;
         private System.Windows.Forms.ToolStripMenuItem tsmiColorAnnotations;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateMeshTypes;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateElementQuality;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerColorAnnotations1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerColorAnnotations2;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateSections;
@@ -5890,6 +5961,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiMinColorVisible;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultWidgetSettings;
         private System.Windows.Forms.ToolStripMenuItem tsmiResetLegend;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditColorBarTitle;
+        private System.Windows.Forms.ToolStripMenuItem tsmiColorBarElementQuality;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResetColorBarTitle;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAnnotation;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotationSettings;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerAnnotation1;
@@ -5954,6 +6028,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteMeshSetupItem;
         private System.Windows.Forms.ToolStripMenuItem tsmiThickenShellMesh;
+        private System.Windows.Forms.ToolStripMenuItem tsmiChangeElementOrder;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditHistory;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteStlPartFaces;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitPartMeshUsingSurface;

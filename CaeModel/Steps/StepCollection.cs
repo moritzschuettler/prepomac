@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,12 +16,12 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3281)]
     public class StepCollection
     {
         // Variables                                                                                                                
-        private List<Step> _steps;
-        private bool _onlyCheckModel;
+        [PmxKey(0)] private List<Step> _steps;
+        [PmxKey(1)] private bool _onlyCheckModel;
 
 
         // Properties                                                                                                               

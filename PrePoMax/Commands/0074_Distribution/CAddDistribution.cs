@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,11 +19,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10161)]
     class CAddDistribution : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private Distribution _distribution;
+        [PmxKey(0)] private Distribution _distribution;
 
 
         // Properties                                                                                                               

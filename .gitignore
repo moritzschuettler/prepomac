@@ -24,8 +24,8 @@ Tests/
 AGENTS.md
 CLAUDE.md
 .claude/
-/_Codex/
-/Notes/
+/Dev/_Codex/
+/Dev/Notes/
 /CaeMesh/Meshing/Gmsh/Sweep/Roadmap.md
 
 # The earlier macOS prototype, kept on the developer's disk only
@@ -58,3 +58,4 @@ PrePoMax.Mac/
 
 # Made by the bike frame study
 assets_composites/bike-frame/bike_frame_study.pmx
+/Dev/Plans/Vtk/Vtk_Native_Pilot_Plan.md

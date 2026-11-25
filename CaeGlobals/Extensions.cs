@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,7 +13,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Xml.Serialization;
 using System.Xml;
 using System.Windows.Forms;
@@ -35,48 +34,35 @@ namespace CaeGlobals
         // Deep clone
         public static T DeepClone<T>(this T a)
         {
-            using (MemoryStream stream = new MemoryStream())
-            {
-                BinaryFormatter formatter = BinaryFormatterTools.Create();
-                formatter.Serialize(stream, a);
-                stream.Position = 0;
-                return (T)formatter.Deserialize(stream);
-            }
+            return ObjectSerializer.Default.Clone(a);
         }
         // Save clone to File
         public static void DumpToFile<T>(this T a, string fileName)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = BinaryFormatterTools.Create();
-                formatter.Serialize(stream, a);
+                ObjectSerializer.Default.Serialize(stream, a);
                 stream.Position = 0;
                 //
-                FileStream fs = new FileStream(fileName, FileMode.Create);
-                //
-                stream.WriteTo(fs);
-                fs.Close();
+                using (FileStream fs = new FileStream(fileName, FileMode.Create)) stream.WriteTo(fs);
             }
         }
         public static T LoadFromFile<T>(string fileName)
         {
             using (FileStream fs = new FileStream(fileName, FileMode.Open))
             {
-                BinaryFormatter formatter = BinaryFormatterTools.Create();
-                return (T)formatter.Deserialize(fs);
+                return (T)ObjectSerializer.Default.Deserialize(fs);
             }
         }
         public static void DumpToStream<T>(this T a, BinaryWriter bw)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = BinaryFormatterTools.Create();
-                formatter.Serialize(stream, a);
+                ObjectSerializer.Default.Serialize(stream, a);
                 stream.Position = 0;
-
+                //
                 long length = stream.Length;
                 bw.Write(length);
-                //stream.WriteTo(bw.BaseStream);
                 stream.CopyTo(bw.BaseStream);
             }
         }
@@ -181,12 +167,17 @@ namespace CaeGlobals
         }
         public static int FindFreeIntervalOfKeys<T>(this Dictionary<int, T> dic, int numOfKeys, int maxKey)
         {
+            return dic.FindFreeIntervalOfKeys(numOfKeys, maxKey, null);
+        }
+        public static int FindFreeIntervalOfKeys<T>(this Dictionary<int, T> dic, int numOfKeys, int maxKey,
+                                                    HashSet<int> reservedKeys)
+        {
             int count = 0;
             int firstId = 1;                    // start at 1
             //
             for (int i = 1; i <= maxKey; i++)   // start at 1
             {
-                if (dic.ContainsKey(i))
+                if (dic.ContainsKey(i) || (reservedKeys != null && reservedKeys.Contains(i)))
                 {
                     count = 0;
                     firstId = i + 1;
@@ -243,6 +234,23 @@ namespace CaeGlobals
                         System.Reflection.BindingFlags.Instance);
 
             aProp.SetValue(c, true, null);
+        }
+        public static void SetLocationInsideWorkingArea(this Form form, Point location)
+        {
+            Rectangle workingArea = Screen.FromPoint(location).WorkingArea;
+            Size size = new Size(Math.Min(form.Width, workingArea.Width), Math.Min(form.Height, workingArea.Height));
+            //
+            if (size != form.Size)
+            {
+                form.MinimumSize = new Size(Math.Min(form.MinimumSize.Width, size.Width),
+                                            Math.Min(form.MinimumSize.Height, size.Height));
+                form.Size = size;
+            }
+            //
+            location.X = Math.Max(workingArea.Left, Math.Min(location.X, workingArea.Right - form.Width));
+            location.Y = Math.Max(workingArea.Top, Math.Min(location.Y, workingArea.Bottom - form.Height));
+            //
+            if (form.Location != location) form.Location = location;
         }
         // Int array
         public static string ToShortString(this int[] intArray, int numOfItems = 10)

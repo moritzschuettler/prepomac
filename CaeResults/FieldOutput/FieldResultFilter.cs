@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5016)]
     public enum FieldResultFilterTypeEnum
     {
         None,
@@ -24,7 +25,7 @@ namespace CaeResults
         Average,
         Smooth,
     }
-    [Serializable]
+    [PmxType(5017)]
     public enum FieldResultFilterSourceTypeEnum
     {
         [StandardValue("AllNodes", DisplayName = "All nodes")]
@@ -33,14 +34,14 @@ namespace CaeResults
         SurfaceNodes,
     }
     //
-    [Serializable]
+    [PmxType(5018)]
     public class FieldResultFilter
     {
         // Variables                                                                                                                
-        protected FieldResultFilterTypeEnum _type;
-        protected FieldResultFilterSourceTypeEnum _sourceType;
-        protected int _numberOfNeighbouringLayers;
-        protected int _numberOfIterations;
+        [PmxKey(0)] protected FieldResultFilterTypeEnum _type;
+        [PmxKey(1)] protected FieldResultFilterSourceTypeEnum _sourceType;
+        [PmxKey(2)] protected int _numberOfNeighbouringLayers;
+        [PmxKey(3)] protected int _numberOfIterations;
 
 
         // Properties                                                                                                               

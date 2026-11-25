@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -10,15 +10,16 @@
 using System;
 using System.Text;
 using CaeModel;
+using CaeGlobals;
 
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3082)]
     internal class CalKinematic : CalculixKeyword
     {
         // Variables                                                                                                                
-        private KinematicCoupling _kinematicCoupling;
+        [PmxKey(0)] private KinematicCoupling _kinematicCoupling;
 
 
         // Properties                                                                                                               

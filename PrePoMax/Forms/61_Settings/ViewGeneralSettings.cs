@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,7 +20,7 @@ using System.IO.Compression;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10480)]
     public enum CompressionEnum
     {
         [StandardValue("NoCompression", DisplayName = "No compression")]
@@ -33,13 +33,13 @@ namespace PrePoMax.Settings
         Optimal,
     }
     //
-    [Serializable]
+    [PmxType(10481)]
     public class ViewGeneralSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private GeneralSettings _generalSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private bool _splitPeriodicFaces;
+        [PmxKey(0)] private GeneralSettings _generalSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(2)] private bool _splitPeriodicFaces;
 
 
         // Properties                                                                                                               

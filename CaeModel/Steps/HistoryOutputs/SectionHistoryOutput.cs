@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,7 +18,7 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3251)]
     [Flags]
     public enum SectionHistoryVariableEnum
     {
@@ -28,11 +28,11 @@ namespace CaeModel
         SOAREA = 4,
     }
 
-    [Serializable]
-    public class SectionHistoryOutput : HistoryOutput, ISerializable
+    [PmxType(3252)]
+    public class SectionHistoryOutput : HistoryOutput
     {
         // Variables                                                                                                                
-        private SectionHistoryVariableEnum _variables;              //ISerializable
+        [PmxKey(0)] private SectionHistoryVariableEnum _variables;              //ISerializable
 
 
         // Properties                                                                                                               
@@ -59,16 +59,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_variables", _variables, typeof(SectionHistoryVariableEnum));
-        }
     }
 }

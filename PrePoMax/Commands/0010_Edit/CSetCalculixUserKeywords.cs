@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -23,11 +23,11 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CSetCalculixUserKeywords : PreprocessCommand, ISerializable
+    [PmxType(10039)]
+    class CSetCalculixUserKeywords : PreprocessCommand
     {
         // Variables                                                                                                                
-        private CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
+        [PmxKey(0)] private CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
 
 
         // Constructor                                                                                                              
@@ -81,12 +81,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + _userKeywords.Count;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_userKeywords", _userKeywords, typeof(CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
         }
     }
 }

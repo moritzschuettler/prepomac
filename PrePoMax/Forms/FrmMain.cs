@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -142,6 +142,7 @@ namespace PrePoMax
         private FrmBoundaryLayer _frmBoundaryLayer;
         private FrmRemeshingParameters _frmRemeshingParameters;
         private FrmThickenShellMesh _frmThickenShellMesh;
+        private FrmChangeElementOrder _frmChangeElementOrder;
         private FrmSplitPartMeshUsingSurface _frmSplitPartMeshUsingSurface;
         private FrmMergeCoincidentNodes _frmMergeCoincidentNodes;
         private FrmElementQuality _frmElementQuality;
@@ -524,6 +525,7 @@ namespace PrePoMax
                 _vtk.Form_ShowResultWidgetContextMenu = ShowResultWidgetContextMenu;
                 _vtk.Form_ShowViewportContextMenu = ShowViewportContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
+                _vtk.Form_EditColorBarTitle = StartEditColorBarTitle;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
                 _vtk.Form_CommitViewportEdit = CommitViewportEdit;
@@ -604,6 +606,9 @@ namespace PrePoMax
                 //
                 _frmThickenShellMesh = new FrmThickenShellMesh(_controller);
                 AddFormToAllForms(_frmThickenShellMesh);
+                //
+                _frmChangeElementOrder = new FrmChangeElementOrder(_controller);
+                AddFormToAllForms(_frmChangeElementOrder);
                 //
                 _frmSplitPartMeshUsingSurface = new FrmSplitPartMeshUsingSurface(_controller);
                 _frmSplitPartMeshUsingSurface.SplitPartMeshUsingSurface += SplitPartMeshUsingSurface;
@@ -1043,6 +1048,9 @@ namespace PrePoMax
         private async Task RunBatchScriptAsync()
         {
             WriteDataToOutput("Starting script: " + _cmdOptions.ScriptFileName);
+            // Without a file to open the script starts from File - New, as the user would, so the history holds the
+            // script after the new model and the model the script builds counts as initialized
+            if (_cmdOptions.FileName == null) _controller.New();
             //
             string[] arguments = null;
             if (_cmdOptions.ScriptArguments != null)
@@ -1265,6 +1273,8 @@ namespace PrePoMax
         private void itemForm_Move(object sender, EventArgs e)
         {
             Form form = sender as Form;
+            //
+            if (form is FrmSelectItemSet) return;
             //Size screenSize =  Screen.GetWorkingArea(form).Size;
             //if (form.Left < 0) form.Left = 0;
             //else if (form.Left + form.Width > screenSize.Width) form.Left = screenSize.Width - form.Width;
@@ -1300,8 +1310,9 @@ namespace PrePoMax
             if (_modelTree.ActiveControl != null && _modelTree.ActiveControl is SearchTextBox) return;
             // Model tree edit mode active
             if (_modelTree.EditModeActive) return;
-            // Forward to tree
-            _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
+            // Forward to tree - after the hook returns: Windows waits for a low level hook and removes it for good when it
+            // takes too long, as hiding a large model and rendering it, or a question before a delete, can
+            BeginInvoke((MethodInvoker)(() => _modelTree.cltv_KeyDown(this, new KeyEventArgs(key))));
             // Prevent that the coders lab tree calls _modelTree.cltv_KeyDown again
             _vtk.Focus();
         }
@@ -1837,7 +1848,7 @@ namespace PrePoMax
 
 
         // Menus                                                                                                                    
-        private void SetMenuAndToolStripVisibility()
+        public void SetMenuAndToolStripVisibility()
         {
             if (IsStateRegeneratingOrUndoing()) return;
             //
@@ -3479,6 +3490,16 @@ namespace PrePoMax
             }
             catch { }
         }
+        private void tsmiShowNodes_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _vtk.NodesVisibility = !_vtk.NodesVisibility;
+                tsbShowNodes.Checked = _vtk.NodesVisibility;
+                tsmiShowNodes.Checked = _vtk.NodesVisibility;
+            }
+            catch { }
+        }
         // Section view
         private void tsmiSectionView_Click(object sender, EventArgs e)
         {
@@ -3665,6 +3686,10 @@ namespace PrePoMax
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
         }
+        private void tsmiAnnotateElementQuality_Click(object sender, EventArgs e)
+        {
+            _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
+        }
         private void tsmiAnnotateParts_Click(object sender, EventArgs e)
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
@@ -3751,7 +3776,7 @@ namespace PrePoMax
                 {
                     // Only one possibility - Face orientations or parts
                     if (tsmi == tsmiAnnotateFaceOrientations || tsmi == tsmiAnnotateMeshTypes ||
-                        tsmi == tsmiAnnotateParts ||
+                        tsmi == tsmiAnnotateElementQuality || tsmi == tsmiAnnotateParts ||
                         tsmi == tsmiAnnotateMaterials || tsmi == tsmiAnnotateSections ||
                         tsmi == tsmiAnnotateSectionThicknesses)
                     {
@@ -3763,6 +3788,7 @@ namespace PrePoMax
                     {
                         tsmiAnnotateFaceOrientations.Checked = false;
                         tsmiAnnotateMeshTypes.Checked = false;
+                        tsmiAnnotateElementQuality.Checked = false;
                         tsmiAnnotateParts.Checked = false;
                         tsmiAnnotateMaterials.Checked = false;
                         tsmiAnnotateSections.Checked = false;
@@ -3776,33 +3802,35 @@ namespace PrePoMax
                 //
                 if (tsmiAnnotateFaceOrientations.Checked) return AnnotateWithColorEnum.FaceOrientation;
                 else if (tsmiAnnotateMeshTypes.Checked) return AnnotateWithColorEnum.MeshTypes;
+                else if (tsmiAnnotateElementQuality.Checked) return AnnotateWithColorEnum.ElementQuality;
                 else if (tsmiAnnotateParts.Checked) return AnnotateWithColorEnum.Parts;
                 else if (tsmiAnnotateMaterials.Checked) return AnnotateWithColorEnum.Materials;
                 else if (tsmiAnnotateSections.Checked) return AnnotateWithColorEnum.Sections;
                 else if (tsmiAnnotateSectionThicknesses.Checked) return AnnotateWithColorEnum.SectionThicknesses;
-                else
-                {
-                    AnnotateWithColorEnum status = AnnotateWithColorEnum.None;
-                    if (tsmiAnnotateReferencePoints.Checked) status |= AnnotateWithColorEnum.ReferencePoints;
-                    if (tsmiAnnotateConstraints.Checked) status |= AnnotateWithColorEnum.Constraints;
-                    if (tsmiAnnotateContactPairs.Checked) status |= AnnotateWithColorEnum.ContactPairs;
-                    if (tsmiAnnotateInitialConditions.Checked) status |= AnnotateWithColorEnum.InitialConditions;
-                    if (tsmiAnnotateBCs.Checked) status |= AnnotateWithColorEnum.BoundaryConditions;
-                    if (tsmiAnnotateLoads.Checked) status |= AnnotateWithColorEnum.Loads;
-                    if (tsmiAnnotateDefinedFields.Checked) status |= AnnotateWithColorEnum.DefinedFields;
-                    //
-                    tsmiAnnotateAllSymbols.Checked = status.HasFlag(AnnotateWithColorEnum.ReferencePoints |
-                                                                    AnnotateWithColorEnum.Constraints |
-                                                                    AnnotateWithColorEnum.ContactPairs |
-                                                                    AnnotateWithColorEnum.InitialConditions |
-                                                                    AnnotateWithColorEnum.BoundaryConditions |
-                                                                    AnnotateWithColorEnum.Loads |
-                                                                    AnnotateWithColorEnum.DefinedFields);
-                    //
-                    return status;
-                }
+                else return GetSymbolAnnotationStatus();
             }
             return AnnotateWithColorEnum.None;
+        }
+        private AnnotateWithColorEnum GetSymbolAnnotationStatus()
+        {
+            AnnotateWithColorEnum status = AnnotateWithColorEnum.None;
+            if (tsmiAnnotateReferencePoints.Checked) status |= AnnotateWithColorEnum.ReferencePoints;
+            if (tsmiAnnotateConstraints.Checked) status |= AnnotateWithColorEnum.Constraints;
+            if (tsmiAnnotateContactPairs.Checked) status |= AnnotateWithColorEnum.ContactPairs;
+            if (tsmiAnnotateInitialConditions.Checked) status |= AnnotateWithColorEnum.InitialConditions;
+            if (tsmiAnnotateBCs.Checked) status |= AnnotateWithColorEnum.BoundaryConditions;
+            if (tsmiAnnotateLoads.Checked) status |= AnnotateWithColorEnum.Loads;
+            if (tsmiAnnotateDefinedFields.Checked) status |= AnnotateWithColorEnum.DefinedFields;
+            //
+            tsmiAnnotateAllSymbols.Checked = status.HasFlag(AnnotateWithColorEnum.ReferencePoints |
+                                                            AnnotateWithColorEnum.Constraints |
+                                                            AnnotateWithColorEnum.ContactPairs |
+                                                            AnnotateWithColorEnum.InitialConditions |
+                                                            AnnotateWithColorEnum.BoundaryConditions |
+                                                            AnnotateWithColorEnum.Loads |
+                                                            AnnotateWithColorEnum.DefinedFields);
+            //
+            return status;
         }
         public void SetAnnotateWithColor(AnnotateWithColorEnum annotateWithColor)
         {
@@ -3811,8 +3839,17 @@ namespace PrePoMax
                 ToolStripMenuItem tsmi = GetAnnotateWithColorMenuItem(annotateWithColor);
                 if (tsmi == null)
                 {
+                    // No coloring annotation: the symbols of the status are turned on
                     ClearAnnotationStatus();
-                    _controller.AnnotateWithColor = AnnotateWithColorEnum.None;
+                    tsmiAnnotateReferencePoints.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.ReferencePoints);
+                    tsmiAnnotateConstraints.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.Constraints);
+                    tsmiAnnotateContactPairs.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.ContactPairs);
+                    tsmiAnnotateInitialConditions.Checked =
+                        annotateWithColor.HasFlag(AnnotateWithColorEnum.InitialConditions);
+                    tsmiAnnotateBCs.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.BoundaryConditions);
+                    tsmiAnnotateLoads.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.Loads);
+                    tsmiAnnotateDefinedFields.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.DefinedFields);
+                    _controller.AnnotateWithColor = GetSymbolAnnotationStatus();
                 }
                 else if (!tsmi.Checked) _controller.AnnotateWithColor = ChangeAnnotationStatus(tsmi);
             });
@@ -3823,6 +3860,7 @@ namespace PrePoMax
             {
                 case AnnotateWithColorEnum.FaceOrientation: return tsmiAnnotateFaceOrientations;
                 case AnnotateWithColorEnum.MeshTypes: return tsmiAnnotateMeshTypes;
+                case AnnotateWithColorEnum.ElementQuality: return tsmiAnnotateElementQuality;
                 case AnnotateWithColorEnum.Parts: return tsmiAnnotateParts;
                 case AnnotateWithColorEnum.Materials: return tsmiAnnotateMaterials;
                 case AnnotateWithColorEnum.Sections: return tsmiAnnotateSections;
@@ -5228,6 +5266,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiChangeElementOrder_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ChangeElementOrder();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSplitPartMeshUsingSurface_Click(object sender, EventArgs e)
         {
             try
@@ -5332,6 +5381,12 @@ namespace PrePoMax
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmThickenShellMesh);
             ShowForm(_frmThickenShellMesh, "Thicken Shell Mesh", null);
+        }
+        private void ChangeElementOrder()
+        {
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmChangeElementOrder);
+            ShowForm(_frmChangeElementOrder, "Change Element Order", null);
         }
         private async void SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {
@@ -5451,20 +5506,12 @@ namespace PrePoMax
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetModelParts(), ElementQuality);
+                ShowForm(_frmElementQuality, "Element Quality", null);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
-        }
-        //
-        private void ElementQuality(string[] partNames)
-        {
-            // Set all part names for quality analysis
-            _frmElementQuality.PartNames = partNames;
-            //
-            ShowForm(_frmElementQuality, "Element Quality", null);
         }
         #endregion  ################################################################################################################
 
@@ -9229,6 +9276,7 @@ namespace PrePoMax
             bool legendValue = contextMenuType == vtkResultWidgetContextMenuTypeEnum.LegendValue;
             bool legend = contextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend;
             bool statusBlock = contextMenuType == vtkResultWidgetContextMenuTypeEnum.StatusBlock;
+            bool colorBar = contextMenuType == vtkResultWidgetContextMenuTypeEnum.ColorBar;
             // Min/max limit colors: only when the manual limit clips the data (a color band exists)
             vtkMaxColorSpectrum colorSpectrum = _controller.Settings.Legend.ColorSpectrum;
             bool maxColor = legend && _vtk.ScalarBarAddMaxColor;
@@ -9241,8 +9289,13 @@ namespace PrePoMax
             tsmiSetMinColor.Visible = minColor;
             tsmiMinColorVisible.Visible = minColor;
             tsmiMinColorVisible.Checked = colorSpectrum.MinColorVisible;
-            tsmiResultWidgetSettings.Visible = legend || statusBlock;
+            tsmiColorBarElementQuality.Visible = colorBar &&
+                                                 _controller.AnnotateWithColor == AnnotateWithColorEnum.ElementQuality;
+            tsmiEditColorBarTitle.Visible = colorBar;
+            tsmiResultWidgetSettings.Visible = legend || statusBlock || colorBar;
             tsmiResetLegend.Visible = legend;
+            tsmiResetColorBarTitle.Visible = colorBar;
+            tsmiResetColorBarTitle.Enabled = colorBar && _controller.IsColorBarTitleEdited;
             // Collapse separators so only a single one shows between visible groups
             UpdateSeparatorVisibility(cmsResultWidget.Items);
             //
@@ -9483,6 +9536,17 @@ namespace PrePoMax
                 ShowStatusBlockSettings();
             else if (_resultWidgetContextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend)
                 ShowLegendSettings();
+            else if (_resultWidgetContextMenuType == vtkResultWidgetContextMenuTypeEnum.ColorBar)
+                ShowColorBarSettings();
+        }
+        private void tsmiEditColorBarTitle_Click(object sender, EventArgs e)
+        {
+            if (_vtk.TryGetColorBarTitleEditData(out Rectangle rectangle, out string title))
+                StartEditColorBarTitle(rectangle, title);
+        }
+        private void tsmiResetColorBarTitle_Click(object sender, EventArgs e)
+        {
+            _controller.SetColorBarTitle(null);
         }
         private void tsmiResetLegend_Click(object sender, EventArgs e)
         {
@@ -9527,9 +9591,15 @@ namespace PrePoMax
             //
             AnnotationBase annotation = _controller.Annotations.GetCurrentAnnotation(name);
             string text = annotation.GetAnnotationText();
-            rectangle.Offset(-4, 4);
             //
-            StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation);
+            Point textOrigin;
+            if (_vtk.TryGetArrowWidgetTextOrigin(name, rectangle, out textOrigin))
+                StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation, textOrigin);
+            else
+            {
+                rectangle.Offset(-4, 4);
+                StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation, null);
+            }
         }
         private void StartEditLegendValue(bool editMinimum, Rectangle rectangle, string valueText,
                                           double minimum, double maximum)
@@ -9539,15 +9609,44 @@ namespace PrePoMax
             ViewportEditModeEnum editMode = editMinimum
                 ? ViewportEditModeEnum.LegendMinimum
                 : ViewportEditModeEnum.LegendMaximum;
-            rectangle.Offset(-1, 0);
             ViewportLegendValueEditData editData =
                 new ViewportLegendValueEditData(minimum, maximum, valueText);
-            StartViewportEdit(rectangle, valueText, editMode, editData);
+            Point textOrigin;
+            if (_vtk.TryGetScalarBarValueTextOrigin(editMinimum, rectangle, out textOrigin))
+                StartViewportEdit(rectangle, valueText, editMode, editData, textOrigin);
+            else
+            {
+                rectangle.Offset(-1, 0);
+                StartViewportEdit(rectangle, valueText, editMode, editData, null);
+            }
         }
-        private void StartViewportEdit(Rectangle rectangle, string text, ViewportEditModeEnum editMode, object tag)
+        private void StartEditColorBarTitle(Rectangle rectangle, string title)
+        {
+            if (_frmQuery.Visible) return;
+            //
+            Point textOrigin;
+            if (_vtk.TryGetColorBarTitleTextOrigin(rectangle, out textOrigin))
+                StartViewportEdit(rectangle, title, ViewportEditModeEnum.ColorBarTitle, null, textOrigin);
+            else
+            {
+                rectangle.Offset(-1, 0);
+                StartViewportEdit(rectangle, title, ViewportEditModeEnum.ColorBarTitle, null, null);
+            }
+        }
+        // With a text origin the editor lies over the box of the rectangle and its text over the text of the box; a
+        // box whose text starts closer to its left edge than the frame of the editor allows is widened to the left
+        private void StartViewportEdit(Rectangle rectangle, string text, ViewportEditModeEnum editMode, object tag,
+                                       Point? textOrigin)
         {
             if (viewportTextEditor.Visible && !CommitViewportEdit()) return;
             //
+            if (textOrigin.HasValue)
+            {
+                int widening = Math.Max(0, viewportTextEditor.GetMinimumTextLeft() - textOrigin.Value.X);
+                rectangle = new Rectangle(rectangle.X - widening, rectangle.Y, rectangle.Width + widening,
+                                          rectangle.Height);
+                textOrigin = new Point(textOrigin.Value.X + widening, textOrigin.Value.Y);
+            }
             Point vtkLocation = this.PointToClient(_vtk.PointToScreen(Point.Empty));
             Point location = new Point(vtkLocation.X + rectangle.X,
                                        vtkLocation.Y + (_vtk.Height - rectangle.Y - rectangle.Height));
@@ -9555,27 +9654,34 @@ namespace PrePoMax
             //
             viewportTextEditor.Location = location;
             viewportTextEditor.Size = rectangle.Size;
-            viewportTextEditor.MinSize = rectangle.Size;
+            if (textOrigin.HasValue) viewportTextEditor.SetTextBox(rectangle.Size, textOrigin.Value);
+            else
+            {
+                viewportTextEditor.ResetTextBox();
+                viewportTextEditor.MinSize = rectangle.Size;
+            }
             viewportTextEditor.ParentArea = vtkArea;
             viewportTextEditor.ViewportEditMode = editMode;
             viewportTextEditor.Text = text;
             viewportTextEditor.Tag = tag;
             //
-            bool legendValue = editMode == ViewportEditModeEnum.LegendMinimum ||
-                               editMode == ViewportEditModeEnum.LegendMaximum;
-            if (legendValue)
+            bool centerOnHighlight = !textOrigin.HasValue &&
+                                     (editMode == ViewportEditModeEnum.LegendMinimum ||
+                                      editMode == ViewportEditModeEnum.LegendMaximum ||
+                                      editMode == ViewportEditModeEnum.ColorBarTitle);
+            if (centerOnHighlight)
             {
                 double highlightCenterY = vtkLocation.Y + _vtk.Height - rectangle.Y - rectangle.Height / 2.0;
                 int editorY = (int)Math.Round(highlightCenterY - viewportTextEditor.Height / 2.0,
                                               MidpointRounding.AwayFromZero);
                 viewportTextEditor.Location = new Point(location.X, editorY);
-            }
-            //
+            }            //
             viewportTextEditor.BringToFront();
             viewportTextEditor.Visible = true;
             viewportTextEditor.SetCaretAtEnd();
             //
             _vtk.SelectBy = vtkSelectBy.Widget;
+            _vtk.SetWidgetHighlightSuspended(true);
         }
         private void ViewportTextEditor_CommitRequested()
         {
@@ -9618,6 +9724,14 @@ namespace PrePoMax
                 //
                 EndViewportEdit();
                 _controller.Annotations.DrawAnnotations();  // redraw in both cases
+                return true;
+            }
+            else if (editMode == ViewportEditModeEnum.ColorBarTitle)
+            {
+                string title = viewportTextEditor.Text.Replace("\r\n", " ").Trim();
+                //
+                EndViewportEdit();
+                _controller.SetColorBarTitle(title);
                 return true;
             }
             else if (editMode == ViewportEditModeEnum.LegendMinimum ||
@@ -9677,6 +9791,7 @@ namespace PrePoMax
             viewportTextEditor.ViewportEditMode = ViewportEditModeEnum.None;
             viewportTextEditor.Tag = null;
             _vtk.SelectBy = vtkSelectBy.Default;
+            _vtk.SetWidgetHighlightSuspended(false);
         }
         private void CancelViewportEdit()
         {
@@ -11371,6 +11486,7 @@ namespace PrePoMax
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);
             if (_frmRemeshingParameters != null && _frmRemeshingParameters.Visible) _frmRemeshingParameters.SelectionChanged(ids);
             if (_frmThickenShellMesh != null && _frmThickenShellMesh.Visible) _frmThickenShellMesh.SelectionChanged(ids);
+            if (_frmChangeElementOrder != null && _frmChangeElementOrder.Visible) _frmChangeElementOrder.SelectionChanged(ids);
             if (_frmSplitPartMeshUsingSurface != null && _frmSplitPartMeshUsingSurface.Visible)
                 _frmSplitPartMeshUsingSurface.SelectionChanged(ids);
             if (_frmMergeCoincidentNodes != null && _frmMergeCoincidentNodes.Visible)
@@ -11494,9 +11610,9 @@ namespace PrePoMax
             if (!form.Visible)
             {
                 CloseAllForms();
-                SetFormLocation((Form)form);
                 form.Text = text;
                 if (itemToEditName != null) form.Text += ": " + itemToEditName;
+                SetFormLocation((Form)form);
                 if (form.PrepareForm(stepName, itemToEditName))
                 {
                     ((Form)form).Show(this);
@@ -11514,35 +11630,10 @@ namespace PrePoMax
         }
         private void SetFormLocation(Form form)
         {
-            Rectangle screenBounds;
-            bool intersects = false;
-            Rectangle formSize = form.ClientRectangle;
             Point location = new Point(Left + _formLocation.X, Top + _formLocation.Y);
-            Rectangle locationRect = new Rectangle(location, new Size(1, 1));
+            if (!Screen.AllScreens.Any(screen => screen.Bounds.Contains(location))) location = Location;
             //
-            foreach (var screen in Screen.AllScreens)
-            {
-                screenBounds = screen.Bounds;
-                if (screenBounds.IntersectsWith(locationRect))
-                {
-                    intersects = true;
-                    // Size
-                    if (formSize.Width > screenBounds.Width) formSize.Width = screenBounds.Width;
-                    if (formSize.Height > screenBounds.Height) formSize.Height = screenBounds.Height;
-                    // Location X
-                    if (location.X < screenBounds.Left) location.X = screenBounds.Left;
-                    else if (location.X + formSize.Width > screenBounds.Left + screenBounds.Width)
-                        location.X = screenBounds.Left + screenBounds.Width - formSize.Width;
-                    // Location Y
-                    if (location.Y < screenBounds.Top) location.Y = screenBounds.Top;
-                    else if (location.Y + formSize.Height > screenBounds.Top + screenBounds.Height)
-                        location.Y = screenBounds.Top + screenBounds.Height - formSize.Height;
-                }
-            }
-            //
-            if (!intersects) location = Location;
-            //
-            if (form.Location != location) form.Location = location;
+            form.SetLocationInsideWorkingArea(location);
         }
         private void SaveFormLocation(Form form)
         {
@@ -11652,6 +11743,10 @@ namespace PrePoMax
         {
             tsmiShowNoEdges_Click(null, null);
         }
+        private void tsbShowNodes_Click(object sender, EventArgs e)
+        {
+            tsmiShowNodes_Click(null, null);
+        }
         //
         private void tsbSectionView_MouseUp(object sender, MouseEventArgs e)
         {
@@ -11739,6 +11834,7 @@ namespace PrePoMax
         {
             if (name == tsmiAnnotateFaceOrientations.Text) return tsmiAnnotateFaceOrientations;
             else if (name == tsmiAnnotateMeshTypes.Text) return tsmiAnnotateMeshTypes;
+            else if (name == tsmiAnnotateElementQuality.Text) return tsmiAnnotateElementQuality;
             else if (name == tsmiAnnotateParts.Text) return tsmiAnnotateParts;
             else if (name == tsmiAnnotateMaterials.Text) return tsmiAnnotateMaterials;
             else if (name == tsmiAnnotateSections.Text) return tsmiAnnotateSections;
@@ -11752,6 +11848,7 @@ namespace PrePoMax
             string name;
             if (tsmiAnnotateFaceOrientations.Checked) name = tsmiAnnotateFaceOrientations.Text;
             else if (tsmiAnnotateMeshTypes.Checked) name = tsmiAnnotateMeshTypes.Text;
+            else if (tsmiAnnotateElementQuality.Checked) name = tsmiAnnotateElementQuality.Text;
             else if (tsmiAnnotateParts.Checked) name = tsmiAnnotateParts.Text;
             else if (tsmiAnnotateMaterials.Checked) name = tsmiAnnotateMaterials.Text;
             else if (tsmiAnnotateSections.Checked) name = tsmiAnnotateSections.Text;
@@ -12661,6 +12758,7 @@ namespace PrePoMax
         {
             tsmiAnnotateFaceOrientations.Checked = false;
             tsmiAnnotateMeshTypes.Checked = false;
+            tsmiAnnotateElementQuality.Checked = false;
             tsmiAnnotateParts.Checked = false;
             tsmiAnnotateMaterials.Checked = false;
             tsmiAnnotateSections.Checked = false;
@@ -12769,6 +12867,14 @@ namespace PrePoMax
         public void AdjustCameraDistanceAndClipping()
         {
             InvokeIfRequired(_vtk.AdjustCameraDistanceAndClippingRedraw);
+        }
+        public void SuspendCameraAdjustment()
+        {
+            InvokeIfRequired(_vtk.SuspendCameraAdjustment);
+        }
+        public void ResumeCameraAdjustment()
+        {
+            InvokeIfRequired(_vtk.ResumeCameraAdjustment);
         }
         public void UpdateScalarsAndRedraw()
         {
@@ -13088,6 +13194,17 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetWidgetHighlightEnabled, enabled);
         }
+        public void SetTextFont(string familyName, int fontSize)
+        {
+            InvokeIfRequired(_vtk.SetTextFont, familyName, fontSize);
+            InvokeIfRequired(SetViewportTextEditorFont);
+        }
+        private void SetViewportTextEditorFont()
+        {
+            int fontSize = _vtk.GetTextFontSize();
+            viewportTextEditor.SetTextFont(vtkControl.Native.VtkNativeViewFont.FamilyName, fontSize,
+                                           vtkControl.Native.VtkNativeViewFont.GetLinePitch(fontSize));
+        }
         public void SetSelectionDistance(int distanceInPixels)
         {
             InvokeIfRequired(_vtk.SetSelectionDistance, distanceInPixels);
@@ -13138,6 +13255,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetColorBarColorsAndLabels, colors, labels);
         }
+        public void SetColorBarTitle(string title)
+        {
+            InvokeIfRequired(_vtk.SetColorBarTitle, title);
+        }
         public void AddColorBarColorsAndLabels(Color[] colors, string[] labels)
         {
             InvokeIfRequired(_vtk.AddColorBarColorsAndLabels, colors, labels);
@@ -13186,6 +13307,10 @@ namespace PrePoMax
         public void SetLighting(double ambient, double diffuse, bool redraw)
         {
             InvokeIfRequired(_vtk.SetLighting, ambient, diffuse, redraw);
+        }
+        public void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize, bool redraw)
+        {
+            InvokeIfRequired(() => _vtk.SetAmbientOcclusion(enabled, relativeRadius, kernelSize, redraw));
         }
         public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom, bool smoothZoom)
         {
@@ -13522,6 +13647,14 @@ namespace PrePoMax
             InvokeIfRequired(UpdateSymbolsList);
             InvokeIfRequired(SelectLastSymbolName);
         }
+        public void BeginTreeUpdateBatch()
+        {
+            InvokeIfRequired(_modelTree.BeginUpdateBatch);
+        }
+        public void EndTreeUpdateBatch()
+        {
+            InvokeIfRequired(_modelTree.EndUpdateBatch);
+        }
         public void AddTreeNode(ViewGeometryModelResults view, NamedClass item, string parentName)
         {
             ViewType viewType = GetViewType(view);
@@ -13589,6 +13722,10 @@ namespace PrePoMax
             InvokeIfRequired(_modelTree.SetStableTreesExpandCollapseState, states);
         }
         public void UpdateHighlight()
+        {
+            InvokeIfRequired(UpdateHighlightOnUiThread);
+        }
+        private void UpdateHighlightOnUiThread()
         {
             if (_allForms == null) return;
             //

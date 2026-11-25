@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,19 +20,19 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ImportedSTLoad : Load, IPreviewable, ISerializable
+    [PmxType(3273)]
+    public class ImportedSTLoad : Load, IPreviewable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                        //ISerializable
-        private RegionTypeEnum _regionType;                 //ISerializable
-        private string _fileName;                           //ISerializable
-        private CloudInterpolatorEnum _interpolatorType;    //ISerializable
-        private EquationContainer _interpolatorRadius;      //ISerializable
-        private EquationContainer _magnitudeFactor;         //ISerializable
-        private EquationContainer _geomScaleFactor;         //ISerializable
+        [PmxKey(0)] private string _surfaceName;                        //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                 //ISerializable
+        [PmxKey(2)] private string _fileName;                           //ISerializable
+        [PmxKey(3)] private CloudInterpolatorEnum _interpolatorType;    //ISerializable
+        [PmxKey(4)] private EquationContainer _interpolatorRadius;      //ISerializable
+        [PmxKey(5)] private EquationContainer _magnitudeFactor;         //ISerializable
+        [PmxKey(6)] private EquationContainer _geomScaleFactor;         //ISerializable
         //
-        private FileInfo _oldFileInfo;                      //ISerializable
+        [PmxKey(7)] private FileInfo _oldFileInfo;                      //ISerializable
         //
         [NonSerialized] private double _prevScaleFactor;
         [NonSerialized] private CloudInterpolator _interpolator;
@@ -108,6 +108,13 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetInterpolatorRadius(_interpolatorRadius, false);
+            SetMagnitudeFactor(_magnitudeFactor, false);
+            SetGeomScaleFactor(_geomScaleFactor, false);
+        }
         private void SetInterpolatorRadius(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _interpolatorRadius, value, CheckPositive, checkEquation);
@@ -308,22 +315,6 @@ namespace CaeModel
                                         out double[] distance, out double[] values);
             for (int i = 0; i < values.Length; i++) values[i] *= _magnitudeFactor.Value;
             return values;
-        }
-        
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_interpolatorType", _interpolatorType, typeof(InterpolatorEnum));
-            info.AddValue("_interpolatorRadius", _interpolatorRadius, typeof(EquationContainer));
-            info.AddValue("_magnitudeFactor", _magnitudeFactor, typeof(EquationContainer));
-            info.AddValue("_geomScaleFactor", _geomScaleFactor, typeof(EquationContainer));
-            info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));
         }
     }
 }

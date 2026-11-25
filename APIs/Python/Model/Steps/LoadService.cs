@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -40,10 +40,16 @@ namespace APIs.Python.Model
             if (coordinateSystemName != null)
             {
                 string storedName = ResolveCoordinateSystemName(coordinateSystemName);
+                if (storedName != CoordinateSystem.DefaultCoordinateSystemName && load is EdgeLoad normalEdgeLoad &&
+                    normalEdgeLoad.Direction == EdgeLoadDirectionEnum.Normal)
+                    throw new PythonAPIException("The argument 'coordinate_system_name' does not apply to an " +
+                                                 "edge_load with a normal, which acts along the normal of the edge. " +
+                                                 "Leave it out here.");
                 if (storedName != CoordinateSystem.DefaultCoordinateSystemName && !LoadAPI.TakesCoordinateSystem(load))
                     throw new PythonAPIException("The argument 'coordinate_system_name' applies only to a " +
-                                                 "concentrated_force or a surface_traction load; the solver input " +
-                                                 "applies a " + LoadAPI.GetItemType(load) + " load in the global " +
+                                                 "concentrated_force, a surface_traction, a body_force or an " +
+                                                 "edge_load load; the solver input applies a " +
+                                                 LoadAPI.GetItemType(load) + " load in the global " +
                                                  "coordinate system. Leave it out here.");
                 load.CoordinateSystemName = storedName;
             }
@@ -60,6 +66,41 @@ namespace APIs.Python.Model
             }
             if (color != null) load.Color = PythonColorConverter.ToColor(color, "color");
         }
+        // The solver input gives a 2D element no front or back face, so a 2D surface load takes element edges only,
+        // as the dialog limits its picks to them and offers only the surfaces made of them
+        public void ApplyLoadRegion(Load load, object region, string target)
+        {
+            bool edgesOnly = load.TwoD && target == "surfaces";
+            SelectionAPI selection = region as SelectionAPI;
+            if (edgesOnly && selection != null) region = selection.DeepCopy().configure(shell_edges_only: true);
+            try
+            {
+                ApplyRegion(load, region, target);
+            }
+            catch (PythonAPIException ex) when (edgesOnly && selection != null &&
+                                                 ex.Message.StartsWith("The selection does not resolve"))
+            {
+                throw new PythonAPIException(ex.Message + " " + GetTwoDEdgesOnlyText(load) + " The selection is " +
+                                             "therefore limited to element edges, and none of its picks holds " +
+                                             "only edges. Pick the edges with pmx.create.selection_by_pick and " +
+                                             "select_by 'Edge', 'GeometryEdge' or 'Geometry'.");
+            }
+            if (edgesOnly && load.RegionType == RegionTypeEnum.SurfaceName) EnsureEdgeSurface(load);
+        }
+        private void EnsureEdgeSurface(Load load)
+        {
+            FeSurface surface = ModelResolver.GetModel().Mesh.Surfaces[load.RegionName];
+            if (surface.SurfaceFaceTypes == FeSurfaceFaceTypes.ShellEdgeFaces) return;
+            //
+            throw new PythonAPIException("The argument 'region' names the surface '" + surface.Name + "', which " +
+                                         "is not made of element edges. " + GetTwoDEdgesOnlyText(load) +
+                                         " Name a surface made of edges, or give a selection.");
+        }
+        private static string GetTwoDEdgesOnlyText(Load load)
+        {
+            return "In a two dimensional model a " + LoadAPI.GetItemType(load) + " load acts on element edges " +
+                   "only, because the solver input gives a two dimensional element no front or back face.";
+        }
         public void Add(string stepName, Load load)
         {
             // The step silently refuses an unsupported type, so the check is done before the command
@@ -70,15 +111,53 @@ namespace APIs.Python.Model
             // The dialog offers a pre-tension load only for a three dimensional model
             if (load is PreTensionLoad && GetIsTwoDimensional())
                 throw new PythonAPIException("A pre-tension load needs a three dimensional model.");
+            if (load is EdgeLoad edgeLoad) EnsureEdgeLoadRegion(edgeLoad);
             EnsureDefined(load);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddLoad(stepName, load);
         }
+        // The dialog offers an edge load outside an axisymmetric model only, picks geometry edges and names only the
+        // node sets created by picking them
+        private void EnsureEdgeLoadRegion(EdgeLoad load)
+        {
+            if (GetIsAxisymmetric())
+                throw new PythonAPIException("An edge load needs a three dimensional or a plane two dimensional " +
+                                             "model, and the model is axisymmetric.");
+            //
+            FeModel model = ModelResolver.GetModel();
+            if (load.RegionType == RegionTypeEnum.Selection)
+            {
+                if (FeModel.GetGeometryEdgeIds(load.CreationIds).Length == 0)
+                    throw new PythonAPIException("The argument 'region' selects no geometry edge. Pick the edges " +
+                                                 "with pmx.create.selection_by_pick and select_by 'GeometryEdge' or " +
+                                                 "'Geometry'.");
+            }
+            else if (load.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                if (!model.IsGeometryEdgeNodeSet(model.Mesh.NodeSets[load.RegionName]))
+                    throw new PythonAPIException("The argument 'region' names the node set '" + load.RegionName +
+                                                 "', which was not created by picking geometry edges. Name a node " +
+                                                 "set created from geometry edges, or give a selection of edges.");
+            }
+            // The normal is found from the elements the edges bound, which the solver input needs as well
+            if (load.Direction == EdgeLoadDirectionEnum.Normal)
+            {
+                try
+                {
+                    model.GetEdgeLoadCellForcesPerLength(load, out _, out _);
+                }
+                catch (CaeException ex)
+                {
+                    throw new PythonAPIException(ex.Message);
+                }
+            }
+        }
         public void Replace(string stepName, string oldName, Load load)
         {
             string storedName = ResolveItem(stepName, oldName).Name;
             ValidateName(stepName, load.Name, storedName);
+            if (load is EdgeLoad edgeLoad) EnsureEdgeLoadRegion(edgeLoad);
             EnsureDefined(load);
             //
             EnsureCommandsAvailable();
@@ -141,6 +220,12 @@ namespace APIs.Python.Model
                 return "The shell edge load magnitude must not be equal to 0. Give a nonzero 'magnitude'.";
             if (load is GravityLoad gravity && gravity.Magnitude.Value == 0)
                 return "At least one gravity load component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
+            if (load is BodyForce bodyForce && bodyForce.Magnitude.Value == 0)
+                return "At least one body force component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
+            if (load is EdgeLoad edgeLoad && edgeLoad.IsZero())
+                return edgeLoad.Direction == EdgeLoadDirectionEnum.Normal ?
+                       "The normal edge load must not be equal to 0. Give a nonzero 'normal'." :
+                       "At least one edge load component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
             if (load is CentrifLoad centrifugal)
             {
                 if (centrifugal.N1.Value == 0 && centrifugal.N2.Value == 0 && centrifugal.N3.Value == 0)

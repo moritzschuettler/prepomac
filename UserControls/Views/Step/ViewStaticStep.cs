@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6221)]
     public class ViewStaticStep : ViewStep
     {
         // Variables                                                                                                                
-        private CaeModel.StaticStep _step;
+        [PmxKey(0)] private CaeModel.StaticStep _step;
 
 
         // Properties                                                                                                               

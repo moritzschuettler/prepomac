@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,15 +17,15 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5025)]
     public class ResultFieldOutputEquation : ResultFieldOutput
     {
         // Variables                                                                                                                
         public static string EquationSeparator = ".";
         public static string ComponentName = "VALUE";
-        private string _equation;
-        private string _unit;
-        private string[] _parentNames;
+        [PmxKey(0)] private string _equation;
+        [PmxKey(1)] private string _unit;
+        [PmxKey(2)] private string[] _parentNames;
 
 
         // Properties                                                                                                               

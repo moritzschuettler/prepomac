@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -15,12 +15,12 @@ namespace CaeGlobals
     /// A transform x' = A x + b, which is what a translation, a rotation, a mirror and a scaling of a part are,
     /// and what any sequence of them is.
     /// </summary>
-    [Serializable]
+    [PmxType(1000)]
     public class AffineTransform
     {
         // Variables                                                                                                                
-        private double[][] _matrix;
-        private double[] _translation;
+        [PmxKey(0)] private double[][] _matrix;
+        [PmxKey(1)] private double[] _translation;
 
 
         // Properties                                                                                                               

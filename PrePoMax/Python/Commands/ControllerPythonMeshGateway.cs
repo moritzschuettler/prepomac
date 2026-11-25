@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -163,6 +163,10 @@ namespace PrePoMax.Python
                                      bool keepModelEdges)
         {
             _controller.ThickenShellMeshCommand(partNames, thickness, numberOfLayers, offset, keepModelEdges);
+        }
+        public void ChangeElementOrder(string[] partNames, bool secondOrder, bool projectToGeometry)
+        {
+            _controller.ChangeElementOrderCommand(partNames, secondOrder, projectToGeometry);
         }
         public void SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {

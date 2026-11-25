@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Kitware.VTK;
 
 namespace vtkControl
 {
@@ -28,7 +27,7 @@ namespace vtkControl
         public const double DefaultSymbolSize = 50;
         public const double DefaultLabelFontSize = 16;
         //
-        private const int NumOfCircleSegments = 24;
+        protected const int NumOfCircleSegments = 24;
         private const double NegativeShaftLengthRatio = 2.0 / 3.0;
         private const double ConeHeightRatio = 14.0 / DefaultShaftLength;
         private const double ConeRadiusRatio = 3.5 / DefaultShaftLength;
@@ -95,56 +94,7 @@ namespace vtkControl
         }
 
 
-        // Private methods                                                                                                          
-        private void InsertCone(vtkPoints points, vtkCellArray polygons, int endId)
-        {
-            double[] direction = GetNormalizedEndDirection(endId);
-            double[] normal = new double[] { -direction[1], direction[0] };
-            double[] apex = _endPositions[endId];
-            double[] baseCenter = GetConeBaseCenter(endId);
-            // The projection of the base circle is an ellipse that is foreshortened along the axis
-            double semiAxis = _coneRadius * Math.Abs(_endDepths[endId]);
-            //
-            long firstPointId = points.GetNumberOfPoints();
-            polygons.InsertNextCell(NumOfCircleSegments);
-            for (int i = 0; i < NumOfCircleSegments; i++)
-            {
-                double angle = 2 * Math.PI * i / NumOfCircleSegments;
-                double alongAxis = semiAxis * Math.Cos(angle);
-                double alongNormal = _coneRadius * Math.Sin(angle);
-                points.InsertNextPoint(baseCenter[0] + alongAxis * direction[0] + alongNormal * normal[0],
-                                       baseCenter[1] + alongAxis * direction[1] + alongNormal * normal[1], 0);
-                polygons.InsertCellPoint(firstPointId + i);
-            }
-            //
-            firstPointId = points.GetNumberOfPoints();
-            points.InsertNextPoint(apex[0], apex[1], 0);
-            points.InsertNextPoint(baseCenter[0] + _coneRadius * normal[0], baseCenter[1] + _coneRadius * normal[1], 0);
-            points.InsertNextPoint(baseCenter[0] - _coneRadius * normal[0], baseCenter[1] - _coneRadius * normal[1], 0);
-            polygons.InsertNextCell(3);
-            for (int i = 0; i < 3; i++) polygons.InsertCellPoint(firstPointId + i);
-        }
-        private void InsertDisk(vtkPoints points, vtkCellArray polygons, double[] diskCenter, double radius)
-        {
-            long firstPointId = points.GetNumberOfPoints();
-            //
-            polygons.InsertNextCell(NumOfCircleSegments);
-            for (int i = 0; i < NumOfCircleSegments; i++)
-            {
-                double angle = 2 * Math.PI * i / NumOfCircleSegments;
-                points.InsertNextPoint(diskCenter[0] + radius * Math.Cos(angle),
-                                       diskCenter[1] + radius * Math.Sin(angle), 0);
-                polygons.InsertCellPoint(firstPointId + i);
-            }
-        }
-        private static void InsertColor(vtkUnsignedCharArray colors, double[] color, double opacity)
-        {
-            colors.InsertNextTuple4(Math.Round(255 * color[0]), Math.Round(255 * color[1]),
-                                    Math.Round(255 * color[2]), Math.Round(255 * opacity));
-        }
-
-
-        // Public methods                                                                                                           
+        // Public methods                                                                                                         
         public void Update(double[] center, double centerDepth, double[][] axisDirections,
                            double[] right, double[] up, double[] viewPlaneNormal)
         {
@@ -172,37 +122,6 @@ namespace vtkControl
                     _endPositions[endId][0] = _center[0] + shaftLength * _endDirections[endId][0];
                     _endPositions[endId][1] = _center[1] + shaftLength * _endDirections[endId][1];
                 }
-            }
-        }
-        public void AppendOrigin(vtkPoints points, vtkCellArray polygons, vtkUnsignedCharArray colors)
-        {
-            InsertDisk(points, polygons, _center, _originRadius);
-            InsertColor(colors, GetOriginColor(), 1);
-        }
-        public void AppendShaft(vtkPoints points, vtkCellArray lines, vtkUnsignedCharArray colors, int endId)
-        {
-            long firstPointId = points.GetNumberOfPoints();
-            points.InsertNextPoint(_center[0], _center[1], 0);
-            points.InsertNextPoint(_endPositions[endId][0], _endPositions[endId][1], 0);
-            //
-            lines.InsertNextCell(2);
-            lines.InsertCellPoint(firstPointId);
-            lines.InsertCellPoint(firstPointId + 1);
-            //
-            InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
-        }
-        public void AppendEnd(vtkPoints points, vtkCellArray polygons, vtkUnsignedCharArray colors, int endId)
-        {
-            if (IsPositiveEnd(endId))
-            {
-                InsertCone(points, polygons, endId);
-                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
-                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
-            }
-            else
-            {
-                InsertDisk(points, polygons, _endPositions[endId], _negativeEndRadius);
-                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
             }
         }
         public bool IsEndVisible(int endId)
@@ -337,16 +256,10 @@ namespace vtkControl
             //
             return fontSize < 1 ? 1 : fontSize;
         }
-        public static void GetCameraBasis(vtkCamera camera, out double[] right, out double[] up,
-                                          out double[] viewPlaneNormal)
+        // The view plane normal points from the focal point towards the camera
+        public static void GetCameraBasis(double[] viewPlaneNormal, double[] viewUp, out double[] right,
+                                          out double[] up)
         {
-            viewPlaneNormal = new double[] { 0, 0, 1 };
-            double[] viewUp = new double[] { 0, 1, 0 };
-            if (camera != null)
-            {
-                viewPlaneNormal = camera.GetViewPlaneNormal();  // points from the focal point towards the camera
-                viewUp = camera.GetViewUp();
-            }
             right = NormalizedCrossProduct(viewUp, viewPlaneNormal, new double[] { 1, 0, 0 });
             up = NormalizedCrossProduct(viewPlaneNormal, right, new double[] { 0, 1, 0 });
         }

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,7 +16,7 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3023)]
     public class Friction : SurfaceInteractionProperty
     {
         // Static variables                                                                                                                
@@ -26,8 +26,8 @@ namespace CaeModel
         // Variables                                                                                                                
         private static string _positive = "The value must be larger than 0.";
         //
-        private double _coefficient;
-        private double _stickSlope;
+        [PmxKey(0)] private double _coefficient;
+        [PmxKey(1)] private double _stickSlope;
 
         // Properties                                                                                                               
         public double Coefficient 

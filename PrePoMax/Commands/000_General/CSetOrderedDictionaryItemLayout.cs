@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,15 +17,15 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10034)]
     internal sealed class OrderedDictionaryItemLayoutCommandData
     {
-        private Type _itemType;
-        private ViewGeometryModelResults _view;
-        private string _parentName;
-        private OrderedDictionaryItemLayout<string> _itemLayout;
-        private string _details;
-        [OptionalField]
+        [PmxKey(0)] private Type _itemType;
+        [PmxKey(1)] private ViewGeometryModelResults _view;
+        [PmxKey(2)] private string _parentName;
+        [PmxKey(3)] private OrderedDictionaryItemLayout<string> _itemLayout;
+        [PmxKey(4)] private string _details;
+        [PmxKey(5)] [OptionalField]
         private Dictionary<Guid, string> _compoundPartGroupNames;
 
 
@@ -62,10 +62,10 @@ namespace PrePoMax.Commands
     /// <summary>
     /// Stores one complete resulting layout for a geometry/model tree organization gesture.
     /// </summary>
-    [Serializable]
+    [PmxType(10035)]
     internal sealed class CSetOrderedDictionaryItemLayout : PreprocessCommand
     {
-        private OrderedDictionaryItemLayoutCommandData _data;
+        [PmxKey(0)] private OrderedDictionaryItemLayoutCommandData _data;
 
 
         public CSetOrderedDictionaryItemLayout(string name, Type itemType, ViewGeometryModelResults view,
@@ -97,13 +97,13 @@ namespace PrePoMax.Commands
     /// Stores the geometry and model part layouts produced by one linked-group rename.
     /// Both layouts are replayed by one history command.
     /// </summary>
-    [Serializable]
+    [PmxType(10036)]
     internal sealed class CSetLinkedPartGroupLayouts : PreprocessCommand
     {
-        private OrderedDictionaryItemLayout<string> _geometryLayout;
-        private OrderedDictionaryItemLayout<string> _modelLayout;
-        private string _details;
-        [OptionalField]
+        [PmxKey(0)] private OrderedDictionaryItemLayout<string> _geometryLayout;
+        [PmxKey(1)] private OrderedDictionaryItemLayout<string> _modelLayout;
+        [PmxKey(2)] private string _details;
+        [PmxKey(3)] [OptionalField]
         private Dictionary<Guid, string> _compoundPartGroupNames;
 
 
@@ -142,10 +142,10 @@ namespace PrePoMax.Commands
     /// <summary>
     /// Results-tree counterpart required by the existing postprocessing replay classifier.
     /// </summary>
-    [Serializable]
+    [PmxType(10037)]
     internal sealed class CSetResultOrderedDictionaryItemLayout : PostprocessCommand
     {
-        private OrderedDictionaryItemLayoutCommandData _data;
+        [PmxKey(0)] private OrderedDictionaryItemLayoutCommandData _data;
 
 
         public CSetResultOrderedDictionaryItemLayout(string name, Type itemType, ViewGeometryModelResults view,

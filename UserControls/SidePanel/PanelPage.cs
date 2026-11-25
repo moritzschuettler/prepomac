@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -14,10 +14,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6205)]
     public enum ViewGeometryModelResults
     {
         Geometry,
@@ -25,19 +26,19 @@ namespace UserControls
         Results
     }
     //
-    [Serializable]
+    [PmxType(6206)]
     public class PanelPage
     {
         // Variables                                                                                                                
-        protected int _minOffset;
-        protected int _horizontalOffset;
-        protected int _verticalOffset;
+        [PmxKey(0)] protected int _minOffset;
+        [PmxKey(1)] protected int _horizontalOffset;
+        [PmxKey(2)] protected int _verticalOffset;
         //
-        protected string _id;
-        protected string _title;
-        protected ViewType _associatedView;
+        [PmxKey(3)] protected string _id;
+        [PmxKey(4)] protected string _title;
+        [PmxKey(5)] protected ViewType _associatedView;
         //
-        protected List<PanelItem> _items;
+        [PmxKey(6)] protected List<PanelItem> _items;
 
 
         // Properties                                                                                                               

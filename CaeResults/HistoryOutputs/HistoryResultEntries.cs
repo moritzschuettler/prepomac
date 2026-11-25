@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -22,15 +22,15 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeResults
 {
-    [Serializable]
-    public class HistoryResultEntries : NamedClass, ISerializable
+    [PmxType(5037)]
+    public class HistoryResultEntries : NamedClass
     {
         // Variables                                                                                                                
-        private List<double> _time;             //ISerializable
-        private List<double> _values;           //ISerializable
-        private List<int> _count;               //ISerializable
-        private bool _local;                    //ISerializable
-        private string _unit;                   //ISerializable
+        [PmxKey(0)] private List<double> _time;             //ISerializable
+        [PmxKey(1)] private List<double> _values;           //ISerializable
+        [PmxKey(2)] private List<int> _count;               //ISerializable
+        [PmxKey(3)] private bool _local;                    //ISerializable
+        [PmxKey(4)] private string _unit;                   //ISerializable
 
 
         // Properties                                                                                                               
@@ -118,8 +118,9 @@ namespace CaeResults
                 else bw.Write(historyResultEntries.Unit);
             }
         }
-        public static void WriteToFileStream(HistoryResultEntries historyResultEntries, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultEntries historyResultEntries, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultEntries == null)
             {
@@ -137,7 +138,8 @@ namespace CaeResults
                     bw.Flush();
                     bw.BaseStream.Position = 0;
                     // Compress the writer
-                    byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                    byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                            ((MemoryStream)bw.BaseStream).ToArray();
                     // Write the length of the compressed data
                     Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                     // Write the compressed data
@@ -188,7 +190,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultEntries ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultEntries ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int exists = Tools.ReadIntFromFileStream(fileStream);
             //
@@ -200,7 +202,7 @@ namespace CaeResults
                 //
                 HistoryResultEntries historyResultEntries;
                 using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                 {
                     historyResultEntries = ReadFromBinaryReader(br, version);
                 }
@@ -272,18 +274,6 @@ namespace CaeResults
                     else _count.Add(count[i]);
                 }
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_time", _time, typeof(List<double>));
-            info.AddValue("_values", _values, typeof(List<double>));
-            info.AddValue("_count", _count, typeof(List<int>));
-            info.AddValue("_local", _local, typeof(bool));
-            info.AddValue("_unit", _unit, typeof(string));
         }
     }
 }

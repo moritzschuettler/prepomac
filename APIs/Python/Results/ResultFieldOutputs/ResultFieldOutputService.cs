@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -63,7 +63,7 @@ namespace APIs.Python
             if (fieldOutput is ResultFieldOutputMaterialAxes)
                 return new ResultFieldOutputMaterialAxesAPI(resultName, storedName, this);
             if (fieldOutput is ResultFieldOutputShellPlaneStress)
-                return new ResultFieldOutputShellPlaneStressAPI(resultName, storedName, this);
+                return new ResultFieldOutputShellInPlaneStateAPI(resultName, storedName, this);
             if (fieldOutput is ResultFieldOutputCompositeFailure)
                 return new ResultFieldOutputCompositeFailureAPI(resultName, storedName, this);
             return new ResultFieldOutputAPI(resultName, storedName, this);
@@ -109,20 +109,27 @@ namespace APIs.Python
             ValidateRequiredString(fieldName, "field_name");
             return new ResultFieldOutputMaterialAxesDraftAPI(name, fieldName);
         }
-        public ResultFieldOutputShellPlaneStressDraftAPI CreateFieldOutputShellPlaneStress(string name, string fieldName)
+        public ResultFieldOutputShellInPlaneStateDraftAPI CreateFieldOutputShellInPlaneState(string name, string fieldName,
+                                                                                            string quantity)
         {
             PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(fieldName, "field_name");
-            return new ResultFieldOutputShellPlaneStressDraftAPI(name, fieldName);
+            ShellInPlaneQuantityEnum quantityValue = PythonValueConverter.ToEnum<ShellInPlaneQuantityEnum>(quantity, "quantity");
+            return new ResultFieldOutputShellInPlaneStateDraftAPI(name, fieldName, quantityValue);
         }
         public ResultFieldOutputCompositeFailureDraftAPI CreateFieldOutputCompositeFailure(string name, string fieldName,
-                                                                                          string criterion)
+                                                                                          string criterion,
+                                                                                          string quantity)
         {
             PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(fieldName, "field_name");
             CompositeFailureCriterionEnum criterionValue =
                 PythonValueConverter.ToEnum<CompositeFailureCriterionEnum>(criterion, "criterion");
-            return new ResultFieldOutputCompositeFailureDraftAPI(name, fieldName, criterionValue);
+            ShellInPlaneQuantityEnum quantityValue = PythonValueConverter.ToEnum<ShellInPlaneQuantityEnum>(quantity, "quantity");
+            if (quantityValue == ShellInPlaneQuantityEnum.Strain)
+                throw new PythonAPIException("The argument 'quantity' of a composite failure must be Stress or " +
+                                             "PlaneStressFromStrain, since a failure criterion evaluates stresses.");
+            return new ResultFieldOutputCompositeFailureDraftAPI(name, fieldName, criterionValue, quantityValue);
         }
         public ResultFieldOutputAPI AddFieldOutput(string resultName, ResultFieldOutputDraftAPI output)
         {
@@ -286,9 +293,11 @@ namespace APIs.Python
             else if (fieldOutput is ResultFieldOutputMaterialAxes materialAxes)
                 materialAxes.FieldName = ValidateShellSourceField(result, materialAxes.FieldName);
             else if (fieldOutput is ResultFieldOutputShellPlaneStress shellPlaneStress)
-                shellPlaneStress.FieldName = ValidateShellSourceField(result, shellPlaneStress.FieldName);
+                shellPlaneStress.FieldName = ValidateShellSourceField(result, shellPlaneStress.FieldName,
+                                                                      shellPlaneStress.Quantity);
             else if (fieldOutput is ResultFieldOutputCompositeFailure compositeFailure)
-                compositeFailure.FieldName = ValidateShellSourceField(result, compositeFailure.FieldName);
+                compositeFailure.FieldName = ValidateShellSourceField(result, compositeFailure.FieldName,
+                                                                      compositeFailure.Quantity);
             else throw new PythonAPIException("The field output draft type '" + fieldOutput.GetType().Name +
                                               "' is not supported.");
         }
@@ -361,7 +370,8 @@ namespace APIs.Python
             equation.SetParentNames(parentNames.ToArray());
         }
         // The shell outputs need a complete tensor field and the shell data the model gives when the result is opened
-        private static string ValidateShellSourceField(FeResults result, string fieldName)
+        private static string ValidateShellSourceField(FeResults result, string fieldName,
+                                                       ShellInPlaneQuantityEnum? quantity = null)
         {
             ValidateRequiredString(fieldName, "field_name");
             string storedFieldName = ValidateSourceField(result, fieldName);
@@ -373,6 +383,12 @@ namespace APIs.Python
             if (!result.IsShellSourceField(storedFieldName))
                 throw new PythonAPIException("The argument 'field_name' must name a field in global axes, not the " +
                                              "output in material axes '" + storedFieldName + "'.");
+            if (quantity.HasValue && !result.IsShellQuantityValid(storedFieldName, quantity.Value))
+                throw new PythonAPIException(quantity.Value == ShellInPlaneQuantityEnum.Stress ?
+                                             "The argument 'field_name' must name a stress field, such as STRESS, " +
+                                             "when quantity is Stress, not '" + storedFieldName + "'." :
+                                             "The argument 'field_name' must name a strain field, such as TOSTRAIN, " +
+                                             "when quantity is " + quantity.Value + ", not '" + storedFieldName + "'.");
             if (!result.HasShellResultData())
                 throw new PythonAPIException("The result has no shell data: it must be opened with the model it was " +
                                              "solved from, whose shell sections give the material axes.");

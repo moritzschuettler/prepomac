@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,16 +18,16 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3114)]
     internal class CalBuckleStep : CalStep
     {
         // Variables                                                                                                                
-        private BuckleStep _step;
+        [PmxKey(0)] private BuckleStep _step;
 
 
         // Properties                                                                                                               
         public double Accuracy { get { return _step.Accuracy; } set { _step.Accuracy = value; } }
-        public bool OutputAccuracy;
+        [PmxKey(1)] public bool OutputAccuracy;
 
 
         // Constructor                                                                                                              

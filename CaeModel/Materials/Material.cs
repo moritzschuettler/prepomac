@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -28,15 +28,15 @@ namespace CaeModel
         NCF
     }
 
-    [Serializable]
+    [PmxType(3180)]
     public class Material : NamedClass
     {
         // Variables
-        private string _description;
-        private bool _temperatureDependent;
-        private CompositeMaterialType _compositeMaterialType;
-        private double? _width;
-        private List<MaterialProperty> _properties;
+        [PmxKey(0)] private string _description;
+        [PmxKey(1)] private bool _temperatureDependent;
+        [PmxKey(900)] private CompositeMaterialType _compositeMaterialType;
+        [PmxKey(901)] private double? _width;
+        [PmxKey(2)] private List<MaterialProperty> _properties;
 
 
         // Properties

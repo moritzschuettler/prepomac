@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -31,6 +31,12 @@ namespace APIs.Python.Model
         [PythonAPI("The symbol color as a list [R, G, B, A] of channel values, which the color argument takes " +
                    "back.", Returns = "list[int]")]
         public object color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
+        [PythonAPI("The fixed id of the reference node written to the input file, which the node_id argument " +
+                   "takes back.", Returns = "int")]
+        public int node_id { get { return Resolve().RefNodeId; } }
+        [PythonAPI("The fixed id of the rotation node a rigid body uses in the input file, which the " +
+                   "rotation_node_id argument takes back.", Returns = "int")]
+        public int rotation_node_id { get { return Resolve().RotNodeId; } }
         [PythonAPI("True when the reference point is visible.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
         [PythonAPI("True when the reference point resolved during the last regeneration.", Returns = "bool")]

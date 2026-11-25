@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,7 +19,7 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10437)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
     [Flags]
@@ -44,11 +44,11 @@ namespace PrePoMax
         //CFS = 64
     }
 
-    [Serializable]
+    [PmxType(10438)]
     public class ViewContactHistoryOutput : ViewHistoryOutput
     {
         // Variables                                                                                                                
-        private ContactHistoryOutput _historyOutput;
+        [PmxKey(0)] private ContactHistoryOutput _historyOutput;
 
 
         // Properties                                                                                                               

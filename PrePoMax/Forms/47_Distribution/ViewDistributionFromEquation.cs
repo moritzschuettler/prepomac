@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,11 +20,11 @@ using System.Security.Policy;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10409)]
     public class ViewDistributionFromEquation : ViewDistribution
     {
         // Variables                                                                                                                
-        private DistributionFromEquation _distributionFromEquation;
+        [PmxKey(0)] private DistributionFromEquation _distributionFromEquation;
 
 
         // Properties                                                                                                               

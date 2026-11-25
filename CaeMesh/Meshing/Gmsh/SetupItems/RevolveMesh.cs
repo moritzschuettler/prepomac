@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -23,8 +23,8 @@ namespace CaeMesh
     /// The revolve mesh setup item of older files. The sweep item revolves every part that is revolved about an axis
     /// its source touches, so an item read from a file is turned into a sweep item when the file is opened.
     /// </summary>
-    [Serializable]
-    public class RevolveMesh : SweepMesh, ISerializable
+    [PmxType(2118)]
+    public class RevolveMesh : SweepMesh
     {
         // Constructors
         public RevolveMesh(SerializationInfo info, StreamingContext context)

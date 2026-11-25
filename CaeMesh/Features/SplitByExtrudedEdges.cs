@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,17 +17,17 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2070)]
     public class SplitByExtrudedEdges : GeometryFeature
     {
         // Variables
-        private SplitExtrusionDirectionTypeEnum _directionType;     //ISerializable
-        private double[] _direction;                                //ISerializable
-        private SplitExtrusionLengthTypeEnum _lengthType;           //ISerializable
-        private double _length;                                     //ISerializable
-        private bool _bothDirections;                               //ISerializable
-        private int[] _directionIds;                                //ISerializable
-        private Selection _directionData;                           //ISerializable
+        [PmxKey(0)] private SplitExtrusionDirectionTypeEnum _directionType;     //ISerializable
+        [PmxKey(1)] private double[] _direction;                                //ISerializable
+        [PmxKey(2)] private SplitExtrusionLengthTypeEnum _lengthType;           //ISerializable
+        [PmxKey(3)] private double _length;                                     //ISerializable
+        [PmxKey(4)] private bool _bothDirections;                               //ISerializable
+        [PmxKey(5)] private int[] _directionIds;                                //ISerializable
+        [PmxKey(6)] private Selection _directionData;                           //ISerializable
 
 
         // Properties
@@ -122,19 +122,6 @@ namespace CaeMesh
             if (_lengthType == SplitExtrusionLengthTypeEnum.Value && _length <= 0)
                 return "The extrusion length must be larger than zero.";
             return null;
-        }
-        // ISerialization
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_directionType", _directionType, typeof(SplitExtrusionDirectionTypeEnum));
-            info.AddValue("_direction", _direction, typeof(double[]));
-            info.AddValue("_lengthType", _lengthType, typeof(SplitExtrusionLengthTypeEnum));
-            info.AddValue("_length", _length, typeof(double));
-            info.AddValue("_bothDirections", _bothDirections, typeof(bool));
-            info.AddValue("_directionIds", _directionIds, typeof(int[]));
-            info.AddValue("_directionData", _directionData, typeof(Selection));
         }
     }
 }

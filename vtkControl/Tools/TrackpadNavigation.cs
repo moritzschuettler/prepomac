@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -62,7 +62,7 @@ namespace vtkControl
         {
             return Math.Pow(_zoomPerNotch, wheelDelta / WheelDeltaPerNotch);
         }
-        internal void Apply(vtkInteractorStyleControl style, double dragPixelsX, double dragPixelsY,
+        internal void Apply(ITrackpadNavigationTarget style, double dragPixelsX, double dragPixelsY,
                           double zoomFactor, int zoomCenterX, int zoomCenterY, bool shiftPressed)
         {
             if (style == null || !style.NavigationAllowed) return;

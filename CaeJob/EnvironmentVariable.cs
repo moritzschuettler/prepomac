@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,21 +17,21 @@ using System.Threading.Tasks;
 
 namespace CaeJob
 {
-    [Serializable]
+    [PmxType(6003)]
     public class EnvironmentVariable
     {
         // Properties                                                                                                               
-        [CategoryAttribute("Data")]
+        [field: PmxKey(0)] [CategoryAttribute("Data")]
         [OrderedDisplayName(0, 10, "Active")]
         [DescriptionAttribute("The state of the environment variable.")]
         public bool Active { get; set; }
 
-        [CategoryAttribute("Data")]
+        [field: PmxKey(1)] [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Name")]
         [DescriptionAttribute("The name of the environment variable.")]
         public string Name { get; set; }
 
-        [CategoryAttribute("Data")]
+        [field: PmxKey(2)] [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "Value")]
         [DescriptionAttribute("The value of the environment variable.")]
         public string Value { get; set; }

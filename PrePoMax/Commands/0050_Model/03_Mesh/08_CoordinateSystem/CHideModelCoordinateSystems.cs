@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10121)]
     class CHideModelCoordinateSystems : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _coordinateSystems;
+        [PmxKey(0)] private string[] _coordinateSystems;
 
 
         // Constructor                                                                                                              

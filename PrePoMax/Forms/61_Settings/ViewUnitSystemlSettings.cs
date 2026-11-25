@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -19,12 +19,12 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10492)]
     public class ViewUnitSystemlSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private UnitSystemSettings _unitSystemSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private UnitSystemSettings _unitSystemSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

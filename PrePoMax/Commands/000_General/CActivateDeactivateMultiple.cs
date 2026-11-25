@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,15 +21,15 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10029)]
     class CActivateDeactivateMultiple : PreprocessCommand
     {
         // Variables                                                                                                                
-        private NamedClass[] _items;
-        private string[] _itemNames;
-        private Type[] _itemTypes;
-        private bool _activate;
-        private string[] _stepNames;
+        [PmxKey(0)] private NamedClass[] _items;
+        [PmxKey(1)] private string[] _itemNames;
+        [PmxKey(2)] private Type[] _itemTypes;
+        [PmxKey(3)] private bool _activate;
+        [PmxKey(4)] private string[] _stepNames;
 
 
         // Constructor                                                                                                              

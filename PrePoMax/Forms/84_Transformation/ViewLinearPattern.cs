@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,13 +21,13 @@ using CaeResults;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10516)]
     public class ViewLinearPattern : ViewTransformation
     {
         // Variables                                                                                                                      
-        private LinearPattern _linearPattern;
-        private PointSelectionMethodEnum _startPointSelectionMethod;
-        private PointSelectionMethodEnum _endPointSelectionMethod;
+        [PmxKey(0)] private LinearPattern _linearPattern;
+        [PmxKey(1)] private PointSelectionMethodEnum _startPointSelectionMethod;
+        [PmxKey(2)] private PointSelectionMethodEnum _endPointSelectionMethod;
 
 
         // Properties                                                                                                               

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2133)]
     public enum NodesToKeepEnum
     {
         [StandardValue("SmallerID", DisplayName = "Smaller ID")]
@@ -27,14 +27,14 @@ namespace CaeMesh
         LargerID
     }
     //
-    [Serializable]
+    [PmxType(2134)]
     public class MergeCoincidentNodes
     {
         // Properties                                                                                                               
-        public int[] GeometryIds;
-        public Selection CreationData;
-        public double Tolerance;
-        public NodesToKeepEnum NodesToKeep;
+        [PmxKey(0)] public int[] GeometryIds;
+        [PmxKey(1)] public Selection CreationData;
+        [PmxKey(2)] public double Tolerance;
+        [PmxKey(3)] public NodesToKeepEnum NodesToKeep;
 
 
         // Constructors                                                                                                             

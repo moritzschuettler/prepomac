@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,14 +17,14 @@ using System.Xml.Linq;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2132)]
     public struct FeNode
     {
         // Variables                                                                                                                
-        public int Id;
-        public double X;
-        public double Y;
-        public double Z;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public double X;
+        [PmxKey(2)] public double Y;
+        [PmxKey(3)] public double Z;
 
 
         // Constructors                                                                                                             

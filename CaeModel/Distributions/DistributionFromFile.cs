@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -23,12 +23,12 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class DistributionFromFile : MappedDistribution, ISerializable
+    [PmxType(3033)]
+    public class DistributionFromFile : MappedDistribution
     {
         // Variables                                                                                                                
-        private string _fileName;                                   //ISerializable
-        private FileInfo _oldFileInfo;                              //ISerializable
+        [PmxKey(0)] private string _fileName;                                   //ISerializable
+        [PmxKey(1)] private FileInfo _oldFileInfo;                              //ISerializable
 
 
         // Properties                                                                                                               
@@ -182,15 +182,6 @@ namespace CaeModel
             {
                 throw new CaeException(ex.Message);
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));
         }
     }
 }

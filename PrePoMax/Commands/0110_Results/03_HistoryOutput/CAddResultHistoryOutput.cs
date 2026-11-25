@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,11 +21,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10260)]
     class CAddResultHistoryOutput : PostprocessCommand
     {
         // Variables                                                                                                                
-        private ResultHistoryOutput _resultHistoryOutput;
+        [PmxKey(0)] private ResultHistoryOutput _resultHistoryOutput;
         
         
         // Properties                                                                                                               

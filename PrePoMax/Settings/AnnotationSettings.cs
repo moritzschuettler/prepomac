@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,32 +20,32 @@ using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10524)]
     public class AnnotationSettings : ISettings
     {
         // Variables                                                                                                                
-        private AnnotationBackgroundType _backgroundType;
-        private bool _drawBorder;
+        [PmxKey(0)] private AnnotationBackgroundType _backgroundType;
+        [PmxKey(1)] private bool _drawBorder;
         //
-        private bool _showNodeId;
-        private bool _showCoordinates;
+        [PmxKey(2)] private bool _showNodeId;
+        [PmxKey(3)] private bool _showCoordinates;
         //
-        private bool _showEdgeSurId;
-        private bool _showEdgeSurType;
-        private bool _showEdgeSurTopology;
-        private bool _showEdgeSurSize;
-        private bool _showEdgeSurMax;
-        private bool _showEdgeSurMin;
-        private bool _showEdgeSurSum;
-        private bool _showEdgeSurAvg;
+        [PmxKey(4)] private bool _showEdgeSurId;
+        [PmxKey(5)] private bool _showEdgeSurType;
+        [PmxKey(6)] private bool _showEdgeSurTopology;
+        [PmxKey(7)] private bool _showEdgeSurSize;
+        [PmxKey(8)] private bool _showEdgeSurMax;
+        [PmxKey(9)] private bool _showEdgeSurMin;
+        [PmxKey(10)] private bool _showEdgeSurSum;
+        [PmxKey(11)] private bool _showEdgeSurAvg;
         //
-        private bool _showPartName;
-        private bool _showPartId;
-        private bool _showPartType;
-        private bool _showPartNumberOfElements;
-        private bool _showPartNumberOfNodes;
-        private bool _showPartVolumeArea;
-        private bool _showPartMass;
+        [PmxKey(12)] private bool _showPartName;
+        [PmxKey(13)] private bool _showPartId;
+        [PmxKey(14)] private bool _showPartType;
+        [PmxKey(15)] private bool _showPartNumberOfElements;
+        [PmxKey(16)] private bool _showPartNumberOfNodes;
+        [PmxKey(17)] private bool _showPartVolumeArea;
+        [PmxKey(18)] private bool _showPartMass;
 
 
         // Properties                                                                                                               

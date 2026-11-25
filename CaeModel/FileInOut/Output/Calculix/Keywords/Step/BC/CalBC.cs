@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3109)]
     internal class CalBC : CalculixKeyword
     {
         // Variables                                                                                                                
-        private OpTypeEnum _opType;
+        [PmxKey(0)] private OpTypeEnum _opType;
 
 
         // Properties                                                                                                               

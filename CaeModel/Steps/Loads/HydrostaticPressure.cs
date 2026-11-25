@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,7 +20,7 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3262)]
     public enum HydrostaticPressureCutoffEnum
     {
         [StandardValue("None", Description = "None", DisplayName = "None")]
@@ -31,22 +31,22 @@ namespace CaeModel
         Negative
     }
 
-    [Serializable]
-    public class HydrostaticPressure : VariablePressure, IPreviewable, ISerializable
+    [PmxType(3263)]
+    public class HydrostaticPressure : VariablePressure, IPreviewable
     {
         // Variables                                                                                                                
-        private EquationContainer _x1;                                      //ISerializable
-        private EquationContainer _y1;                                      //ISerializable
-        private EquationContainer _z1;                                      //ISerializable
-        private EquationContainer _x2;                                      //ISerializable
-        private EquationContainer _y2;                                      //ISerializable
-        private EquationContainer _z2;                                      //ISerializable
-        private EquationContainer _n1;                                      //ISerializable
-        private EquationContainer _n2;                                      //ISerializable
-        private EquationContainer _n3;                                      //ISerializable
-        private EquationContainer _firstPointPressure;                      //ISerializable
-        private EquationContainer _secondPointPressure;                     //ISerializable
-        private HydrostaticPressureCutoffEnum _hydrostaticPressureCutoff;   //ISerializable
+        [PmxKey(0)] private EquationContainer _x1;                                      //ISerializable
+        [PmxKey(1)] private EquationContainer _y1;                                      //ISerializable
+        [PmxKey(2)] private EquationContainer _z1;                                      //ISerializable
+        [PmxKey(3)] private EquationContainer _x2;                                      //ISerializable
+        [PmxKey(4)] private EquationContainer _y2;                                      //ISerializable
+        [PmxKey(5)] private EquationContainer _z2;                                      //ISerializable
+        [PmxKey(6)] private EquationContainer _n1;                                      //ISerializable
+        [PmxKey(7)] private EquationContainer _n2;                                      //ISerializable
+        [PmxKey(8)] private EquationContainer _n3;                                      //ISerializable
+        [PmxKey(9)] private EquationContainer _firstPointPressure;                      //ISerializable
+        [PmxKey(10)] private EquationContainer _secondPointPressure;                     //ISerializable
+        [PmxKey(11)] private HydrostaticPressureCutoffEnum _hydrostaticPressureCutoff;   //ISerializable
         [NonSerialized] private Vec3D _n;
         [NonSerialized] private double _d1;
         [NonSerialized] private double _d2;
@@ -191,6 +191,21 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX1(_x1, false);
+            SetY1(_y1, false);
+            SetZ1(_z1, false);
+            SetX2(_x2, false);
+            SetY2(_y2, false);
+            SetZ2(_z2, false);
+            SetN1(_n1, false);
+            SetN2(_n2, false);
+            SetN3(_n3, false);
+            SetFirstPointPressure(_firstPointPressure, false);
+            SetSecondPointPressure(_secondPointPressure, false);
+        }
         
         private void SetX1(EquationContainer value, bool checkEquation = true)
         {
@@ -382,25 +397,6 @@ namespace CaeModel
                 else throw new NotSupportedException();
             }
             return values;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_x1", _x1, typeof(EquationContainer));
-            info.AddValue("_y1", _y1, typeof(EquationContainer));
-            info.AddValue("_z1", _z1, typeof(EquationContainer));
-            info.AddValue("_x2", _x2, typeof(EquationContainer));
-            info.AddValue("_y2", _y2, typeof(EquationContainer));
-            info.AddValue("_z2", _z2, typeof(EquationContainer));
-            info.AddValue("_n1", _n1, typeof(EquationContainer));
-            info.AddValue("_n2", _n2, typeof(EquationContainer));
-            info.AddValue("_n3", _n3, typeof(EquationContainer));
-            info.AddValue("_firstPointPressure", _firstPointPressure, typeof(EquationContainer));
-            info.AddValue("_secondPointPressure", _secondPointPressure, typeof(EquationContainer));
-            info.AddValue("_hydrostaticPressureCutoff", _hydrostaticPressureCutoff, typeof(HydrostaticPressureCutoffEnum));
         }
     }
 }

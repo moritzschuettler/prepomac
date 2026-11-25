@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -18,7 +18,7 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5023)]
     public enum EnvelopeTypeEnum
     {
         [StandardValue("Min", DisplayName = "Min", Description = "Min")]
@@ -30,12 +30,12 @@ namespace CaeResults
     }
 
 
-    [Serializable]
+    [PmxType(5024)]
     public class ResultFieldOutputEnvelope : ResultFieldOutput
     {
         // Variables                                                                                                                
-        private string _fieldName;
-        private string _componentName;
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private string _componentName;
         //private EnvelopeTypeEnum _envelopeType;
 
 

@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,15 +13,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ComplexFrequencyStep : Step, ISerializable
+    [PmxType(3215)]
+    public class ComplexFrequencyStep : Step
     {
         // Variables                                                                                                                
-        private int _numOfFrequencies;          //ISerializable
+        [PmxKey(0)] private int _numOfFrequencies;          //ISerializable
 
 
         // Properties                                                                                                               
@@ -83,10 +84,12 @@ namespace CaeModel
                 loadType == typeof(HydrostaticPressure) ||
                 loadType == typeof(ImportedPressure) ||
                 loadType == typeof(STLoad) ||
+                loadType == typeof(EdgeLoad) ||
                 loadType == typeof(ImportedSTLoad) ||
                 loadType == typeof(ShellEdgeLoad) ||
                 loadType == typeof(GravityLoad) ||
                 loadType == typeof(CentrifLoad) ||
+                loadType == typeof(BodyForce) ||
                 loadType == typeof(PreTensionLoad) ||
                 loadType == typeof(CFlux) ||
                 loadType == typeof(DFlux) ||
@@ -103,14 +106,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_numOfFrequencies", _numOfFrequencies, typeof(int));
         }
     }
 }

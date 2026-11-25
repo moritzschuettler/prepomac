@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,11 +20,11 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
-    public class HistoryResultField : NamedClass, ISerializable
+    [PmxType(5038)]
+    public class HistoryResultField : NamedClass
     {
         // Variables                                                                                                                
-        protected CaeGlobals.OrderedDictionary<string, HistoryResultComponent> _components;        //ISerializable
+        [PmxKey(0)] protected CaeGlobals.OrderedDictionary<string, HistoryResultComponent> _components;        //ISerializable
 
 
         // Properties                                                                                                               
@@ -87,8 +87,9 @@ namespace CaeResults
                 }
             }
         }
-        public static void WriteToFileStream(HistoryResultField historyResultField, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultField historyResultField, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultField == null)
             {
@@ -107,7 +108,7 @@ namespace CaeResults
                     Tools.WriteIntToFileStream(fileStream, historyResultField.Components.Count);
                     //
                     foreach (var entry in historyResultField.Components)
-                        HistoryResultComponent.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                        HistoryResultComponent.WriteToFileStream(entry.Value, fileStream, compressionLevel, compressBlocks);
                 }
             }
         }
@@ -140,7 +141,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultField ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultField ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             HistoryResultComponent historyResultComponent;
@@ -160,7 +161,7 @@ namespace CaeResults
                     //
                     for (int i = 0; i < numItems; i++)
                     {
-                        historyResultComponent = HistoryResultComponent.ReadFromFileStream(fileStream, version);
+                        historyResultComponent = HistoryResultComponent.ReadFromFileStream(fileStream, version, blocksCompressed);
                         historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
                     }
                 }
@@ -180,14 +181,6 @@ namespace CaeResults
                 if (_components.TryGetValue(entry.Key, out component)) throw new NotSupportedException();
                 else _components.Add(entry.Key, entry.Value);
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_components", _components, typeof(CaeGlobals.OrderedDictionary<string, HistoryResultComponent>));
         }
 
     }

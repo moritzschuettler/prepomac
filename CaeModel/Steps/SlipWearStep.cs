@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -13,12 +13,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class SlipWearStep : StaticStep, ISerializable
+    [PmxType(3275)]
+    public class SlipWearStep : StaticStep
     {
         // Variables                                                                                                                
 
@@ -51,16 +52,6 @@ namespace CaeModel
                 //        _numOfCycles = (int)entry.Value; break;
                 //}
             }
-        }
-        // Methods                                                                                                                  
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            //info.AddValue("_numOfCycles", _numOfCycles, typeof(int));
         }
     }
 }

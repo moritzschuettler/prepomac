@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -12,29 +12,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Kitware.VTK;
 using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
+    [PmxType(6107)]
     public class vtkMaxColorSpectrum
     {
         public const int SmoothNumberOfColors = 256;
 
         // Variables                                                                                                                
-        private vtkColorSpectrumMode _mode;
-        private vtkColorSpectrumType _type;
-        private vtkColorSpectrumMinMaxType _minMaxType;
-        private double _minUserValue;
-        private double _maxUserValue;
-        private System.Drawing.Color _minColor;
-        private System.Drawing.Color _maxColor;
-        private bool _minColorVisible;
-        private bool _maxColorVisible;
-        private int _numberOfColors;
-        private bool _reverseColors;
-        private double _colorBrightness;
+        [PmxKey(0)] private vtkColorSpectrumMode _mode;
+        [PmxKey(1)] private vtkColorSpectrumType _type;
+        [PmxKey(2)] private vtkColorSpectrumMinMaxType _minMaxType;
+        [PmxKey(3)] private double _minUserValue;
+        [PmxKey(4)] private double _maxUserValue;
+        [PmxKey(5)] private System.Drawing.Color _minColor;
+        [PmxKey(6)] private System.Drawing.Color _maxColor;
+        [PmxKey(7)] private bool _minColorVisible;
+        [PmxKey(8)] private bool _maxColorVisible;
+        [PmxKey(9)] private int _numberOfColors;
+        [PmxKey(10)] private bool _reverseColors;
+        [PmxKey(11)] private double _colorBrightness;
 
 
         // Properties                                                                                                               
@@ -135,6 +134,12 @@ namespace vtkControl
             //
             _minUserValue = minUserValue;
             _maxUserValue = maxUserValue;
+        }
+        // The color of the spectrum at a position from 0 to 1 as the result coloring draws it
+        public System.Drawing.Color GetColor(double position)
+        {
+            double[] rgb = Native.VtkNativeColorSpectrum.FromColorSpectrum(this).GetColor(position);
+            return System.Drawing.Color.FromArgb(255, (int)(rgb[0] * 255), (int)(rgb[1] * 255), (int)(rgb[2] * 255));
         }
         public bool IsMinMaxEqual(vtkMaxColorSpectrum colorSpectrum)
         {

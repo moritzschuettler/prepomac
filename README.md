@@ -196,7 +196,7 @@ Another MCP client takes the same address and header in its configuration:
 A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`. So does a client in a browser: the
 endpoint refuses every request with an `Origin` header, which keeps web pages out.
 
-The token is kept in `settings.bin` in `~/Library/Application Support/PrePoMax` and can only be generated, never typed.
+The token is kept in `settings.json` in `~/Library/Application Support/PrePoMax` and can only be generated, never typed.
 A client that cannot connect means PrePoMax is closed or its automation server is off.
 
 The application serves the agent its own guide through the tool **`get_guide`**: the order of the work, what a number

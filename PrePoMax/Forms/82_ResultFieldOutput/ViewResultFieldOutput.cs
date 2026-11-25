@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -20,12 +20,12 @@ using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10498)]
     public abstract class ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        protected ResultFieldOutput _resultFieldOutput;
-        protected DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] protected ResultFieldOutput _resultFieldOutput;
+        [PmxKey(1)] protected DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

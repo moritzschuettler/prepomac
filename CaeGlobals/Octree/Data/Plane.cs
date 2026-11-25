@@ -2,12 +2,14 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 
+
+using CaeGlobals;
 
 namespace Octree
 {
@@ -17,12 +19,12 @@ namespace Octree
     //                          
     // a*x + b*y + c*z + d = 0  
     //                          
-    [Serializable]
+    [PmxType(1022)]
     public class Plane
     {
-        private Point _point;
-        private Point _normal;
-        private double _d;
+        [PmxKey(0)] private Point _point;
+        [PmxKey(1)] private Point _normal;
+        [PmxKey(2)] private double _d;
         /// <summary>
         /// Gets or sets the D parameter of the plane.
         /// </summary>

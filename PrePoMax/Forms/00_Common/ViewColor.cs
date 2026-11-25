@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10310)]
     public class ViewColor
     {
         // Variables                                                                                                                
-        private Color _color;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private Color _color;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

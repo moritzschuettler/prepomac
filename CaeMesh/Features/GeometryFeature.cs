@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -17,19 +17,19 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public abstract class GeometryFeature : ISerializable
+    [PmxType(2066)]
+    public abstract class GeometryFeature
     {
         // Variables
-        protected RegionTypeEnum _regionType;               //ISerializable
-        protected SplitTypeEnum _splitType;     //ISerializable
-        protected string[] _partNames;                      //ISerializable
-        protected int[] _creationIds;                       //ISerializable
-        protected Selection _creationData;                  //ISerializable
-        protected int[] _splitterIds;                       //ISerializable
-        protected Selection _splitterData;                  //ISerializable
-        protected double _fuzzyValue;                       //ISerializable
-        protected SplitToolSymbol _toolSymbol;              //ISerializable
+        [PmxKey(0)] protected RegionTypeEnum _regionType;               //ISerializable
+        [PmxKey(1)] protected SplitTypeEnum _splitType;     //ISerializable
+        [PmxKey(2)] protected string[] _partNames;                      //ISerializable
+        [PmxKey(3)] protected int[] _creationIds;                       //ISerializable
+        [PmxKey(4)] protected Selection _creationData;                  //ISerializable
+        [PmxKey(5)] protected int[] _splitterIds;                       //ISerializable
+        [PmxKey(6)] protected Selection _splitterData;                  //ISerializable
+        [PmxKey(7)] protected double _fuzzyValue;                       //ISerializable
+        [PmxKey(8)] protected SplitToolSymbol _toolSymbol;              //ISerializable
 
 
         // Properties
@@ -130,19 +130,5 @@ namespace CaeMesh
         /// Returns the reason the item cannot be applied, or null when it is properly defined.
         /// </summary>
         public abstract string CheckValidity();
-        // ISerialization
-        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_splitType", _splitType, typeof(SplitTypeEnum));
-            info.AddValue("_partNames", _partNames, typeof(string[]));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_splitterIds", _splitterIds, typeof(int[]));
-            info.AddValue("_splitterData", _splitterData, typeof(Selection));
-            info.AddValue("_fuzzyValue", _fuzzyValue, typeof(double));
-            info.AddValue("_toolSymbol", _toolSymbol, typeof(SplitToolSymbol));
-        }
     }
 }

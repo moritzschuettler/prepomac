@@ -2,16 +2,17 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10298)]
     [Flags]
     public enum AnnotateWithColorEnum
     {
@@ -29,6 +30,7 @@ namespace PrePoMax
         BoundaryConditions = 1024,
         Loads = 2048,
         DefinedFields = 4096,
-        MeshTypes = 8192
+        MeshTypes = 8192,
+        ElementQuality = 16384
     }
 }

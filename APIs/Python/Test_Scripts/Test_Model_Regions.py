@@ -9,6 +9,10 @@
 #
 #Expected process exit code 0.
 
+import os
+import shutil
+import tempfile
+
 PREFIX = "PyTest_"
 
 
@@ -305,6 +309,75 @@ def test_mixed_case_replace():
           "the mixed case replace did not change the coordinates")
 
 
+def test_reference_point_node_ids():
+    # User keywords refer to the node ids of a reference point, so they are fixed and the mesh never takes them
+    points = pmx.model.reference_points
+    clean(points)
+    node_ids = list(pmx.model.nodes.get_ids())
+    max_node_id = max(node_ids)
+    first = points.add(PREFIX + "RP_Id1", [0, 0, 5])
+    check(first.node_id == max_node_id + 1 and first.rotation_node_id == max_node_id + 2,
+          "a new reference point did not take the next free node ids: " + str([first.node_id, first.rotation_node_id]))
+    second = points.add(PREFIX + "RP_Id2", [0, 0, 6])
+    check(second.node_id == max_node_id + 3 and second.rotation_node_id == max_node_id + 4,
+          "the next reference point did not skip the node ids of the first one")
+    chosen = points.add(PREFIX + "RP_Id3", [0, 0, 7], node_id=9001, rotation_node_id=9002)
+    check(chosen.node_id == 9001 and chosen.rotation_node_id == 9002, "the given node ids were not stored")
+    only = points.add(PREFIX + "RP_Id4", [0, 0, 8], node_id=9101)
+    check(only.rotation_node_id == 9102, "the rotation node id must follow a given node id, it is " +
+          str(only.rotation_node_id))
+    # An id a mesh node or another reference point holds is refused before anything is recorded
+    count = len(points)
+    for arguments, words in ((dict(node_id=node_ids[0]), "mesh node"),
+                             (dict(node_id=first.node_id), "another reference point"),
+                             (dict(rotation_node_id=chosen.node_id), "another reference point"),
+                             (dict(node_id=9201, rotation_node_id=9201), "must differ"),
+                             (dict(node_id=0), "positive")):
+        check_raises(lambda: points.add(PREFIX + "Bad", [0, 0, 0], **arguments),
+                     "the node ids " + str(arguments) + " must be refused")
+        message = raised_message(lambda: points.add(PREFIX + "Bad", [0, 0, 0], **arguments))
+        check(words in message, "the refusal of " + str(arguments) + " does not say '" + words + "': " + message)
+    check(len(points) == count, "a refused reference point was recorded")
+    # A replace keeps the node ids it is not given and may give the point its own ids again
+    point = points.replace(PREFIX + "RP_Id1", coordinates=[0, 0, 9])
+    check(point.node_id == max_node_id + 1 and point.rotation_node_id == max_node_id + 2,
+          "a replace dropped the node ids")
+    point = points.replace(PREFIX + "RP_Id1", node_id=9301)
+    check(point.node_id == 9301 and point.rotation_node_id == max_node_id + 2, "a replace did not change the node id")
+    point = points.replace(PREFIX + "RP_Id1", node_id=9301, rotation_node_id=max_node_id + 2)
+    check(point.node_id == 9301, "a replace refused the node ids the point holds")
+    check_raises(lambda: points.replace(PREFIX + "RP_Id1", node_id=9001), "a replace took another point's node id")
+    # Renumbering the mesh steps over the node ids of the reference points
+    reserved = set()
+    for item in points:
+        reserved.update([item.node_id, item.rotation_node_id])
+    pmx.model.nodes.renumber(9000)
+    renumbered = set(pmx.model.nodes.get_ids())
+    check(len(renumbered) == len(node_ids), "renumbering changed the node count")
+    check(not renumbered & reserved, "renumbering gave a mesh node the id of a reference point: " +
+          str(sorted(renumbered & reserved)))
+    pmx.model.nodes.renumber(1)
+    check(sorted(pmx.model.nodes.get_ids()) == list(range(1, len(node_ids) + 1)), "the nodes were not numbered back")
+    # The input file uses the stored ids, the rotation node only for a rigid body
+    rigid_body = PREFIX + "RB_Ids"
+    pmx.model.constraints.add_rigid_body(rigid_body, PREFIX + "RP_Id3",
+                                         pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3]))
+    work = tempfile.mkdtemp(prefix=PREFIX)
+    try:
+        file_name = os.path.join(work, PREFIX + "Ids.inp")
+        pmx.export_model(file_name)
+        with open(file_name) as input_file:
+            text = input_file.read().lower()
+        check("ref node=9001, rot node=9002" in text, "the rigid body does not use the stored node ids")
+        check("\n9001, " in text and "\n9002, " in text, "the reference point nodes are not written with their ids")
+        check("_ref_9101" in text and "_rot_9102" not in text,
+              "a reference point without a rigid body must be written without its rotation node")
+    finally:
+        pmx.model.constraints.remove([rigid_body])
+        shutil.rmtree(work, ignore_errors=True)
+    clean(points)
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_node_sets()
@@ -315,6 +388,7 @@ def main():
     test_derived_reference_points()
     test_derived_coordinate_systems()
     test_mixed_case_replace()
+    test_reference_point_node_ids()
     # Clean up in reverse order, so that a surface never outlives the node set it uses
     clean(pmx.model.coordinate_systems)
     clean(pmx.model.reference_points)

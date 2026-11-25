@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -16,13 +16,13 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2075)]
     public class FeElementSet : FeGroup
     {
         // Variables                                                                                                                
-        private Selection _creationData;
-        private int[] _creationIds;
-        private bool _createdFromParts;
+        [PmxKey(0)] private Selection _creationData;
+        [PmxKey(1)] private int[] _creationIds;
+        [PmxKey(2)] private bool _createdFromParts;
 
 
         // Properties                                                                                                               

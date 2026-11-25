@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -176,37 +176,52 @@ namespace APIs.Python
             return _service.CreateFieldOutputMaterialAxes(nameText, fieldName);
         }
 
-        [PythonAPI("Creates a shell plane stress field-output draft: the in-plane components S11, S22 and S12 of a " +
-                   "complete tensor field in the material axes of the shell elements, and the in-plane " +
-                   "PRINCIPAL_MAX, PRINCIPAL_MIN, SHEAR_MAX and the ANGLE in degrees of the maximum principal value " +
-                   "from axis 1, assuming a plane state that neglects the components through the thickness. The " +
-                   "result must have been opened with its model. This does not modify the result.",
-                   Arguments = "name: str, field_name: str", Returns = "FieldOutputShellPlaneStressDraft")]
-        public ResultFieldOutputShellPlaneStressDraftAPI create_field_output_shell_plane_stress(object name,
-                                                                                                object field_name)
+        [PythonAPI("Creates a shell in-plane state field-output draft: in the material axes of the shell elements " +
+                   "and of the layers of composite shells, the in-plane components - S11, S22 and S12 of a stress, " +
+                   "E11, E22 and E12 of a strain - and the in-plane PRINCIPAL_MAX, PRINCIPAL_MIN, SHEAR_MAX and the " +
+                   "ANGLE in degrees of the maximum principal value from axis 1, neglecting the components through " +
+                   "the thickness. quantity Stress takes the stresses of a stress field as CalculiX solves them, " +
+                   "PlaneStressFromStrain the plane stresses the elastic constants of the ply material give the " +
+                   "in-plane strains of a strain field, as classical lamination theory computes them, and Strain " +
+                   "the in-plane strains of a strain field. The result must have been opened with its model. This " +
+                   "does not modify the result.",
+                   Arguments = "name: str, field_name: str, quantity: str = 'Stress'",
+                   Returns = "FieldOutputShellInPlaneStateDraft")]
+        public ResultFieldOutputShellInPlaneStateDraftAPI create_field_output_shell_in_plane_state(object name,
+                                                                                                  object field_name,
+                                                                                                  object quantity = null)
         {
             string nameText = PythonValueConverter.ToText(name, "name", false);
             string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
-            return _service.CreateFieldOutputShellPlaneStress(nameText, fieldName);
+            string quantityText = quantity == null ? ShellInPlaneQuantityEnum.Stress.ToString() :
+                                  PythonValueConverter.ToText(quantity, "quantity", false);
+            return _service.CreateFieldOutputShellInPlaneState(nameText, fieldName, quantityText);
         }
 
         [PythonAPI("Creates a composite failure field-output draft: the FAILURE_INDEX, which reaches 1 at failure, " +
                    "the RESERVE_FACTOR, the factor the stresses can be multiplied by to reach failure, and the " +
                    "MODE of a failure criterion of the plies of composite shells - 0 for a criterion without modes, " +
                    "1 fiber tension, 2 fiber compression, 3 matrix tension, 4 matrix compression and 5 in-plane " +
-                   "shear. It is evaluated from the in-plane stresses of the tensor field in the ply axes with the " +
-                   "composite strength of the ply material; a node without one reads NaN. The criterion is " +
-                   "MaxStress, TsaiHill, TsaiWu or Hashin. The result must have been opened with its model. This does " +
-                   "not modify the result.",
-                   Arguments = "name: str, field_name: str, criterion: str", Returns = "FieldOutputCompositeFailureDraft")]
+                   "shear. It is evaluated from the in-plane stresses in the ply axes with the composite strength " +
+                   "of the ply material; a node without one reads NaN. The criterion is MaxStress, TsaiHill, TsaiWu " +
+                   "or Hashin. MAX_FAILURE_INDEX is the largest index and MIN_RESERVE_FACTOR the " +
+                   "smallest reserve factor of all layers of a shell element, and CRITICAL_LAYER the layer the " +
+                   "smallest reserve factor is reached in. quantity Stress takes the stresses of a stress field " +
+                   "and PlaneStressFromStrain the plane stresses of the in-plane strains of a strain field. The " +
+                   "result must have been opened with its model. This does not modify the result.",
+                   Arguments = "name: str, field_name: str, criterion: str, quantity: str = 'Stress'",
+                   Returns = "FieldOutputCompositeFailureDraft")]
         public ResultFieldOutputCompositeFailureDraftAPI create_field_output_composite_failure(object name,
                                                                                               object field_name,
-                                                                                              object criterion)
+                                                                                              object criterion,
+                                                                                              object quantity = null)
         {
             string nameText = PythonValueConverter.ToText(name, "name", false);
             string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
             string criterionText = PythonValueConverter.ToText(criterion, "criterion", false);
-            return _service.CreateFieldOutputCompositeFailure(nameText, fieldName, criterionText);
+            string quantityText = quantity == null ? ShellInPlaneQuantityEnum.Stress.ToString() :
+                                  PythonValueConverter.ToText(quantity, "quantity", false);
+            return _service.CreateFieldOutputCompositeFailure(nameText, fieldName, criterionText, quantityText);
         }
 
         [PythonAPI("Creates a median field-output filter. Possible source values are AllNodes and " +
@@ -439,46 +454,49 @@ namespace APIs.Python
                                                 Filter(filter1, "filter1"), Filter(filter2, "filter2")));
         }
 
-        [PythonAPI("Creates a shell plane stress field output and adds it to the current result, in one call.",
-                   Arguments = "name: str, field_name: str, filter1: FieldOutputFilter = None, " +
-                               "filter2: FieldOutputFilter = None",
+        [PythonAPI("Creates a shell in-plane state field output and adds it to the current result, in one call.",
+                   Arguments = "name: str, field_name: str, quantity: str = 'Stress', " +
+                               "filter1: FieldOutputFilter = None, filter2: FieldOutputFilter = None",
                    Returns = "FieldOutput")]
-        public ResultFieldOutputAPI add_shell_plane_stress(object name, object field_name, object filter1 = null,
-                                                           object filter2 = null)
+        public ResultFieldOutputAPI add_shell_in_plane_state(object name, object field_name, object quantity = null,
+                                                             object filter1 = null, object filter2 = null)
         {
-            return add(WithFilters(create_field_output_shell_plane_stress(name, field_name), Filter(filter1, "filter1"),
-                                   Filter(filter2, "filter2")));
+            return add(WithFilters(create_field_output_shell_in_plane_state(name, field_name, quantity),
+                                   Filter(filter1, "filter1"), Filter(filter2, "filter2")));
         }
 
-        [PythonAPI("Replaces a shell plane stress field output, in one call.",
-                   Arguments = "old_name: str, and the arguments of add_shell_plane_stress", Returns = "FieldOutput")]
-        public ResultFieldOutputAPI replace_shell_plane_stress(object old_name, object name, object field_name,
-                                                               object filter1 = null, object filter2 = null)
+        [PythonAPI("Replaces a shell in-plane state field output, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_shell_in_plane_state", Returns = "FieldOutput")]
+        public ResultFieldOutputAPI replace_shell_in_plane_state(object old_name, object name, object field_name,
+                                                                 object quantity = null, object filter1 = null,
+                                                                 object filter2 = null)
         {
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
-            return replace(oldName, WithFilters(create_field_output_shell_plane_stress(name, field_name),
+            return replace(oldName, WithFilters(create_field_output_shell_in_plane_state(name, field_name, quantity),
                                                 Filter(filter1, "filter1"), Filter(filter2, "filter2")));
         }
 
         [PythonAPI("Creates a composite failure field output and adds it to the current result, in one call.",
-                   Arguments = "name: str, field_name: str, criterion: str, filter1: FieldOutputFilter = None, " +
-                               "filter2: FieldOutputFilter = None",
+                   Arguments = "name: str, field_name: str, criterion: str, quantity: str = 'Stress', " +
+                               "filter1: FieldOutputFilter = None, filter2: FieldOutputFilter = None",
                    Returns = "FieldOutput")]
         public ResultFieldOutputAPI add_composite_failure(object name, object field_name, object criterion,
-                                                          object filter1 = null, object filter2 = null)
+                                                          object quantity = null, object filter1 = null,
+                                                          object filter2 = null)
         {
-            return add(WithFilters(create_field_output_composite_failure(name, field_name, criterion),
+            return add(WithFilters(create_field_output_composite_failure(name, field_name, criterion, quantity),
                                    Filter(filter1, "filter1"), Filter(filter2, "filter2")));
         }
 
         [PythonAPI("Replaces a composite failure field output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_composite_failure", Returns = "FieldOutput")]
         public ResultFieldOutputAPI replace_composite_failure(object old_name, object name, object field_name,
-                                                              object criterion, object filter1 = null,
-                                                              object filter2 = null)
+                                                              object criterion, object quantity = null,
+                                                              object filter1 = null, object filter2 = null)
         {
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
-            return replace(oldName, WithFilters(create_field_output_composite_failure(name, field_name, criterion),
+            return replace(oldName, WithFilters(create_field_output_composite_failure(name, field_name, criterion,
+                                                                                      quantity),
                                                 Filter(filter1, "filter1"), Filter(filter2, "filter2")));
         }
         private static ResultFieldOutputFilterAPI Filter(object filter, string argumentName)

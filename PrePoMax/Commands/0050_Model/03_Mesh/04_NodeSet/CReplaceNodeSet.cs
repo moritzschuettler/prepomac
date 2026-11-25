@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10103)]
     class CReplaceNodeSet : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldNodeSetName;
-        private FeNodeSet _newNodeSet;
+        [PmxKey(0)] private string _oldNodeSetName;
+        [PmxKey(1)] private FeNodeSet _newNodeSet;
 
         // Constructor                                                                                                              
         public CReplaceNodeSet(string oldNodeSetName, FeNodeSet newNodeSet)

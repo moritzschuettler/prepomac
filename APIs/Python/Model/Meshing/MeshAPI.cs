@@ -2,7 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
-// Source code: https://gitlab.com/MatejB/PrePoMax
+// Source code: https://github.com/PrePoMax/PrePoMax
 //
 // Author: Matej Borovinšek
 // Contributors:
@@ -80,6 +80,29 @@ namespace APIs.Python.Model
             int numberOfLayers = PythonValueConverter.ToIntOrDefault(number_of_layers, 1, "number_of_layers");
             bool keepModelEdges = PythonValueConverter.ToBoolOrDefault(keep_model_edges, false, "keep_model_edges");
             _toolService.ThickenShellMesh(part_names, thickness, numberOfLayers, offset, keepModelEdges);
+        }
+
+        [PythonAPI("Changes the element order of the named model parts using command history. With " +
+                   "second_order=True the linear elements become parabolic: a midside node is added at the middle " +
+                   "of every straight element edge, shared by the elements and parts that share the edge, and " +
+                   "an edge that already has a midside node keeps it. With second_order=False the parabolic " +
+                   "elements become linear and the midside nodes no element uses any more are removed. Element " +
+                   "ids, part names, element sets and surfaces are kept, and the CalculiX element type of each " +
+                   "part follows the order, so C3D8R becomes C3D20R and back. Every named part is a mesh part " +
+                   "of beam, triangle, quadrilateral, tetrahedron, pyramid, wedge or hexahedron elements. With " +
+                   "project_to_geometry=True the new midside nodes on the model edges and faces of a part meshed " +
+                   "from CAD geometry are moved onto that geometry, unless one would move farther than half of the " +
+                   "length of its edge; a part without CAD geometry keeps its midside nodes on the straight edges. " +
+                   "The midside nodes of the elements that are parabolic already are projected the same way with " +
+                   "project_to_geometry=True and moved back to the middle of the straight edges with " +
+                   "project_to_geometry=False.",
+                   Arguments = "part_names: list[str] or str, second_order: bool = True, " +
+                               "project_to_geometry: bool = True", Returns = "None")]
+        public void change_element_order(object part_names, object second_order = null, object project_to_geometry = null)
+        {
+            bool secondOrder = PythonValueConverter.ToBoolOrDefault(second_order, true, "second_order");
+            bool projectToGeometry = PythonValueConverter.ToBoolOrDefault(project_to_geometry, true, "project_to_geometry");
+            _toolService.ChangeElementOrder(part_names, secondOrder, projectToGeometry);
         }
 
         [PythonAPI("Splits a part mesh with a surface using command history. This is a one time operation " +
