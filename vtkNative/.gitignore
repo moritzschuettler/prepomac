@@ -1,2 +1,4 @@
 build/
 sdk/
+build-mac/
+tests-mac/build/

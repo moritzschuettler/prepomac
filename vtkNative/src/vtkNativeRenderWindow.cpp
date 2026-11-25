@@ -1,6 +1,8 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 #include "vtkNativeRenderWindow.h"
 
+#if defined(_WIN32)
+
 #include <vtkObjectFactory.h>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -29,3 +31,4 @@ vtkNativeRenderWindow::vtkNativeRenderWindow()
 {
     this->ApplicationInstance = GetLibraryInstance();
 }
+#endif

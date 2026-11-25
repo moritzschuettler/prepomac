@@ -134,6 +134,26 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_render(vtkn_view view);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_render_info(vtkn_view view, char* buffer, int32_t capacity,
                                                           int32_t* required);
 
+/* External view (macOS): a view without a window of its own that draws with the OpenGL context of its host, such as
+   the context of an Avalonia OpenGlControlBase (OpenGL 3.2 core or later). The library renders the view whenever it
+   changes - every call that renders on Windows renders here too - into framebuffers of its own, with the context of
+   the host made current on the calling thread and left current; the host shows the last frame with
+   vtkn_view_render_external. The view takes its input from vtkn_view_handle_input, as an off screen view does, in
+   view pixels with the origin bottom left. Every call is made on the thread the host draws on.
+   - attach: with the context of the host current, when the host has created it. Nothing is drawn before
+   - detach: with the context still alive, before the host destroys it; releases every OpenGL resource of the view.
+     A view is detached before it is destroyed unless its context outlives it
+   - render_external: in the draw callback of the host, with the context current and the framebuffer of the host
+     bound. Blits the last frame into framebuffer, stretched to width x height pixels; renders first when there is no
+     frame of the view size (vtkn_view_set_size) yet. VTKN_EVENT_RENDER_END tells the host that a new frame is ready
+   On another platform these calls fail with VTKN_ERROR_INVALID_ARGUMENT. An off screen view (vtkn_view_create with
+   off_screen 1) draws with a CGL context of its own on macOS and needs none of them */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_create_external(vtkn_view* view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_attach_external_context(vtkn_view view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_detach_external_context(vtkn_view view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_render_external(vtkn_view view, uint32_t framebuffer, int32_t width,
+                                                          int32_t height);
+
 /* Camera: position, focal point, view up and parallel scale - the 10 values of pmx.view.get_parameters */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_camera(vtkn_view view, double* values10);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_camera(vtkn_view view, const double* values10);

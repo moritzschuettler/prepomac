@@ -94,6 +94,41 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_create_external(vtkn_view* view)
+    {
+        return GuardVtk([&]() {
+            Require(view != nullptr, "The argument 'view' must not be null.");
+            *view = nullptr;
+            *view = new View(false, true);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_attach_external_context(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->AttachExternalContext();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_detach_external_context(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->DetachExternalContext();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_render_external(vtkn_view view, uint32_t framebuffer, int32_t width,
+                                                    int32_t height)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->RenderExternal(framebuffer, width, height);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_set_size(vtkn_view view, int32_t width, int32_t height)
     {
         return GuardVtk([&]() {

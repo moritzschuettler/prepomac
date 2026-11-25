@@ -7,6 +7,13 @@
 #
 # The build writes vtkNative.dll and every VTK DLL it loads into vtkNative/build/runtime, the folder the
 # PrePoMax post build event copies into the application's lib folder.
+#
+# macOS (Apple Silicon), against the VTK of Homebrew (brew install vtk ninja):
+#
+#   cmake -S vtkNative -B vtkNative/build-mac -G Ninja -DCMAKE_BUILD_TYPE=Release -DVTK_DIR=/opt/homebrew/opt/vtk/lib/cmake/vtk-9.7
+#   cmake --build vtkNative/build-mac
+#
+# which writes libvtkNative.dylib into vtkNative/build-mac; it loads VTK from the Homebrew prefix.
 cmake_minimum_required(VERSION 3.21)
 project(vtkNative LANGUAGES CXX)
 
@@ -43,6 +50,8 @@ add_library(vtkNative SHARED
     src/vtkNativeApi.cpp
     src/vtkNativeError.cpp
     src/vtkNativeError.h
+    src/vtkNativeExternalRenderWindow.cpp
+    src/vtkNativeExternalRenderWindow.h
     src/vtkNativeFonts.cpp
     src/vtkNativeFonts.h
     src/vtkNativeGuard.h
@@ -115,8 +124,18 @@ target_link_libraries(vtkNative PRIVATE ${VTK_LIBRARIES})
 if(MSVC)
     target_compile_options(vtkNative PRIVATE /W4 /permissive- /utf-8)
 endif()
+if(APPLE)
+    # The CGL context of the external and off screen views
+    target_link_libraries(vtkNative PRIVATE "-framework OpenGL")
+    # OpenGL is deprecated on macOS, not removed
+    target_compile_definitions(vtkNative PRIVATE GL_SILENCE_DEPRECATION)
+endif()
 vtk_module_autoinit(TARGETS vtkNative MODULES ${VTK_LIBRARIES})
 
+# The runtime folder is the deployment of Windows; on macOS the library loads VTK from where it is installed
+if(NOT WIN32)
+    return()
+endif()
 set(VTKNATIVE_RUNTIME_DIR "${CMAKE_BINARY_DIR}/runtime")
 get_target_property(VTK_COMMON_CORE_DLL VTK::CommonCore IMPORTED_LOCATION_RELEASE)
 get_filename_component(VTK_RUNTIME_DIR "${VTK_COMMON_CORE_DLL}" DIRECTORY)

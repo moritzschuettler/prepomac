@@ -1,6 +1,7 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 #include "vtkNativeView.h"
 #include "vtkNativeError.h"
+#include "vtkNativeExternalRenderWindow.h"
 #include "vtkNativeRenderWindow.h"
 
 #include <vtkCamera.h>
@@ -32,11 +33,21 @@ namespace vtkn
     {
         std::mutex registryMutex;
         std::set<View*> liveViews;
+
+#if defined(__APPLE__)
+        vtkNativeExternalRenderWindow* ToExternalWindow(vtkRenderWindow* window)
+        {
+            vtkNativeExternalRenderWindow* external = vtkNativeExternalRenderWindow::SafeDownCast(window);
+            if (external == nullptr)
+                throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The view does not draw with the context of its host.");
+            return external;
+        }
+#endif
     }
 
     // The renderer setup of vtkControl.OnHandleCreated and InitializeControl: layered renderers sharing one camera,
     // three camera lights, multisampling, a parallel projection and a gray gradient background, and the widget layer
-    View::View(bool offScreen) : OffScreen(offScreen)
+    View::View(bool offScreen, bool external) : OffScreen(offScreen), External(external)
     {
         Renderer = vtkSmartPointer<vtkRenderer>::New();
         Renderer->SetLayer(0);
@@ -48,8 +59,25 @@ namespace vtkn
         WidgetRenderer->SetLayer(2);
         WidgetRenderer->InteractiveOff();
         WidgetRenderer->SetActiveCamera(Renderer->GetActiveCamera());
+#if defined(_WIN32)
+        if (external) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A view drawn with the context of its host is macOS only.");
         RenderWindow = vtkSmartPointer<vtkNativeRenderWindow>::New();
         RenderWindow->SetOffScreenRendering(offScreen ? 1 : 0);
+#elif defined(__APPLE__)
+        // On macOS an off screen view draws with a CGL context of its own: a Cocoa window needs the main thread
+        if (offScreen || external)
+        {
+            vtkSmartPointer<vtkNativeExternalRenderWindow> window = vtkSmartPointer<vtkNativeExternalRenderWindow>::New();
+            if (offScreen && !window->CreateOwnContext())
+                throw Error(VTKN_ERROR_VTK, "No OpenGL context could be created for an off screen view.");
+            RenderWindow = window;
+        }
+        else RenderWindow = vtkSmartPointer<vtkRenderWindow>::New();
+#else
+        if (external) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A view drawn with the context of its host is macOS only.");
+        RenderWindow = vtkSmartPointer<vtkRenderWindow>::New();
+        RenderWindow->SetOffScreenRendering(offScreen ? 1 : 0);
+#endif
         RenderWindow->SetNumberOfLayers(3);
         RenderWindow->AddRenderer(Renderer);
         RenderWindow->AddRenderer(OverlayRenderer);
@@ -167,6 +195,7 @@ namespace vtkn
     {
         Require(parentWindow != nullptr, "The argument 'parent_window' must not be null.");
         if (OffScreen) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "An off screen view cannot have a parent window.");
+        if (External) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "An external view cannot have a parent window.");
         if (Embedded) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The view already has a parent window.");
         //
         RenderWindow->SetParentId(parentWindow);
@@ -190,6 +219,44 @@ namespace vtkn
         // The host application pumps the messages, so the interactor is initialized and never started
         Interactor->Initialize();
         Embedded = true;
+    }
+
+    void View::AttachExternalContext()
+    {
+#if defined(__APPLE__)
+        if (!ToExternalWindow(RenderWindow)->AttachCurrentContext())
+            throw Error(VTKN_ERROR_INVALID_ARGUMENT, "No OpenGL context is current on the calling thread.");
+#else
+        throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A view drawn with the context of its host is macOS only.");
+#endif
+    }
+
+    void View::DetachExternalContext()
+    {
+#if defined(__APPLE__)
+        // The base layer passes hold framebuffers of the context too; they are made again for the next one
+        ToExternalWindow(RenderWindow)->DetachContext();
+#else
+        throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A view drawn with the context of its host is macOS only.");
+#endif
+    }
+
+    // The library renders a view whenever it changes, into the framebuffers of its window; the host only shows the
+    // last frame, which is rendered here first when there is none of the size of the view
+    void View::RenderExternal(unsigned int framebuffer, int width, int height)
+    {
+        Require(width > 0 && height > 0, "The framebuffer size must be positive.");
+#if defined(__APPLE__)
+        vtkNativeExternalRenderWindow* window = ToExternalWindow(RenderWindow);
+        if (!window->HasContext()) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The view has no context.");
+        if (!window->IsContextCurrent())
+            throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The context of the view is not current on the calling thread.");
+        if (!window->IsFrameCurrent()) RenderWindow->Render();
+        window->Present(framebuffer, width, height);
+#else
+        (void)framebuffer;
+        throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A view drawn with the context of its host is macOS only.");
+#endif
     }
 
     void View::SetSize(int width, int height)
@@ -567,6 +634,8 @@ namespace vtkn
     // The callback belongs to the host; nothing it does may unwind through VTK
     void View::RaiseEvent(int32_t eventId, const double* values, int32_t count)
     {
+        // A view without an event callback (a test) raises nothing
+        if (Callback == nullptr) return;
         try
         {
             Callback(UserData, eventId, values, count);

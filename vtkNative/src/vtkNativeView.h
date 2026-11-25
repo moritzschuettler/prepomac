@@ -49,7 +49,8 @@ namespace vtkn
     class View : public vtkn_view_s
     {
     public:
-        explicit View(bool offScreen);
+        // external: a view without a window of its own that draws with the OpenGL context of its host (macOS)
+        explicit View(bool offScreen, bool external = false);
         ~View();
         View(const View&) = delete;
         View& operator=(const View&) = delete;
@@ -73,6 +74,11 @@ namespace vtkn
         }
 
         void SetParentWindow(void* parentWindow);
+        // The OpenGL context of the host of an external view (macOS): taken while current, released before the host
+        // destroys it, and the frame shown in the framebuffer the host draws
+        void AttachExternalContext();
+        void DetachExternalContext();
+        void RenderExternal(unsigned int framebuffer, int width, int height);
         void SetSize(int width, int height);
         void GetSize(int& width, int& height);
         void SetEventCallback(vtkn_event_callback callback, void* userData);
@@ -289,6 +295,7 @@ namespace vtkn
         std::map<vtkProperty*, SupersampledSizes> SupersampledPixelSizes;
 
         bool OffScreen;
+        bool External;
         bool Embedded = false;
         bool CameraAdjustmentSuspended = false;
         bool CameraAdjustmentPending = false;
